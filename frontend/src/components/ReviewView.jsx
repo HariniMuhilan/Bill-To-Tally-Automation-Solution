@@ -7,8 +7,7 @@ export default function ReviewView({
   onSelectInvoice,
   onUpdateInvoice,
   onPreviewXml,
-  onConfirmPost,
-  onSaveDraft,
+  onApprove,
   onShowToast
 }) {
   const inv = invoices.find(i => i.id === currentInvoiceId) || invoices[0] || {};
@@ -210,7 +209,7 @@ export default function ReviewView({
   const isDuplicate = Boolean(inv.invoiceNo && inv.invoiceNo !== '—' && inv.invoiceNo !== '') && 
     invoices.some(other => other.id !== inv.id && other.invoiceNo === inv.invoiceNo && other.supplierRaw === inv.supplierRaw);
   
-  const canApprove = hasRequired && mathMatches && supplierMapped && itemsMapped && !isDuplicate;
+  const canApprove = Boolean(inv.supplierRaw && (inv.grandTotal != null && inv.grandTotal > 0));
 
   const geminiWarning = (inv.warnings || []).find(w => w.field_name === 'gemini_api_key');
   const rateLimitWarning = (inv.warnings || []).find(w => w.field_name === 'gemini_rate_limit');
@@ -255,15 +254,6 @@ export default function ReviewView({
             onClick={() => onPreviewXml(inv)}
           >
             <i className="fa-solid fa-code"></i> Tally XML
-          </button>
-          <button 
-            type="button" 
-            className="btn btn-secondary btn-sm"
-            style={{ color: '#059669', borderColor: 'rgba(16, 185, 129, 0.4)' }}
-            onClick={() => onSaveDraft ? onSaveDraft(inv) : onShowToast('Draft saved locally.', 'success')}
-            title="Save draft and export Excel spreadsheet to Tally Connector"
-          >
-            <i className="fa-solid fa-file-excel"></i> Save Draft (XL)
           </button>
         </div>
       </div>
@@ -728,15 +718,6 @@ export default function ReviewView({
               >
                 <i className="fa-solid fa-arrow-rotate-left"></i> Send for Correction
               </button>
-              <button 
-                type="button" 
-                className="btn btn-secondary btn-sm"
-                style={{ color: '#059669', borderColor: 'rgba(16, 185, 129, 0.4)', background: 'rgba(16, 185, 129, 0.05)' }}
-                onClick={() => onSaveDraft ? onSaveDraft(inv) : onShowToast('Draft edits saved locally.', 'success')}
-                title="Save draft invoice and export Excel spreadsheet to Tally Connector"
-              >
-                <i className="fa-solid fa-file-excel"></i> Save Draft
-              </button>
             </div>
 
             <div style={{ display: 'flex', gap: '10px' }}>
@@ -752,10 +733,10 @@ export default function ReviewView({
                 type="button" 
                 className="btn btn-primary" 
                 disabled={!canApprove}
-                title={!canApprove ? 'Resolve validation issues and map masters before approving' : 'Approve and prepare voucher for posting'}
-                onClick={() => onConfirmPost(inv)}
+                title={!canApprove ? 'Provide supplier name and valid total before approving' : 'Approve invoice and store in Tally Connector Excel Sheet'}
+                onClick={() => onApprove(inv)}
               >
-                <i className="fa-solid fa-check-double"></i> Approve & Transmit Voucher
+                <i className="fa-solid fa-check"></i> Approve
               </button>
             </div>
           </div>

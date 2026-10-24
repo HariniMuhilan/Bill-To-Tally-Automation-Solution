@@ -126,8 +126,8 @@ export function SaveDraftModal({ isOpen, onClose, invoice, existingSheets = [], 
       <div className="modal-card" style={{ maxWidth: '540px' }}>
         <div className="modal-header">
           <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981' }}>
-            <i className="fa-solid fa-file-excel"></i>
-            <span>Save Draft to Tally Connector Excel Sheet</span>
+            <i className="fa-solid fa-clipboard-check"></i>
+            <span>Approve Voucher & Store in Tally Excel Sheet</span>
           </span>
           <button type="button" className="btn btn-secondary btn-icon" onClick={onClose}>
             <i className="fa-solid fa-xmark"></i>
@@ -137,7 +137,7 @@ export function SaveDraftModal({ isOpen, onClose, invoice, existingSheets = [], 
         <form onSubmit={handleSave}>
           <div className="modal-body">
             <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.5 }}>
-              Choose whether to store this draft voucher in a <strong>new Excel sheet</strong> or append it into an <strong>existing Excel sheet</strong> in the Tally Connector registry.
+              Choose whether to store this approved voucher in a <strong>new Excel sheet</strong> or append it into an <strong>existing Excel sheet</strong> in the Tally Connector registry. Once approved, this document will be marked as <strong>APPROVED</strong> in the Invoice Inbox.
             </p>
 
             {/* Invoice Quick Summary Card */}
@@ -268,7 +268,7 @@ export function SaveDraftModal({ isOpen, onClose, invoice, existingSheets = [], 
               className="btn btn-primary"
               style={{ background: '#10b981', borderColor: '#059669' }}
             >
-              <i className="fa-solid fa-file-excel"></i> Save to Tally Connector
+              <i className="fa-solid fa-check"></i> Approve & Store in Excel
             </button>
           </div>
         </form>

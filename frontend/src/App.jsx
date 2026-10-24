@@ -168,8 +168,19 @@ export default function App() {
   }
 
   function handleExecuteSaveDraft({ mode, targetSheetId, sheetName, invoice }) {
-    // Persist edits to the current invoice
-    handleUpdateInvoice(invoice);
+    // Generate a voucher reference and mark invoice status as APPROVED
+    const voucherRef = invoice.tallyRef && invoice.tallyRef !== '—' 
+      ? invoice.tallyRef 
+      : `PUR/${new Date().getFullYear()}/${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const approvedInvoice = {
+      ...invoice,
+      status: 'APPROVED',
+      tallyRef: voucherRef
+    };
+
+    // Update invoices state and localStorage with APPROVED status
+    handleUpdateInvoice(approvedInvoice);
 
     if (mode === 'new') {
       const safeFileName = sheetName.endsWith('.xlsx') ? sheetName : `${sheetName}.xlsx`;
@@ -178,8 +189,8 @@ export default function App() {
         fileName: safeFileName,
         savedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
         updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
-        invoices: [{ ...invoice }],
-        totalAmount: Number(invoice.grandTotal || 0)
+        invoices: [{ ...approvedInvoice }],
+        totalAmount: Number(approvedInvoice.grandTotal || 0)
       };
 
       setDraftSheets(prev => [newSheet, ...prev]);
@@ -188,19 +199,21 @@ export default function App() {
         {
           time: new Date().toISOString().replace('T', ' ').substring(0, 19),
           actor: user?.username || 'accounts_user_01',
-          action: 'DRAFT_EXCEL_NEW_SHEET',
-          summary: `Draft invoice saved into new Excel sheet "${safeFileName}" in Tally Connector`,
+          action: 'VOUCHER_APPROVED_AND_STORED',
+          summary: `Approved voucher for ${approvedInvoice.supplierRaw} (Ref: ${voucherRef}) and stored into new Excel sheet "${safeFileName}" in Tally Connector`,
           diff: {
             sheet_id: newSheet.id,
             file_name: safeFileName,
-            invoice_id: invoice.id,
-            grand_total: invoice.grandTotal
+            invoice_id: approvedInvoice.id,
+            status: 'APPROVED',
+            tally_ref: voucherRef,
+            grand_total: approvedInvoice.grandTotal
           }
         },
         ...prev
       ]);
 
-      showToast(`Draft voucher stored in new Excel sheet "${safeFileName}" in Tally Connector!`, 'success');
+      showToast(`Voucher ${approvedInvoice.id} approved! Stored into new Excel sheet "${safeFileName}" in Tally Connector.`, 'success');
     } else {
       const targetSheet = draftSheets.find(s => s.id === targetSheetId);
       setDraftSheets(prev => prev.map(s => {
@@ -208,9 +221,9 @@ export default function App() {
         const existingInvs = s.invoices && s.invoices.length > 0 
           ? s.invoices 
           : (s.invoice ? [s.invoice] : []);
-        const updatedInvs = existingInvs.some(i => i.id === invoice.id)
-          ? existingInvs.map(i => i.id === invoice.id ? { ...invoice } : i)
-          : [...existingInvs, { ...invoice }];
+        const updatedInvs = existingInvs.some(i => i.id === approvedInvoice.id)
+          ? existingInvs.map(i => i.id === approvedInvoice.id ? { ...approvedInvoice } : i)
+          : [...existingInvs, { ...approvedInvoice }];
         const sumAmt = updatedInvs.reduce((acc, i) => acc + Number(i.grandTotal || 0), 0);
         return {
           ...s,
@@ -224,19 +237,21 @@ export default function App() {
         {
           time: new Date().toISOString().replace('T', ' ').substring(0, 19),
           actor: user?.username || 'accounts_user_01',
-          action: 'DRAFT_EXCEL_APPENDED',
-          summary: `Draft invoice appended to existing Excel sheet "${targetSheet?.fileName || 'Sheet'}" in Tally Connector`,
+          action: 'VOUCHER_APPROVED_AND_STORED',
+          summary: `Approved voucher for ${approvedInvoice.supplierRaw} (Ref: ${voucherRef}) and appended into existing Excel sheet "${targetSheet?.fileName || 'Sheet'}" in Tally Connector`,
           diff: {
             sheet_id: targetSheetId,
             file_name: targetSheet?.fileName,
-            invoice_id: invoice.id,
-            grand_total: invoice.grandTotal
+            invoice_id: approvedInvoice.id,
+            status: 'APPROVED',
+            tally_ref: voucherRef,
+            grand_total: approvedInvoice.grandTotal
           }
         },
         ...prev
       ]);
 
-      showToast(`Draft voucher appended to existing Excel sheet "${targetSheet?.fileName || 'Sheet'}" in Tally Connector!`, 'success');
+      showToast(`Voucher ${approvedInvoice.id} approved! Appended into Excel sheet "${targetSheet?.fileName || 'Sheet'}" in Tally Connector.`, 'success');
     }
 
     setSaveDraftModalOpen(false);
@@ -373,8 +388,7 @@ export default function App() {
               onSelectInvoice={setCurrentInvoiceId}
               onUpdateInvoice={handleUpdateInvoice}
               onPreviewXml={handlePreviewXml}
-              onConfirmPost={handleOpenConfirmPost}
-              onSaveDraft={handleOpenSaveDraft}
+              onApprove={handleOpenSaveDraft}
               onShowToast={showToast}
             />
           )}
