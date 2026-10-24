@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { extractFromRawOcr } from '../services/api';
 
 export default function ReviewView({
   invoices,
@@ -14,6 +15,7 @@ export default function ReviewView({
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
   const [showBBoxes, setShowBBoxes] = useState(true);
+  const [isReExtracting, setIsReExtracting] = useState(false);
 
   if (!inv.id) {
     return (
@@ -125,6 +127,78 @@ export default function ReviewView({
     onShowToast('Line item removed.', 'success');
   }
 
+  async function handleReExtract() {
+    if (!inv.rawOcrText) {
+      onShowToast('No raw OCR text captured for this invoice.', 'warning');
+      return;
+    }
+    setIsReExtracting(true);
+    onShowToast('Submitting PaddleOCR text to Gemini 2.5 Flash...', 'warning');
+
+    try {
+      const ext = await extractFromRawOcr({
+        raw_text: inv.rawOcrText,
+        lines: inv.ocrLines || []
+      });
+
+      const lineItems = (ext.line_items || []).map((l, idx) => ({
+        lineNo: idx + 1,
+        descRaw: l.item_description || 'Item',
+        hsn: l.hsn_sac_code || '',
+        stockItem: l.tally_item_name || '',
+        qty: l.quantity != null ? Number(l.quantity) : 1,
+        unit: l.unit_of_measure || 'NOS',
+        rate: l.unit_price != null ? Number(l.unit_price) : 0,
+        taxable: l.taxable_amount != null ? Number(l.taxable_amount) : 0,
+        taxRate: l.gst_rate_percent != null ? Number(l.gst_rate_percent) : 0,
+        taxAmount: (Number(l.cgst_amount || 0) + Number(l.sgst_amount || 0) + Number(l.igst_amount || 0)),
+        total: l.total_line_amount != null ? Number(l.total_line_amount) : 0,
+        confidence: Math.round((l.confidence_score || 0.95) * 1000) / 10
+      }));
+
+      const subtotal = ext.subtotal_amount != null 
+        ? Number(ext.subtotal_amount) 
+        : (lineItems.reduce((acc, l) => acc + (l.taxable || 0), 0) || 0);
+      const cgst = ext.cgst_amount != null ? Number(ext.cgst_amount) : 0;
+      const sgst = ext.sgst_amount != null ? Number(ext.sgst_amount) : 0;
+      const igst = ext.igst_amount != null ? Number(ext.igst_amount) : 0;
+      const grandTotal = ext.total_amount != null 
+        ? Number(ext.total_amount) 
+        : (subtotal + cgst + sgst + igst);
+
+      const updated = {
+        ...inv,
+        supplierRaw: ext.supplier_name || inv.supplierRaw,
+        invoiceNo: ext.invoice_number || inv.invoiceNo,
+        invoiceDate: ext.invoice_date || inv.invoiceDate,
+        tallyDate: ext.invoice_date ? ext.invoice_date.replace(/-/g, '') : inv.tallyDate,
+        gstin: ext.supplier_gstin || inv.gstin,
+        type: ext.invoice_mode === 'inventory' ? 'Inventory Purchase' : 'Accounting Purchase',
+        subtotal,
+        cgst,
+        sgst,
+        igst,
+        grandTotal,
+        confidence: ext.overall_confidence ? `${Math.round(ext.overall_confidence * 1000) / 10}%` : inv.confidence,
+        warnings: ext.warnings || [],
+        lines: lineItems.length > 0 ? lineItems : inv.lines
+      };
+
+      onUpdateInvoice(updated);
+
+      const hasKeyWarning = (ext.warnings || []).some(w => w.field_name === 'gemini_api_key');
+      if (hasKeyWarning) {
+        onShowToast('GEMINI_API_KEY is not set in backend/.env. Used fallback parser.', 'warning');
+      } else {
+        onShowToast(`Gemini extraction complete! Extracted ${lineItems.length} line items.`, 'success');
+      }
+    } catch (err) {
+      onShowToast(`Extraction request failed: ${err.message}`, 'danger');
+    } finally {
+      setIsReExtracting(false);
+    }
+  }
+
   // Pre-posting validation checks
   const hasRequired = Boolean(inv.invoiceNo && inv.invoiceDate && inv.supplierRaw && inv.grandTotal > 0);
   const mathMatches = Math.abs(
@@ -136,6 +210,11 @@ export default function ReviewView({
     invoices.some(other => other.id !== inv.id && other.invoiceNo === inv.invoiceNo && other.supplierRaw === inv.supplierRaw);
   
   const canApprove = hasRequired && mathMatches && supplierMapped && itemsMapped && !isDuplicate;
+
+  const geminiWarning = (inv.warnings || []).find(w => w.field_name === 'gemini_api_key');
+  const rateLimitWarning = (inv.warnings || []).find(w => w.field_name === 'gemini_rate_limit');
+  const apiErrorWarning = (inv.warnings || []).find(w => w.field_name === 'gemini_api');
+  const isFallbackUsed = Boolean(geminiWarning || rateLimitWarning || apiErrorWarning);
 
   return (
     <section className="tab-pane active" id="tab-review">
@@ -164,9 +243,10 @@ export default function ReviewView({
           <button 
             type="button" 
             className="btn btn-secondary btn-sm" 
-            onClick={() => onShowToast('PaddleOCR pipeline re-triggered for active bill.', 'success')}
+            disabled={isReExtracting}
+            onClick={handleReExtract}
           >
-            <i className="fa-solid fa-rotate"></i> Re-Run OCR
+            <i className={`fa-solid ${isReExtracting ? 'fa-spinner fa-spin' : 'fa-wand-magic-sparkles'}`}></i> {isReExtracting ? 'Extracting...' : 'Re-Extract (Gemini)'}
           </button>
           <button 
             type="button" 
@@ -334,6 +414,66 @@ export default function ReviewView({
         {/* Right Pane: Editable Fields & Line Items */}
         <div className="doc-edit-pane">
           
+          {/* AI Extraction Engine Status Banner */}
+          {isFallbackUsed ? (
+            <div style={{
+              background: 'rgba(245, 158, 11, 0.1)',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <i className="fa-solid fa-triangle-exclamation" style={{ color: '#f59e0b', fontSize: '1.2rem', marginTop: '2px' }}></i>
+                <div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fbbf24' }}>
+                    {geminiWarning ? 'Gemini AI Inactive: GEMINI_API_KEY Not Set in backend/.env' : 'Gemini Fallback Notice'}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    {geminiWarning?.message || rateLimitWarning?.message || apiErrorWarning?.message || 'Extracted using local heuristic fallback parser.'}
+                  </div>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                className="btn btn-secondary btn-sm"
+                style={{ whiteSpace: 'nowrap', borderColor: '#f59e0b', color: '#fbbf24' }}
+                disabled={isReExtracting}
+                onClick={handleReExtract}
+              >
+                <i className={`fa-solid ${isReExtracting ? 'fa-spinner fa-spin' : 'fa-wand-magic-sparkles'}`}></i> {isReExtracting ? 'Extracting...' : 'Re-Extract with Gemini'}
+              </button>
+            </div>
+          ) : (
+            <div style={{
+              background: 'rgba(16, 185, 129, 0.08)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              borderRadius: '8px',
+              padding: '8px 14px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: '#34d399', fontWeight: 600 }}>
+                <i className="fa-solid fa-wand-magic-sparkles"></i> AI Extraction: Gemini 2.5 Flash reasoning active
+              </div>
+              <button 
+                type="button" 
+                className="btn btn-secondary btn-sm"
+                disabled={isReExtracting}
+                onClick={handleReExtract}
+                style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+              >
+                <i className={`fa-solid ${isReExtracting ? 'fa-spinner fa-spin' : 'fa-rotate'}`}></i> Re-Run
+              </button>
+            </div>
+          )}
+
           {/* Header Metadata Section */}
           <div className="glass-card" style={{ padding: '20px', marginBottom: '20px' }}>
             <div className="card-header-compact">
