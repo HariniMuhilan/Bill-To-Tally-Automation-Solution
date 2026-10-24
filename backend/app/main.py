@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .core.config import settings
+from .api.routes.invoices import router as invoices_router
 
 
 @asynccontextmanager
@@ -29,6 +30,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount routes
+app.include_router(invoices_router)
 
 
 @app.get("/api/health", tags=["System"])

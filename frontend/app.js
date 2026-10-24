@@ -384,8 +384,19 @@ const dom = {
   postingAttemptsTbody: document.getElementById('posting-attempts-tbody'),
   auditTimeline: document.getElementById('audit-timeline-container'),
   safetyToggle: document.getElementById('setting-posting-enabled'),
-  safetyIndicator: document.getElementById('posting-safety-indicator')
+  safetyIndicator: document.getElementById('posting-safety-indicator'),
+  btnViewRawOcr: document.getElementById('btn-view-raw-ocr'),
+  modalOcr: document.getElementById('modal-ocr-inspector'),
+  ocrModalContent: document.getElementById('ocr-modal-content'),
+  ocrModalMeta: document.getElementById('ocr-modal-meta'),
+  closeOcrBtn: document.getElementById('close-modal-ocr-btn'),
+  doneOcrBtn: document.getElementById('btn-done-ocr'),
+  copyOcrBtn: document.getElementById('btn-copy-ocr'),
+  dropzoneBox: document.getElementById('upload-dropzone-box')
 };
+
+const API_BASE_URL = 'http://127.0.0.1:8000';
+let defaultBillPaperHtml = '';
 
 // ============================================================================
 // 3. Navigation & Tab Switching
@@ -578,26 +589,66 @@ function loadInvoiceForReview(invoiceId) {
   dom.reviewStatusBadge.innerHTML = `<i class="fa-solid fa-tag"></i> ${inv.status}`;
 
   // Update Left Document Preview
-  document.getElementById('doc-seller-name').textContent = inv.supplierRaw;
-  document.getElementById('doc-inv-no').textContent = inv.invoiceNo;
-  document.getElementById('doc-inv-date').textContent = inv.invoiceDate;
-  document.getElementById('doc-subtotal-val').textContent = `₹ ${inv.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-  document.getElementById('doc-cgst-val').textContent = `₹ ${inv.cgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-  document.getElementById('doc-sgst-val').textContent = `₹ ${inv.sgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-  document.getElementById('doc-grand-total-val').textContent = `₹ ${inv.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+  if (!defaultBillPaperHtml && dom.docViewport) {
+    defaultBillPaperHtml = dom.docViewport.innerHTML;
+  }
 
-  // Update Document Items Table
-  const docItemsTbody = document.getElementById('doc-items-tbody');
-  docItemsTbody.innerHTML = inv.lines.map((l, i) => `
-    <tr>
-      <td>${i + 1}</td>
-      <td>${l.descRaw}</td>
-      <td>${l.hsn || '84719000'}</td>
-      <td style="text-align: right;">${l.qty} ${l.unit}</td>
-      <td style="text-align: right;">${l.rate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-      <td style="text-align: right;">${l.taxable.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-    </tr>
-  `).join('');
+  if (inv.imageUrl && dom.docViewport) {
+    let bboxesHtml = '';
+    if (inv.ocrResult && inv.ocrResult.lines && state.showBBoxes) {
+      bboxesHtml = inv.ocrResult.lines.map(l => {
+        if (!l.bbox || l.bbox.length < 4) return '';
+        const minX = Math.min(l.bbox[0][0], l.bbox[3][0]);
+        const minY = Math.min(l.bbox[0][1], l.bbox[1][1]);
+        const maxX = Math.max(l.bbox[1][0], l.bbox[2][0]);
+        const maxY = Math.max(l.bbox[2][1], l.bbox[3][1]);
+        const width = Math.max(20, maxX - minX);
+        const height = Math.max(10, maxY - minY);
+        return `<div class="ocr-bbox" style="position: absolute; left: ${minX}px; top: ${minY}px; width: ${width}px; height: ${height}px; border: 1.5px solid #0284c7; background: rgba(14, 165, 233, 0.15); border-radius: 2px;" title="${l.text} (${(l.confidence * 100).toFixed(0)}%)">
+          <span class="ocr-tag" style="position: absolute; top: -18px; left: 0; background: #0284c7; color: white; font-size: 9px; padding: 1px 4px; border-radius: 2px; white-space: nowrap;">${l.text.substring(0, 20)} (${(l.confidence * 100).toFixed(0)}%)</span>
+        </div>`;
+      }).join('');
+    }
+
+    dom.docViewport.innerHTML = `
+      <div style="position: relative; display: inline-block; width: 100%; text-align: center;">
+        <img src="${inv.imageUrl}" alt="${inv.sourceFilename}" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" id="live-bill-image">
+        <div id="live-bboxes-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
+          ${bboxesHtml}
+        </div>
+      </div>
+    `;
+  } else if (dom.docViewport && defaultBillPaperHtml) {
+    dom.docViewport.innerHTML = defaultBillPaperHtml;
+    const sellerEl = document.getElementById('doc-seller-name');
+    if (sellerEl) sellerEl.textContent = inv.supplierRaw;
+    const invNoEl = document.getElementById('doc-inv-no');
+    if (invNoEl) invNoEl.textContent = inv.invoiceNo;
+    const invDateEl = document.getElementById('doc-inv-date');
+    if (invDateEl) invDateEl.textContent = inv.invoiceDate;
+    const subtotalEl = document.getElementById('doc-subtotal-val');
+    if (subtotalEl) subtotalEl.textContent = `₹ ${inv.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+    const cgstEl = document.getElementById('doc-cgst-val');
+    if (cgstEl) cgstEl.textContent = `₹ ${inv.cgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+    const sgstEl = document.getElementById('doc-sgst-val');
+    if (sgstEl) sgstEl.textContent = `₹ ${inv.sgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+    const totalEl = document.getElementById('doc-grand-total-val');
+    if (totalEl) totalEl.textContent = `₹ ${inv.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+
+    const docItemsTbody = document.getElementById('doc-items-tbody');
+    if (docItemsTbody) {
+      docItemsTbody.innerHTML = inv.lines.map((l, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${l.descRaw}</td>
+          <td>${l.hsn || '84719000'}</td>
+          <td style="text-align: right;">${l.qty} ${l.unit}</td>
+          <td style="text-align: right;">${l.rate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+          <td style="text-align: right;">${l.taxable.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+        </tr>
+      `).join('');
+    }
+  }
 
   // Update Right Pane Form
   document.getElementById('form-raw-supplier').value = inv.supplierRaw;
@@ -1149,6 +1200,102 @@ document.getElementById('btn-save-settings').addEventListener('click', () => {
   showToast('Configuration settings updated and persisted.', 'success');
 });
 
+// Real API Upload Handler
+async function handleFileUpload(file) {
+  if (!file) return;
+
+  const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/bmp'];
+  const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+  if (!validTypes.includes(file.type) && !['.jpg', '.jpeg', '.png', '.webp', '.bmp'].includes(ext)) {
+    showToast(`Please upload a photo image (JPG, PNG, WEBP). Document PDFs will be added in the next step.`, 'error');
+    return;
+  }
+
+  showToast(`Uploading ${file.name} to PaddleOCR engine...`, 'warning');
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/invoices/ocr`, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(errData.detail || `Upload failed with status ${res.status}`);
+    }
+
+    const data = await res.json();
+    const confPercent = (data.ocr_result.average_confidence * 100).toFixed(1);
+    showToast(`PaddleOCR Scanned ${data.line_count} text lines! (${confPercent}% confidence)`, 'success');
+
+    const extractedLines = data.ocr_result.lines || [];
+    const rawText = data.ocr_result.raw_text || '';
+
+    // Create an invoice entry from real OCR scan
+    const newInvoice = {
+      id: data.id,
+      sourceFilename: data.filename,
+      fileHash: data.file_hash_sha256,
+      imageUrl: `${API_BASE_URL}${data.image_url}`,
+      ocrResult: data.ocr_result,
+      rawOcrText: rawText,
+      supplierRaw: extractedLines.length > 0 ? extractedLines[0].text : 'Scanned Bill',
+      supplierMapped: '',
+      invoiceNo: data.id.replace('INV-', 'BILL-'),
+      invoiceDate: new Date().toISOString().split('T')[0],
+      tallyDate: new Date().toISOString().split('T')[0].replace(/-/g, ''),
+      gstin: '—',
+      type: 'Accounting Purchase',
+      subtotal: 0.00,
+      cgst: 0.00,
+      sgst: 0.00,
+      grandTotal: 0.00,
+      status: 'NEEDS_REVIEW',
+      tallyRef: '—',
+      confidence: `${confPercent}%`,
+      lines: extractedLines.slice(0, 15).map((l, idx) => ({
+        lineNo: idx + 1,
+        descRaw: l.text,
+        stockItem: '',
+        qty: 1,
+        unit: 'NOS',
+        rate: 0.00,
+        taxable: 0.00,
+        taxRate: 18,
+        taxAmount: 0.00,
+        total: 0.00,
+        confidence: (l.confidence * 100).toFixed(1),
+        bbox: l.bbox
+      }))
+    };
+
+    // Prepend to active invoices
+    mockInvoices.unshift(newInvoice);
+
+    // Update Sample Selector dropdown
+    if (dom.reviewSampleSelect) {
+      const opt = document.createElement('option');
+      opt.value = newInvoice.id;
+      opt.textContent = `${newInvoice.id}: ${newInvoice.sourceFilename} (${data.line_count} lines)`;
+      dom.reviewSampleSelect.insertBefore(opt, dom.reviewSampleSelect.firstChild);
+      dom.reviewSampleSelect.value = newInvoice.id;
+    }
+
+    // Refresh inbox table
+    renderInboxTable();
+
+    // Switch to review tab and load the scanned invoice
+    openInvoiceReview(newInvoice.id);
+
+  } catch (err) {
+    console.error('OCR Upload Error:', err);
+    showToast(`Error connecting to OCR backend: ${err.message}. Is backend running on http://127.0.0.1:8000?`, 'error');
+  }
+}
+
 // Quick upload trigger
 document.getElementById('btn-quick-upload').addEventListener('click', () => {
   document.getElementById('hidden-file-input').click();
@@ -1156,13 +1303,60 @@ document.getElementById('btn-quick-upload').addEventListener('click', () => {
 
 document.getElementById('hidden-file-input').addEventListener('change', (e) => {
   if (e.target.files.length > 0) {
-    const file = e.target.files[0];
-    showToast(`Uploading ${file.name}... Calculating SHA-256 hash...`, 'warning');
-    setTimeout(() => {
-      showToast(`File processed! OCR engine queued as INV-07.`, 'success');
-    }, 1500);
+    handleFileUpload(e.target.files[0]);
   }
 });
+
+// Drag & drop zone listeners
+const dropzone = document.getElementById('upload-dropzone-box');
+if (dropzone) {
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.style.borderColor = 'var(--palette-azure)';
+    dropzone.style.background = 'rgba(14, 165, 233, 0.08)';
+  });
+  dropzone.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dropzone.style.borderColor = '';
+    dropzone.style.background = '';
+  });
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.style.borderColor = '';
+    dropzone.style.background = '';
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFileUpload(e.dataTransfer.files[0]);
+    }
+  });
+}
+
+// Raw OCR Text Inspector Modal Wire
+if (dom.btnViewRawOcr && dom.modalOcr) {
+  dom.btnViewRawOcr.addEventListener('click', () => {
+    const inv = mockInvoices.find(item => item.id === state.currentInvoiceId);
+    if (!inv) return;
+
+    const raw = inv.rawOcrText || (inv.lines ? inv.lines.map(l => l.descRaw).join('\n') : 'No OCR text available');
+    if (dom.ocrModalContent) dom.ocrModalContent.textContent = raw;
+    if (dom.ocrModalMeta) {
+      dom.ocrModalMeta.textContent = `Invoice: ${inv.id} | Confidence: ${inv.confidence} | Source: ${inv.sourceFilename}`;
+    }
+    dom.modalOcr.classList.add('active');
+  });
+}
+
+[dom.closeOcrBtn, dom.doneOcrBtn].forEach(btn => {
+  if (btn) btn.addEventListener('click', () => {
+    if (dom.modalOcr) dom.modalOcr.classList.remove('active');
+  });
+});
+
+if (dom.copyOcrBtn && dom.ocrModalContent) {
+  dom.copyOcrBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(dom.ocrModalContent.textContent);
+    showToast('Raw OCR text copied to clipboard!', 'success');
+  });
+}
 
 // ============================================================================
 // 11. Toast Notifications Utility
