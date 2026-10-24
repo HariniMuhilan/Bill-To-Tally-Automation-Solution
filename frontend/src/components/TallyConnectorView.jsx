@@ -74,25 +74,35 @@ export default function TallyConnectorView({ postingAttempts, onShowToast, tally
             </tr>
           </thead>
           <tbody>
-            {postingAttempts.map(att => (
-              <tr key={att.id}>
-                <td><strong className="mono" style={{ color: 'var(--color-azure-text)' }}>{att.id}</strong></td>
-                <td><strong className="mono">{att.invoiceId}</strong></td>
-                <td><span className="mono" style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{att.idempotencyKey}</span></td>
-                <td><span className="mono" style={{ fontWeight: 700 }}>{att.voucherNo}</span></td>
-                <td><span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{att.startedAt}</span></td>
-                <td>
-                  <span className={`status-badge ${att.status === 'POSTED' ? 'posted' : (att.status === 'VALIDATED' ? 'approved' : 'failed')}`}>
-                    <i className={`fa-solid ${att.status === 'POSTED' ? 'fa-check' : 'fa-clock'}`}></i> {att.status}
-                  </span>
-                </td>
-                <td>
-                  <span style={{ fontSize: '0.78rem', color: att.status === 'POSTED' ? 'var(--color-mint-text)' : (att.status === 'FAILED' ? '#dc2626' : 'var(--text-secondary)') }}>
-                    {att.responseMessage}
-                  </span>
+            {postingAttempts.length === 0 ? (
+              <tr>
+                <td colSpan="7" style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-muted)' }}>
+                  <i className="fa-solid fa-server" style={{ fontSize: '2rem', marginBottom: '8px', display: 'block', color: 'rgba(255,255,255,0.2)' }}></i>
+                  <div style={{ fontWeight: 600, color: 'var(--text-light)', marginBottom: '4px' }}>No posting attempts recorded yet</div>
+                  <div style={{ fontSize: '0.8rem' }}>When approved vouchers are transmitted to TallyPrime, attempts and idempotency keys will appear here.</div>
                 </td>
               </tr>
-            ))}
+            ) : (
+              postingAttempts.map(att => (
+                <tr key={att.id}>
+                  <td><strong className="mono" style={{ color: 'var(--color-azure-text)' }}>{att.id}</strong></td>
+                  <td><strong className="mono">{att.invoiceId}</strong></td>
+                  <td><span className="mono" style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{att.idempotencyKey}</span></td>
+                  <td><span className="mono" style={{ fontWeight: 700 }}>{att.voucherNo}</span></td>
+                  <td><span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{att.startedAt}</span></td>
+                  <td>
+                    <span className={`status-badge ${att.status === 'POSTED' ? 'posted' : (att.status === 'VALIDATED' ? 'approved' : 'failed')}`}>
+                      <i className={`fa-solid ${att.status === 'POSTED' ? 'fa-check' : 'fa-clock'}`}></i> {att.status}
+                    </span>
+                  </td>
+                  <td>
+                    <span style={{ fontSize: '0.78rem', color: att.status === 'POSTED' ? 'var(--color-mint-text)' : (att.status === 'FAILED' ? '#dc2626' : 'var(--text-secondary)') }}>
+                      {att.responseMessage}
+                    </span>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

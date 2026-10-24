@@ -16,7 +16,17 @@ export default function ReviewView({
   const [showBBoxes, setShowBBoxes] = useState(true);
 
   if (!inv.id) {
-    return <div style={{ padding: '32px' }}>No invoice selected.</div>;
+    return (
+      <section className="tab-pane active" id="tab-review">
+        <div className="glass-card" style={{ padding: '64px 32px', textAlign: 'center', maxWidth: '640px', margin: '40px auto' }}>
+          <i className="fa-solid fa-file-invoice" style={{ fontSize: '3rem', color: 'var(--palette-azure)', marginBottom: '16px', display: 'block' }}></i>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '8px' }}>No Bill Selected for Review</h3>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '12px', lineHeight: 1.5 }}>
+            Upload an invoice or receipt image in the Invoice Inbox to scan it with PaddleOCR and extract structured data with Gemini.
+          </p>
+        </div>
+      </section>
+    );
   }
 
   // Update line item
@@ -122,7 +132,8 @@ export default function ReviewView({
   ) < 0.05;
   const supplierMapped = Boolean(inv.supplierMapped);
   const itemsMapped = (inv.lines || []).every(l => Boolean(l.stockItem));
-  const isDuplicate = invoices.some(other => other.id !== inv.id && other.invoiceNo === inv.invoiceNo && other.supplierRaw === inv.supplierRaw);
+  const isDuplicate = Boolean(inv.invoiceNo && inv.invoiceNo !== '—' && inv.invoiceNo !== '') && 
+    invoices.some(other => other.id !== inv.id && other.invoiceNo === inv.invoiceNo && other.supplierRaw === inv.supplierRaw);
   
   const canApprove = hasRequired && mathMatches && supplierMapped && itemsMapped && !isDuplicate;
 
@@ -215,133 +226,108 @@ export default function ReviewView({
             </div>
           </div>
 
-          <div className="doc-viewport">
+          <div className="doc-viewport" style={{ overflow: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px', background: '#0b1120' }}>
             <div 
-              className="bill-paper"
               style={{ 
                 transform: `scale(${zoom / 100}) rotate(${rotation}deg)`, 
-                transition: 'transform 0.15s ease' 
+                transformOrigin: 'top center',
+                transition: 'transform 0.15s ease',
+                maxWidth: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center'
               }}
             >
-              {/* Optional Original Image Preview from Backend or Upload */}
-              {(inv.imageUrl || inv.previewUrl) && (
-                <div style={{ marginBottom: '16px', border: '2px solid var(--palette-azure)', borderRadius: '8px', overflow: 'hidden', background: '#0f172a', textAlign: 'center' }}>
-                  <div style={{ background: 'rgba(39, 163, 245, 0.15)', color: '#0284c7', padding: '6px 12px', fontSize: '0.72rem', fontWeight: 800, display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(39, 163, 245, 0.25)' }}>
-                    <span><i className="fa-solid fa-file-image"></i> ORIGINAL SCANNED BILL DOCUMENT</span>
-                    <span className="mono" style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{inv.sourceFilename}</span>
-                  </div>
+              {/* Scanned Bill Image */}
+              {(inv.imageUrl || inv.previewUrl) ? (
+                <div style={{ position: 'relative', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
                   <img 
                     src={inv.imageUrl || inv.previewUrl} 
-                    style={{ maxWidth: '100%', maxHeight: '320px', display: 'block', margin: '0 auto', objectFit: 'contain', padding: '8px' }} 
+                    style={{ maxWidth: '100%', maxHeight: '550px', objectFit: 'contain', display: 'block' }} 
                     alt="Original Bill Scan" 
                   />
+                  {/* Real PaddleOCR Detected Lines Overlay */}
+                  {showBBoxes && (inv.ocrLines || []).length > 0 && (
+                    <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(2, 132, 199, 0.9)', color: '#fff', padding: '4px 10px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700, boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
+                      <i className="fa-solid fa-vector-square"></i> PaddleOCR: {(inv.ocrLines || []).length} text lines detected
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Document Card when no image file is attached */
+                <div className="glass-card" style={{ width: '540px', padding: '24px', background: '#ffffff', color: '#111827', boxShadow: '0 8px 25px rgba(0,0,0,0.2)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e5e7eb', paddingBottom: '12px', marginBottom: '16px' }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#0f172a' }}>{inv.supplierRaw || 'Supplier Document'}</div>
+                      <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
+                        {inv.gstin ? `GSTIN: ${inv.gstin}` : 'No GSTIN Detected'}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{inv.invoiceNo ? `Invoice #${inv.invoiceNo}` : 'Receipt / Bill'}</div>
+                      <div style={{ fontSize: '0.78rem', color: '#64748b' }}>{inv.invoiceDate || 'Date: —'}</div>
+                    </div>
+                  </div>
+
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', marginBottom: '16px' }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
+                        <th style={{ padding: '8px' }}>Item</th>
+                        <th style={{ padding: '8px', textAlign: 'right' }}>Qty</th>
+                        <th style={{ padding: '8px', textAlign: 'right' }}>Rate (₹)</th>
+                        <th style={{ padding: '8px', textAlign: 'right' }}>Total (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(inv.lines || []).map((l, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '8px' }}>{l.descRaw}</td>
+                          <td style={{ padding: '8px', textAlign: 'right' }}>{l.qty} {l.unit}</td>
+                          <td style={{ padding: '8px', textAlign: 'right' }}>{Number(l.rate || 0).toFixed(2)}</td>
+                          <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>{Number(l.total || 0).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  <div style={{ borderTop: '2px solid #e2e8f0', paddingTop: '12px', textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.82rem', color: '#64748b' }}>
+                      Subtotal: ₹ {Number(inv.subtotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px' }}>
+                      Taxes (CGST+SGST): ₹ {Number((inv.cgst || 0) + (inv.sgst || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>
+                      Grand Total: ₹ {Number(inv.grandTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
                 </div>
               )}
-
-              {/* OCR Bounding Boxes */}
-              {showBBoxes && (
-                <>
-                  <div className="ocr-bbox" style={{ top: '24px', left: '26px', width: '260px', height: '38px' }}>
-                    <span className="ocr-tag">Supplier: 99.4%</span>
-                  </div>
-                  <div className="ocr-bbox" style={{ top: '24px', right: '26px', width: '140px', height: '38px' }}>
-                    <span className="ocr-tag">Invoice #: 98.8%</span>
-                  </div>
-                  <div className="ocr-bbox" style={{ top: '154px', left: '26px', width: '486px', height: '110px' }}>
-                    <span className="ocr-tag">Items Table: 97.2%</span>
-                  </div>
-                  <div className="ocr-bbox" style={{ bottom: '24px', right: '26px', width: '220px', height: '75px' }}>
-                    <span className="ocr-tag">Taxes & Total: 99.1%</span>
-                  </div>
-                </>
-              )}
-
-              {/* Document Header */}
-              <div className="bill-header">
-                <div>
-                  <div className="bill-company-name">{inv.supplierRaw}</div>
-                  <div style={{ color: '#6b7280', fontSize: '9.5px', marginTop: '2px' }}>
-                    <strong>GSTIN:</strong> {inv.gstin || '33AAAAA1234A1Z5'} | <strong>State:</strong> Tamil Nadu (33)
-                  </div>
-                </div>
-                <div className="bill-title-stamp">
-                  <div style={{ fontSize: '13px', color: '#111827' }}>TAX INVOICE</div>
-                  <div style={{ color: '#4b5563', fontSize: '10px', marginTop: '4px' }}>
-                    <strong>Inv No:</strong> <span>{inv.invoiceNo}</span><br />
-                    <strong>Date:</strong> <span>{inv.invoiceDate}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Billed To Section */}
-              <div className="bill-parties-grid">
-                <div>
-                  <strong style={{ color: '#374151' }}>BILLED TO (BUYER):</strong>
-                  <div style={{ fontWeight: 700, marginTop: '2px' }}>ASHAN TECH LABS PRIVATE LIMITED</div>
-                  <div style={{ color: '#6b7280' }}>
-                    No. 12, Tech Corridor, OMR, Chennai - 600096<br />
-                    GSTIN: 33BBBBB5678B1Z2
-                  </div>
-                </div>
-                <div>
-                  <strong style={{ color: '#374151' }}>DISPATCH DETAILS:</strong>
-                  <div style={{ color: '#6b7280', marginTop: '2px' }}>
-                    Place of Supply: Tamil Nadu (33)<br />
-                    PO Ref: PO-ATL-9921
-                  </div>
-                </div>
-              </div>
-
-              {/* Items Table */}
-              <table className="bill-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Item Description</th>
-                    <th>HSN</th>
-                    <th style={{ textAlign: 'right' }}>Qty</th>
-                    <th style={{ textAlign: 'right' }}>Rate</th>
-                    <th style={{ textAlign: 'right' }}>Taxable (₹)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(inv.lines || []).map((l, i) => (
-                    <tr key={i}>
-                      <td>{i + 1}</td>
-                      <td>{l.descRaw}</td>
-                      <td>{l.hsn || '84719000'}</td>
-                      <td style={{ textAlign: 'right' }}>{l.qty} {l.unit}</td>
-                      <td style={{ textAlign: 'right' }}>{Number(l.rate || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                      <td style={{ textAlign: 'right' }}>{Number(l.taxable || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {/* Totals Breakdown */}
-              <div className="bill-totals-area">
-                <table className="bill-totals-table">
-                  <tbody>
-                    <tr>
-                      <td>Subtotal Taxable:</td>
-                      <td className="amount-col">₹ {Number(inv.subtotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                    </tr>
-                    <tr>
-                      <td>CGST (9%):</td>
-                      <td className="amount-col">₹ {Number(inv.cgst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                    </tr>
-                    <tr>
-                      <td>SGST (9%):</td>
-                      <td className="amount-col">₹ {Number(inv.sgst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                    </tr>
-                    <tr className="grand-total-row">
-                      <td>Grand Total:</td>
-                      <td className="amount-col">₹ {Number(inv.grandTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
             </div>
+
+            {/* PaddleOCR Detected Text Inspection Drawer */}
+            {(inv.ocrLines || []).length > 0 && (
+              <div style={{ width: '100%', maxWidth: '640px', marginTop: '20px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', overflow: 'hidden' }}>
+                <div style={{ background: '#0f172a', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#38bdf8' }}>
+                    <i className="fa-solid fa-list-ol"></i> PADDLEOCR EXTRACTED TEXT ({inv.ocrLines.length} lines)
+                  </span>
+                  <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                    Confidence: {inv.confidence}
+                  </span>
+                </div>
+                <div style={{ maxHeight: '180px', overflowY: 'auto', padding: '10px 16px', fontSize: '0.78rem', color: '#cbd5e1', lineHeight: '1.6' }}>
+                  {inv.ocrLines.map((line, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <span className="mono" style={{ color: '#e2e8f0' }}>{line.text}</span>
+                      <span className="mono" style={{ color: line.confidence > 0.85 ? '#34d399' : '#f59e0b', fontSize: '0.72rem' }}>
+                        {Math.round((line.confidence || 0) * 100)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -368,18 +354,13 @@ export default function ReviewView({
 
               <div className="form-group">
                 <label className="form-label">Mapped Tally Supplier Ledger</label>
-                <select 
+                <input 
+                  type="text" 
                   className="form-control"
+                  placeholder="e.g. Sundry Creditors ledger in Tally"
                   value={inv.supplierMapped || ''}
                   onChange={(e) => onUpdateInvoice({ ...inv, supplierMapped: e.target.value })}
-                >
-                  <option value="">— Unmapped / Select Ledger —</option>
-                  <option value="Delta Tech Electronics Pvt Ltd">Delta Tech Electronics Pvt Ltd</option>
-                  <option value="Apex Tools & Spares">Apex Tools & Spares</option>
-                  <option value="Precision Hardware Fasteners">Precision Hardware Fasteners</option>
-                  <option value="Demo Stationers">Demo Stationers</option>
-                  <option value="Sri Vari Packing & Cartons">Sri Vari Packing & Cartons</option>
-                </select>
+                />
               </div>
 
               <div className="form-group">
@@ -464,18 +445,13 @@ export default function ReviewView({
                         />
                       </td>
                       <td>
-                        <select 
+                        <input 
+                          type="text" 
                           className="form-control"
+                          placeholder="Tally Item / Ledger"
                           value={l.stockItem || ''}
                           onChange={(e) => handleLineChange(index, 'stockItem', e.target.value)}
-                        >
-                          <option value="">— Select Tally Item / Ledger —</option>
-                          <option value="Sensor Module XYZ-400">Sensor Module XYZ-400</option>
-                          <option value="ARM Controller Board v3.2">ARM Controller Board v3.2</option>
-                          <option value="Shielded Interface Cable 1.5m">Shielded Interface Cable 1.5m</option>
-                          <option value="Precision Torque Screwdriver">Precision Torque Screwdriver</option>
-                          <option value="Printing & Stationery Exp">Printing & Stationery Exp</option>
-                        </select>
+                        />
                       </td>
                       <td>
                         <input 

@@ -45,12 +45,20 @@ export default function App() {
       const raw = localStorage.getItem(STORAGE_INVOICES_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Exclude any legacy mock seed invoices
+          const realOnly = parsed.filter(i => 
+            !['INV-01', 'INV-02', 'INV-03', 'INV-04', 'INV-05', 'INV-06'].includes(i.id) && 
+            !i.sourceFilename?.includes('DeltaTech') &&
+            !i.supplierRaw?.includes('DELTA TECH')
+          );
+          return realOnly;
+        }
       }
     } catch (e) {}
     return INITIAL_INVOICES;
   });
-  const [currentInvoiceId, setCurrentInvoiceId] = useState('INV-01');
+  const [currentInvoiceId, setCurrentInvoiceId] = useState(null);
   const [mappings, setMappings] = useState(INITIAL_MAPPINGS);
   const [postingAttempts, setPostingAttempts] = useState(INITIAL_POSTING_ATTEMPTS);
   const [auditLogs, setAuditLogs] = useState(INITIAL_AUDIT_LOGS);
@@ -114,6 +122,7 @@ export default function App() {
   function handleAddInvoice(newInvoice) {
     setInvoices(prev => [newInvoice, ...prev]);
     setCurrentInvoiceId(newInvoice.id);
+    setActiveTab('review');
 
     // Add Audit Log
     setAuditLogs(prev => [

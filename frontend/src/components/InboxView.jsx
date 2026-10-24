@@ -57,104 +57,60 @@ export default function InboxView({
         
         const lineItems = (ext.line_items || []).map((l, idx) => ({
           lineNo: idx + 1,
-          descRaw: l.item_description || 'Unspecified Item',
+          descRaw: l.item_description || 'Item',
+          hsn: l.hsn_sac_code || '',
           stockItem: l.tally_item_name || '',
-          qty: Number(l.quantity) || 1,
+          qty: l.quantity != null ? Number(l.quantity) : 1,
           unit: l.unit_of_measure || 'NOS',
-          rate: Number(l.unit_price) || 1000,
-          taxable: Number(l.taxable_amount) || 1000,
-          taxRate: Number(l.gst_rate_percent) || 18,
-          taxAmount: Number(l.cgst_amount || 0) + Number(l.sgst_amount || 0),
-          total: Number(l.total_line_amount) || 1180,
+          rate: l.unit_price != null ? Number(l.unit_price) : 0,
+          taxable: l.taxable_amount != null ? Number(l.taxable_amount) : 0,
+          taxRate: l.gst_rate_percent != null ? Number(l.gst_rate_percent) : 0,
+          taxAmount: (Number(l.cgst_amount || 0) + Number(l.sgst_amount || 0) + Number(l.igst_amount || 0)),
+          total: l.total_line_amount != null ? Number(l.total_line_amount) : 0,
           confidence: Math.round((l.confidence_score || 0.95) * 1000) / 10
         }));
 
-        const subtotal = Number(ext.subtotal_amount) || (lineItems[0]?.taxable || 1000);
-        const cgst = Number(ext.cgst_amount) || (subtotal * 0.09);
-        const sgst = Number(ext.sgst_amount) || (subtotal * 0.09);
-        const grandTotal = Number(ext.total_amount) || (subtotal + cgst + sgst);
+        const subtotal = ext.subtotal_amount != null 
+          ? Number(ext.subtotal_amount) 
+          : (lineItems.reduce((acc, l) => acc + (l.taxable || 0), 0) || 0);
+        const cgst = ext.cgst_amount != null ? Number(ext.cgst_amount) : 0;
+        const sgst = ext.sgst_amount != null ? Number(ext.sgst_amount) : 0;
+        const igst = ext.igst_amount != null ? Number(ext.igst_amount) : 0;
+        const grandTotal = ext.total_amount != null 
+          ? Number(ext.total_amount) 
+          : (subtotal + cgst + sgst + igst);
 
         const newInvoice = {
           id: ocrData.id || `INV-${String(invoices.length + 1).padStart(2, '0')}`,
           sourceFilename: ocrData.filename || file.name,
           imageUrl: ocrData.image_url,
           sha256: ocrData.file_hash_sha256,
-          supplierRaw: ext.supplier_name || file.name.replace(/\.[^/.]+$/, '').toUpperCase(),
+          supplierRaw: ext.supplier_name || 'Unidentified Supplier',
           supplierMapped: '',
-          invoiceNo: ext.invoice_number || `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-          invoiceDate: ext.invoice_date || new Date().toISOString().split('T')[0],
-          tallyDate: (ext.invoice_date || new Date().toISOString().split('T')[0]).replace(/-/g, ''),
-          gstin: ext.supplier_gstin || '33AAAAA1234A1Z5',
+          invoiceNo: ext.invoice_number || '—',
+          invoiceDate: ext.invoice_date || '',
+          tallyDate: ext.invoice_date ? ext.invoice_date.replace(/-/g, '') : '',
+          gstin: ext.supplier_gstin || '',
           type: ext.invoice_mode === 'inventory' ? 'Inventory Purchase' : 'Accounting Purchase',
           subtotal,
           cgst,
           sgst,
+          igst,
           grandTotal,
           status: 'NEEDS_REVIEW',
           tallyRef: '—',
-          confidence: `${Math.round((ext.overall_confidence || 0.96) * 1000) / 10}%`,
+          confidence: ext.overall_confidence ? `${Math.round(ext.overall_confidence * 1000) / 10}%` : '—',
           ocrLines: ocrData.ocr_result?.lines || [],
-          lines: lineItems.length > 0 ? lineItems : [
-            {
-              lineNo: 1,
-              descRaw: `Extracted Items / ${file.name.replace(/\.[^/.]+$/, '')}`,
-              stockItem: '',
-              qty: 1,
-              unit: 'LOT',
-              rate: subtotal,
-              taxable: subtotal,
-              taxRate: 18,
-              taxAmount: cgst + sgst,
-              total: grandTotal,
-              confidence: 96.0
-            }
-          ]
+          rawOcrText: ocrData.ocr_result?.raw_text || ext.raw_ocr_text || '',
+          warnings: ext.warnings || [],
+          lines: lineItems
         };
 
         onAddInvoice(newInvoice);
-        onShowToast(`Backend OCR scan complete: ${newInvoice.sourceFilename} added as ${newInvoice.id}`, 'success');
+        onShowToast(`Scan complete: ${newInvoice.sourceFilename} extracted as ${newInvoice.id}`, 'success');
       } else {
-        // Fallback simulated ingestion if backend is offline or rejected extension
-        const todayDate = new Date().toISOString().split('T')[0];
-        const newId = `INV-${String(invoices.length + 1).padStart(2, '0')}`;
-        const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[_\-]+/g, ' ').toUpperCase();
-
-        const newInvoice = {
-          id: newId,
-          sourceFilename: file.name,
-          supplierRaw: cleanName + ' PVT LTD',
-          supplierMapped: '',
-          invoiceNo: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-          invoiceDate: todayDate,
-          tallyDate: todayDate.replace(/-/g, ''),
-          gstin: '33AAACB' + Math.floor(1000 + Math.random() * 9000) + 'A1Z5',
-          type: 'Inventory Purchase',
-          subtotal: 25000.00,
-          cgst: 2250.00,
-          sgst: 2250.00,
-          grandTotal: 29500.00,
-          status: 'NEEDS_REVIEW',
-          tallyRef: '—',
-          confidence: '97.5%',
-          lines: [
-            {
-              lineNo: 1,
-              descRaw: `Procured Materials / ${cleanName}`,
-              stockItem: '',
-              qty: 10,
-              unit: 'NOS',
-              rate: 2500.00,
-              taxable: 25000.00,
-              taxRate: 18,
-              taxAmount: 4500.00,
-              total: 29500.00,
-              confidence: 97.5
-            }
-          ]
-        };
-
-        onAddInvoice(newInvoice);
-        onShowToast(`Processed ${file.name} locally as ${newId} (NEEDS_REVIEW)`, 'success');
+        const errorMsg = res.error || 'Backend OCR scan failed. Ensure backend server is running.';
+        onShowToast(`Failed to process ${file.name}: ${errorMsg}`, 'danger');
       }
     }
 
@@ -336,8 +292,16 @@ export default function InboxView({
           <tbody>
             {filteredInvoices.length === 0 ? (
               <tr>
-                <td colSpan="9" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
-                  No matching invoices found in this view.
+                <td colSpan="9" style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--text-muted)' }}>
+                  <i className="fa-solid fa-cloud-arrow-up" style={{ fontSize: '2.5rem', marginBottom: '12px', display: 'block', color: 'rgba(255,255,255,0.2)' }}></i>
+                  <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-light)', marginBottom: '6px' }}>
+                    {invoices.length === 0 ? 'No Invoices Uploaded Yet' : 'No matching invoices found in this view.'}
+                  </div>
+                  <div style={{ fontSize: '0.85rem' }}>
+                    {invoices.length === 0 
+                      ? 'Drop or select a supplier invoice or receipt image above to scan with PaddleOCR and Gemini.'
+                      : 'Try clearing the search query or selecting a different status filter.'}
+                  </div>
                 </td>
               </tr>
             ) : (

@@ -8,6 +8,7 @@ precise Decimal arithmetic, and untrusted input sanitization).
 
 from decimal import Decimal, InvalidOperation
 import json
+import os
 import sys
 from pathlib import Path
 import logging
@@ -159,13 +160,45 @@ class GeminiExtractionService:
         self._client: Optional[genai.Client] = None
         self.rate_limiter = _rate_limiter
 
+    def _read_live_gemini_key(self) -> str:
+        """Dynamically detect GEMINI_API_KEY from environment or .env files."""
+        if self.api_key and self.api_key.strip() not in ("", "your_gemini_api_key_here"):
+            return self.api_key.strip()
+        env_key = os.environ.get("GEMINI_API_KEY", "").strip()
+        if env_key and env_key not in ("", "your_gemini_api_key_here"):
+            return env_key
+        if settings.GEMINI_API_KEY and settings.GEMINI_API_KEY.strip() not in ("", "your_gemini_api_key_here"):
+            return settings.GEMINI_API_KEY.strip()
+        # Direct check on backend/.env and .env in workspace
+        for candidate in [
+            Path("backend/.env"),
+            Path(".env"),
+            Path(__file__).resolve().parent.parent.parent / ".env",
+            Path(__file__).resolve().parent.parent.parent.parent / "backend" / ".env",
+        ]:
+            if candidate.exists() and candidate.is_file():
+                try:
+                    for line in candidate.read_text(encoding="utf-8").splitlines():
+                        line = line.strip()
+                        if line.startswith("GEMINI_API_KEY=") and not line.startswith("#"):
+                            val = line.split("=", 1)[1].strip().strip("'\"")
+                            if val and val != "your_gemini_api_key_here":
+                                return val
+                except Exception:
+                    pass
+        return ""
+
     def _get_client(self) -> Optional[genai.Client]:
-        """Lazy loader for Google GenAI client (re-checks settings for live .env updates)."""
-        if self._client is not None:
+        """Lazy loader for Google GenAI client (re-checks for live .env updates)."""
+        if self._client is not None and getattr(self, "_cached_key", None) is None:
+            # Client was explicitly injected (e.g. in test suite)
             return self._client
-        key = self.api_key or settings.GEMINI_API_KEY
-        if not key or key.strip() in ("", "your_gemini_api_key_here"):
+        key = self._read_live_gemini_key()
+        if not key:
+            self._client = None
             return None
+        if self._client is not None and getattr(self, "_cached_key", None) == key:
+            return self._client
         self._cached_key = key
         self._client = genai.Client(api_key=key)
         return self._client
