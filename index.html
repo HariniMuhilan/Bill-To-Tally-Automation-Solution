@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bill-to-Tally Automation | Ashan Tech Labs</title>
+  <meta name="description" content="Purchase invoice extraction, review, validation and automated posting into TallyPrime.">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- ====================================================================
+         SIDEBAR NAVIGATION
+         ==================================================================== -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="brand-logo">
+          <i class="fa-solid fa-receipt"></i>
+        </div>
+        <div class="brand-text">
+          <h1>BILL TO TALLY</h1>
+          <span>Ashan Tech Labs</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">Invoices & Processing</div>
+        <a class="nav-item active" data-tab="inbox">
+          <span class="nav-icon"><i class="fa-solid fa-inbox"></i></span>
+          <span>Invoice Inbox</span>
+          <span class="nav-badge" id="badge-inbox">6</span>
+        </a>
+        <a class="nav-item" data-tab="review">
+          <span class="nav-icon"><i class="fa-solid fa-magnifying-glass-chart"></i></span>
+          <span>Review & Validate</span>
+          <span class="nav-badge warning" id="badge-review">2</span>
+        </a>
+
+        <div class="nav-section-title">Accounting & Masters</div>
+        <a class="nav-item" data-tab="mappings">
+          <span class="nav-icon"><i class="fa-solid fa-diagram-project"></i></span>
+          <span>Master Mappings</span>
+        </a>
+        <a class="nav-item" data-tab="tally">
+          <span class="nav-icon"><i class="fa-solid fa-server"></i></span>
+          <span>Tally Connector</span>
+        </a>
+
+        <div class="nav-section-title">Governance & Config</div>
+        <a class="nav-item" data-tab="audit">
+          <span class="nav-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
+          <span>Audit Trail</span>
+        </a>
+        <a class="nav-item" data-tab="settings">
+          <span class="nav-icon"><i class="fa-solid fa-sliders"></i></span>
+          <span>Settings & Safety</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="tally-status-card">
+          <div class="tally-header-row">
+            <span class="tally-title">TallyPrime Link</span>
+            <div class="tally-indicator">
+              <span class="status-dot"></span>
+              <span id="tally-live-status" style="color: var(--color-mint-text); font-weight: 800;">ONLINE</span>
+            </div>
+          </div>
+          <div class="tally-company-badge" title="Ashan Tech Labs (Test Company)">
+            <i class="fa-solid fa-building" style="font-size: 0.7rem; color: var(--color-azure-text); margin-right: 4px;"></i>
+            <span>ASHAN TEST LABS PVT LTD</span>
+          </div>
+          <div class="tally-meta">
+            <span>Port: 9000 &bull; XML HTTP</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ====================================================================
+         MAIN CONTENT WRAPPER
+         ==================================================================== -->
+    <main class="main-wrapper">
+      
+      <!-- Top Header Navigation Bar -->
+      <header class="top-header">
+        <div class="header-left">
+          <div class="page-title-group">
+            <h2 id="current-page-title">
+              <i class="fa-solid fa-inbox" style="color: var(--palette-azure); font-size: 1.1rem;"></i>
+              <span>Invoice Inbox</span>
+            </h2>
+            <span class="page-subtitle" id="current-page-desc">Review incoming supplier invoices, OCR status, and posting progress</span>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <div class="safety-toggle-pill" id="posting-safety-indicator" title="Safe Mode: Posting to live accounts is restricted">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>POSTING_ENABLED: false (Test Mode)</span>
+          </div>
+
+          <button class="btn btn-primary btn-sm" id="btn-quick-upload">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <span>Upload Invoice</span>
+          </button>
+
+          <div class="user-profile-badge">
+            <div class="avatar-circle">AU</div>
+            <div class="user-info">
+              <span class="user-name">accounts_user_01</span>
+              <span class="user-role">Reviewer & Approver</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Content Area -->
+      <div class="content-body">
+        
+        <!-- ==================================================================
+             TAB 1: INBOX & DASHBOARD
+             ================================================================== -->
+        <section class="tab-pane active" id="tab-inbox">
+          
+          <!-- KPI Metrics Row -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-content">
+                <h3>Total Invoices</h3>
+                <div class="stat-number">24</div>
+                <div class="stat-subtext">+6 uploaded today</div>
+              </div>
+              <div class="stat-icon-wrap icon-purple">
+                <i class="fa-solid fa-folder-open"></i>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-content">
+                <h3>Needs Review</h3>
+                <div class="stat-number" style="color: var(--color-amber-text);">2</div>
+                <div class="stat-subtext">Requires human verification</div>
+              </div>
+              <div class="stat-icon-wrap icon-amber">
+                <i class="fa-solid fa-user-pen"></i>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-content">
+                <h3>Approved (Ready)</h3>
+                <div class="stat-number" style="color: var(--color-azure-text);">3</div>
+                <div class="stat-subtext">Awaiting posting trigger</div>
+              </div>
+              <div class="stat-icon-wrap icon-blue">
+                <i class="fa-solid fa-clipboard-check"></i>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-content">
+                <h3>Posted to Tally</h3>
+                <div class="stat-number" style="color: #059669;">18</div>
+                <div class="stat-subtext">Reconciled in Day Book</div>
+              </div>
+              <div class="stat-icon-wrap icon-emerald">
+                <i class="fa-solid fa-circle-check"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Drag & Drop Upload Zone -->
+          <div class="upload-dropzone" id="upload-dropzone-box">
+            <div class="upload-icon">
+              <i class="fa-solid fa-file-arrow-up"></i>
+            </div>
+            <div class="upload-title">Drop supplier bills or click to browse</div>
+            <div class="upload-subtitle">Supports PDF, JPG, PNG &bull; Auto-OCR deskewing, GSTIN extraction & SHA-256 integrity hash</div>
+            <input type="file" id="hidden-file-input" style="display: none;" accept=".pdf,.png,.jpg,.jpeg">
+            <button class="btn btn-secondary btn-sm" style="margin-top: 6px;" onclick="document.getElementById('hidden-file-input').click();">
+              <i class="fa-solid fa-plus"></i> Select Files
+            </button>
+          </div>
+
+          <!-- Invoices Data Table Card -->
+          <div class="glass-card">
+            <div class="table-toolbar">
+              <div class="filter-pills">
+                <button class="filter-pill active" data-filter="all">All Invoices (6)</button>
+                <button class="filter-pill" data-filter="needs-review">Needs Review (2)</button>
+                <button class="filter-pill" data-filter="approved">Approved (1)</button>
+                <button class="filter-pill" data-filter="posted">Posted (2)</button>
+                <button class="filter-pill" data-filter="failed">Failed / Alert (1)</button>
+              </div>
+
+              <div class="search-input-wrap">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" class="form-control" placeholder="Search supplier, invoice #..." id="inbox-search-input">
+              </div>
+            </div>
+
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Invoice ID</th>
+                  <th>Source File</th>
+                  <th>Supplier (Raw / Mapped)</th>
+                  <th>Invoice No & Date</th>
+                  <th>Type</th>
+                  <th>Total Amount</th>
+                  <th>Status</th>
+                  <th>Tally Ref</th>
+                  <th style="text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="invoices-table-body">
+                <!-- Dynamically Rendered by app.js -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             TAB 2: REVIEW & VALIDATION (SPLIT SCREEN WORKSPACE)
+             ================================================================== -->
+        <section class="tab-pane" id="tab-review">
+          
+          <!-- Sample Invoice Selector & Context Bar -->
+          <div class="review-selector-bar">
+            <div class="sample-picker-group">
+              <label class="form-label" style="margin: 0; font-weight: 700;">Active Invoice:</label>
+              <select class="form-control" id="review-sample-select" style="width: 320px;">
+                <option value="INV-01">INV-01: Delta Tech Electronics (₹1,39,240.00) - Clean</option>
+                <option value="INV-02">INV-02: Sri Vari Packing (₹45,800.00) - Missing Ledger</option>
+                <option value="INV-03">INV-03: Blurry Photo Scan (₹12,450.00) - Low Confidence</option>
+                <option value="INV-04">INV-04: Apex Tools & Hardware (₹88,500.00) - Approved</option>
+              </select>
+              <span class="status-badge needs-review" id="review-active-status-badge">
+                <i class="fa-solid fa-clock"></i> NEEDS_REVIEW
+              </span>
+            </div>
+
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-secondary btn-sm" id="btn-re-extract" title="Re-run PaddleOCR extraction pipeline">
+                <i class="fa-solid fa-rotate"></i> Re-Run OCR
+              </button>
+              <button class="btn btn-secondary btn-sm" id="btn-view-raw-ocr" title="View raw extracted text payload">
+                <i class="fa-solid fa-code"></i> Raw OCR
+              </button>
+            </div>
+          </div>
+
+          <!-- Split Screen: Left = Document Preview, Right = Editable Form & Line Items -->
+          <div class="split-review-container">
+            
+            <!-- Left Pane: Invoice Document Preview -->
+            <div class="doc-preview-pane">
+              <div class="doc-toolbar">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted);">PREVIEW</span>
+                  <span class="badge" style="font-size: 0.72rem; background: var(--bg-card); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border-subtle);" id="doc-page-indicator">Page 1 / 1</span>
+                </div>
+                
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <button class="btn btn-secondary btn-icon" id="zoom-out-btn" title="Zoom Out"><i class="fa-solid fa-minus"></i></button>
+                  <span style="font-size: 0.75rem; font-family: var(--font-mono); color: var(--text-muted); width: 44px; text-align: center;" id="zoom-level-text">100%</span>
+                  <button class="btn btn-secondary btn-icon" id="zoom-in-btn" title="Zoom In"><i class="fa-solid fa-plus"></i></button>
+                  <button class="btn btn-secondary btn-icon" id="rotate-btn" title="Rotate 90°"><i class="fa-solid fa-rotate-right"></i></button>
+                  <button class="btn btn-secondary btn-sm" id="toggle-bboxes-btn" style="margin-left: 6px;">
+                    <i class="fa-solid fa-vector-square"></i> Bounding Boxes: ON
+                  </button>
+                </div>
+              </div>
+
+              <div class="doc-viewport" id="doc-viewport-container">
+                <!-- High-Fidelity Rendered Bill Canvas -->
+                <div class="bill-paper" id="rendered-bill-paper">
+                  
+                  <!-- OCR Bounding Box Annotations Overlay -->
+                  <div class="ocr-bbox" style="top: 24px; left: 26px; width: 260px; height: 38px;">
+                    <span class="ocr-tag">Supplier: 99.4%</span>
+                  </div>
+                  <div class="ocr-bbox" style="top: 24px; right: 26px; width: 140px; height: 38px;">
+                    <span class="ocr-tag">Invoice #: 98.8%</span>
+                  </div>
+                  <div class="ocr-bbox" style="top: 154px; left: 26px; width: 486px; height: 110px;">
+                    <span class="ocr-tag">Items Table: 97.2%</span>
+                  </div>
+                  <div class="ocr-bbox" style="bottom: 24px; right: 26px; width: 220px; height: 75px;">
+                    <span class="ocr-tag">Taxes & Total: 99.1%</span>
+                  </div>
+
+                  <!-- Document Header -->
+                  <div class="bill-header">
+                    <div>
+                      <div class="bill-company-name" id="doc-seller-name">DELTA TECH ELECTRONICS & SUPPLIES PVT LTD</div>
+                      <div style="color: #6b7280; font-size: 9.5px; margin-top: 2px;">
+                        Plot 45, Phase II, Industrial Estate, Guindy, Chennai - 600032<br>
+                        <strong>GSTIN:</strong> 33AAAAA1234A1Z5 | <strong>State:</strong> Tamil Nadu (33)
+                      </div>
+                    </div>
+                    <div class="bill-title-stamp">
+                      <div style="font-size: 13px; color: #111827;">TAX INVOICE</div>
+                      <div style="color: #4b5563; font-size: 10px; margin-top: 4px;">
+                        <strong>Inv No:</strong> <span id="doc-inv-no">DTE-2026-0891</span><br>
+                        <strong>Date:</strong> <span id="doc-inv-date">18-Oct-2026</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Billed To Section -->
+                  <div class="bill-parties-grid">
+                    <div>
+                      <strong style="color: #374151;">BILLED TO (BUYER):</strong>
+                      <div style="font-weight: 700; margin-top: 2px;">ASHAN TECH LABS PRIVATE LIMITED</div>
+                      <div style="color: #6b7280;">
+                        No. 12, Tech Corridor, OMR, Chennai - 600096<br>
+                        GSTIN: 33BBBBB5678B1Z2
+                      </div>
+                    </div>
+                    <div>
+                      <strong style="color: #374151;">DISPATCH DETAILS:</strong>
+                      <div style="color: #6b7280; margin-top: 2px;">
+                        Place of Supply: Tamil Nadu (33)<br>
+                        Payment Terms: Net 30 Days<br>
+                        PO Ref: PO-ATL-9921
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Invoice Items Table -->
+                  <table class="bill-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Item Description</th>
+                        <th>HSN</th>
+                        <th style="text-align: right;">Qty</th>
+                        <th style="text-align: right;">Rate</th>
+                        <th style="text-align: right;">Taxable (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="doc-items-tbody">
+                      <tr>
+                        <td>1</td>
+                        <td>Industrial Optical Sensor XYZ-400</td>
+                        <td>90318000</td>
+                        <td style="text-align: right;">10 NOS</td>
+                        <td style="text-align: right;">4,500.00</td>
+                        <td style="text-align: right;">45,000.00</td>
+                      </tr>
+                      <tr>
+                        <td>2</td>
+                        <td>Embedded ARM Controller Dev Board v3.2</td>
+                        <td>85423100</td>
+                        <td style="text-align: right;">25 NOS</td>
+                        <td style="text-align: right;">2,200.00</td>
+                        <td style="text-align: right;">55,000.00</td>
+                      </tr>
+                      <tr>
+                        <td>3</td>
+                        <td>Shielded High-Speed Interface Cable 1.5m</td>
+                        <td>85444299</td>
+                        <td style="text-align: right;">50 PCS</td>
+                        <td style="text-align: right;">360.00</td>
+                        <td style="text-align: right;">18,000.00</td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  <!-- Totals and GST breakdown -->
+                  <div class="bill-totals-area">
+                    <table class="bill-totals-table">
+                      <tr>
+                        <td style="color: #6b7280;">Taxable Subtotal:</td>
+                        <td style="text-align: right; font-weight: 600;" id="doc-subtotal-val">₹ 1,18,000.00</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #6b7280;">CGST @ 9.0%:</td>
+                        <td style="text-align: right;" id="doc-cgst-val">₹ 10,620.00</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #6b7280;">SGST @ 9.0%:</td>
+                        <td style="text-align: right;" id="doc-sgst-val">₹ 10,620.00</td>
+                      </tr>
+                      <tr class="bill-grand-total">
+                        <td>Grand Total:</td>
+                        <td style="text-align: right;" id="doc-grand-total-val">₹ 1,39,240.00</td>
+                      </tr>
+                    </table>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Pane: Extracted Header, Line Items & Real-Time Validation -->
+            <div class="doc-form-pane">
+              
+              <!-- Header Details Card -->
+              <div class="glass-card">
+                <div class="card-header">
+                  <span class="card-title">
+                    <i class="fa-solid fa-file-pen" style="color: var(--palette-azure);"></i>
+                    <span>Header & Master Allocation</span>
+                  </span>
+                  <span class="badge" style="font-size: 0.72rem; color: #059669; font-weight: 800;">
+                    <i class="fa-solid fa-check"></i> OCR Confidence: 98.4%
+                  </span>
+                </div>
+                <div class="card-body">
+                  <div class="form-grid-2" style="margin-bottom: 12px;">
+                    <div class="form-group">
+                      <label class="form-label">Raw Supplier (from OCR)</label>
+                      <input type="text" class="form-control mono" id="form-raw-supplier" value="DELTA TECH ELECTRONICS & SUPPLIES PVT LTD" readonly style="opacity: 0.85; background: var(--bg-surface);">
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label" style="color: var(--color-azure-text);">Map to Tally Supplier Ledger *</label>
+                      <select class="form-control" id="form-mapped-supplier">
+                        <option value="Delta Tech Electronics Pvt Ltd">Delta Tech Electronics Pvt Ltd (Sundry Creditor)</option>
+                        <option value="Sri Vari Packing Industries">Sri Vari Packing Industries (Sundry Creditor)</option>
+                        <option value="Apex Tools & Spares">Apex Tools & Spares (Sundry Creditor)</option>
+                        <option value="Demo Stationers">Demo Stationers (Sundry Creditor)</option>
+                        <option value="__NEW__">+ Create New Ledger in Tally...</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="form-grid-3" style="margin-bottom: 12px;">
+                    <div class="form-group">
+                      <label class="form-label">Invoice Number *</label>
+                      <input type="text" class="form-control mono" id="form-invoice-no" value="DTE-2026-0891">
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Invoice Date *</label>
+                      <input type="date" class="form-control" id="form-invoice-date" value="2026-10-18">
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Supplier GSTIN</label>
+                      <input type="text" class="form-control mono" id="form-gstin" value="33AAAAA1234A1Z5">
+                    </div>
+                  </div>
+
+                  <div class="form-grid-3">
+                    <div class="form-group">
+                      <label class="form-label">Voucher Type Mode</label>
+                      <select class="form-control" id="form-voucher-mode">
+                        <option value="Inventory Purchase">Inventory Purchase (Item Invoice)</option>
+                        <option value="Accounting Purchase">Accounting Purchase (Ledger Invoice)</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Target Tally Company</label>
+                      <input type="text" class="form-control" value="ASHAN TEST LABS PVT LTD" readonly style="opacity: 0.8;">
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Voucher Date (Tally Format)</label>
+                      <input type="text" class="form-control mono" id="form-tally-date" value="20261018" readonly style="opacity: 0.8;">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Line Items Grid Card -->
+              <div class="glass-card">
+                <div class="card-header">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="card-title">
+                      <i class="fa-solid fa-list-check" style="color: var(--accent-cyan);"></i>
+                      <span>Line Items & Accounting Mapping</span>
+                    </span>
+                    <span class="badge" style="font-size: 0.72rem; background: var(--bg-surface); padding: 2px 8px; border-radius: 12px;" id="line-count-badge">3 items</span>
+                  </div>
+                  <button class="btn btn-secondary btn-sm" id="btn-add-line-row">
+                    <i class="fa-solid fa-plus"></i> Add Item Row
+                  </button>
+                </div>
+                <div class="card-body" style="padding: 12px;">
+                  <div class="line-items-wrapper">
+                    <table class="line-grid-table">
+                      <thead>
+                        <tr>
+                          <th style="width: 30px;">#</th>
+                          <th style="min-width: 170px;">Description (OCR)</th>
+                          <th style="min-width: 170px;">Tally Stock Item / Ledger</th>
+                          <th style="width: 70px;">Qty</th>
+                          <th style="width: 65px;">Unit</th>
+                          <th style="width: 80px;">Rate (₹)</th>
+                          <th style="width: 75px;">Taxable (₹)</th>
+                          <th style="width: 70px;">GST %</th>
+                          <th style="width: 80px;">Tax (₹)</th>
+                          <th style="width: 90px;">Total (₹)</th>
+                          <th style="width: 35px;"></th>
+                        </tr>
+                      </thead>
+                      <tbody id="line-items-tbody">
+                        <!-- Populated by app.js -->
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <!-- Summary Calculation Footer -->
+                  <div style="display: flex; justify-content: flex-end; margin-top: 14px; padding-right: 12px;">
+                    <div style="width: 280px; font-size: 0.82rem; display: flex; flex-direction: column; gap: 6px;">
+                      <div style="display: flex; justify-content: space-between; color: var(--text-secondary);">
+                        <span>Taxable Subtotal:</span>
+                        <strong class="mono" id="sum-taxable-display">₹ 1,18,000.00</strong>
+                      </div>
+                      <div style="display: flex; justify-content: space-between; color: var(--text-secondary);">
+                        <span>Calculated GST (CGST+SGST):</span>
+                        <strong class="mono" id="sum-gst-display">₹ 21,240.00</strong>
+                      </div>
+                      <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-primary); border-top: 1px solid var(--border-subtle); padding-top: 6px;">
+                        <span>Calculated Grand Total:</span>
+                        <strong class="mono" style="color: #059669;" id="sum-grand-display">₹ 1,39,240.00</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Real-Time Validation & Safety Checklist Panel -->
+              <div class="validation-card">
+                <div class="validation-header">
+                  <span style="font-size: 0.82rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary);">
+                    <i class="fa-solid fa-shield-check" style="color: #059669; margin-right: 6px;"></i>
+                    Pre-Posting Validation Checks
+                  </span>
+                  <span class="status-badge approved" id="validation-overall-badge">
+                    <i class="fa-solid fa-circle-check"></i> ALL CHECKS PASSED
+                  </span>
+                </div>
+                
+                <div class="checks-list">
+                  <div class="check-item" id="check-required-fields">
+                    <i class="fa-solid fa-circle-check check-icon pass"></i>
+                    <div>
+                      <strong>Required Fields</strong>
+                      <div style="color: var(--text-muted); font-size: 0.72rem;">Supplier, invoice # and date present</div>
+                    </div>
+                  </div>
+
+                  <div class="check-item" id="check-math-reconciliation">
+                    <i class="fa-solid fa-circle-check check-icon pass"></i>
+                    <div>
+                      <strong>Math Reconciliation</strong>
+                      <div style="color: var(--text-muted); font-size: 0.72rem;">Line sum matches bill total within ₹0.00</div>
+                    </div>
+                  </div>
+
+                  <div class="check-item" id="check-ledger-mapping">
+                    <i class="fa-solid fa-circle-check check-icon pass"></i>
+                    <div>
+                      <strong>Master Ledger Mapping</strong>
+                      <div style="color: var(--text-muted); font-size: 0.72rem;">All 3 items mapped to Tally stock items</div>
+                    </div>
+                  </div>
+
+                  <div class="check-item" id="check-duplicate-guard">
+                    <i class="fa-solid fa-circle-check check-icon pass"></i>
+                    <div>
+                      <strong>Duplicate Guard</strong>
+                      <div style="color: var(--text-muted); font-size: 0.72rem;">No matching invoice in Tally company</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Review Action Bar -->
+              <div class="review-actions-bar">
+                <div style="display: flex; gap: 10px;">
+                  <button class="btn btn-danger btn-sm" id="btn-reject-invoice">
+                    <i class="fa-solid fa-xmark"></i> Reject / Send Back
+                  </button>
+                  <button class="btn btn-secondary btn-sm" id="btn-save-draft">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Draft
+                  </button>
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                  <button class="btn btn-secondary btn-sm" id="btn-preview-xml">
+                    <i class="fa-solid fa-file-code"></i> Inspect Tally XML
+                  </button>
+                  <button class="btn btn-primary" id="btn-approve-post">
+                    <i class="fa-solid fa-paper-plane"></i> Approve & Post to Tally
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             TAB 3: MASTER MAPPINGS (SUPPLIERS, STOCK ITEMS, LEDGERS)
+             ================================================================== -->
+        <section class="tab-pane" id="tab-mappings">
+          
+          <div class="mappings-toolbar">
+            <div class="mapping-type-tabs">
+              <button class="mapping-tab-btn active" data-type="suppliers">
+                <i class="fa-solid fa-users"></i> Supplier Ledgers (8)
+              </button>
+              <button class="mapping-tab-btn" data-type="items">
+                <i class="fa-solid fa-box-open"></i> Stock Items (14)
+              </button>
+              <button class="mapping-tab-btn" data-type="ledgers">
+                <i class="fa-solid fa-book"></i> Purchase Accounts (4)
+              </button>
+              <button class="mapping-tab-btn" data-type="units">
+                <i class="fa-solid fa-scale-balanced"></i> Units of Measure (6)
+              </button>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+              <button class="btn btn-secondary btn-sm" id="btn-sync-tally-masters">
+                <i class="fa-solid fa-arrows-rotate"></i> Sync from TallyPrime
+              </button>
+              <button class="btn btn-primary btn-sm" id="btn-add-mapping">
+                <i class="fa-solid fa-plus"></i> New Mapping
+              </button>
+            </div>
+          </div>
+
+          <!-- Mappings Table Card -->
+          <div class="glass-card">
+            <div class="card-header">
+              <span class="card-title" id="mappings-table-title">
+                <i class="fa-solid fa-diagram-project" style="color: var(--accent-cyan);"></i>
+                <span>Supplier Name Mappings (OCR text &rarr; Tally Master Ledger)</span>
+              </span>
+              <div class="search-input-wrap">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" class="form-control" placeholder="Search mappings..." id="mappings-search-input">
+              </div>
+            </div>
+
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Mapping ID</th>
+                  <th>Raw OCR Source String</th>
+                  <th>Mapped Tally Master Name</th>
+                  <th>Category / Group</th>
+                  <th>Tally GUID</th>
+                  <th>Status</th>
+                  <th>Verified Date</th>
+                  <th style="text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="mappings-table-body">
+                <!-- Populated by app.js -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             TAB 4: TALLY CONNECTOR & POSTING LOGS
+             ================================================================== -->
+        <section class="tab-pane" id="tab-tally">
+          <div class="tally-grid">
+            
+            <!-- Connection Status & Interface Configuration -->
+            <div class="glass-card connection-config-card">
+              <div class="card-header">
+                <span class="card-title">
+                  <i class="fa-solid fa-network-wired" style="color: var(--accent-cyan);"></i>
+                  <span>Endpoint Config</span>
+                </span>
+                <span class="status-badge posted">Connected</span>
+              </div>
+              <div class="card-body">
+                <div class="status-indicator-box" style="margin-bottom: 16px;">
+                  <i class="fa-solid fa-circle-check" style="color: #10b981; font-size: 1.8rem;"></i>
+                  <div>
+                    <strong style="color: #f8fafc; font-size: 0.9rem;">TallyPrime 5.0+ Detected</strong>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">HTTP XML Interface responding at 127.0.0.1:9000</div>
+                  </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 12px;">
+                  <label class="form-label">Tally Host / IP</label>
+                  <input type="text" class="form-control mono" value="127.0.0.1">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 12px;">
+                  <label class="form-label">Tally HTTP Port</label>
+                  <input type="number" class="form-control mono" value="9000">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 12px;">
+                  <label class="form-label">Active Company in Tally</label>
+                  <input type="text" class="form-control" value="ASHAN TEST LABS PVT LTD">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 18px;">
+                  <label class="form-label">Integration Transport Protocol</label>
+                  <select class="form-control">
+                    <option value="XML" selected>XML over HTTP (Universal Compatibility)</option>
+                    <option value="JSON">Native JSON API (Release 7.0+ Preview)</option>
+                  </select>
+                </div>
+
+                <button class="btn btn-secondary" style="width: 100%;" id="btn-test-connection">
+                  <i class="fa-solid fa-bolt"></i> Send Health Check Ping
+                </button>
+              </div>
+            </div>
+
+            <!-- Posting Attempts History Table -->
+            <div class="glass-card">
+              <div class="card-header">
+                <span class="card-title">
+                  <i class="fa-solid fa-receipt" style="color: var(--accent-cyan);"></i>
+                  <span>Posting Attempts & Voucher Reconciliation Log</span>
+                </span>
+                <span class="badge" style="font-size: 0.72rem; color: var(--text-muted);">Table: <code>posting_attempts</code></span>
+              </div>
+
+              <div class="card-body" style="padding: 0;">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Attempt ID</th>
+                      <th>Invoice ID</th>
+                      <th>Idempotency Key</th>
+                      <th>Tally Voucher No</th>
+                      <th>Started At</th>
+                      <th>Status</th>
+                      <th>Tally Result</th>
+                      <th style="text-align: right;">Payload</th>
+                    </tr>
+                  </thead>
+                  <tbody id="posting-attempts-tbody">
+                    <!-- Populated by app.js -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             TAB 5: AUDIT TRAIL & SYSTEM EVENTS
+             ================================================================== -->
+        <section class="tab-pane" id="tab-audit">
+          <div class="glass-card">
+            <div class="card-header">
+              <span class="card-title">
+                <i class="fa-solid fa-clock-rotate-left" style="color: var(--accent-cyan);"></i>
+                <span>Complete Verification & Lifecycle Audit Trail</span>
+              </span>
+              <span class="badge" style="font-size: 0.72rem; color: var(--text-muted);">Immutable Record &bull; <code>audit_events</code></span>
+            </div>
+
+            <div class="card-body">
+              <div class="timeline-container" id="audit-timeline-container">
+                <!-- Dynamically populated by app.js -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             TAB 6: SETTINGS & SAFETY
+             ================================================================== -->
+        <section class="tab-pane" id="tab-settings">
+          <div class="glass-card" style="max-width: 800px; margin: 0 auto;">
+            <div class="card-header">
+              <span class="card-title">
+                <i class="fa-solid fa-sliders" style="color: var(--accent-cyan);"></i>
+                <span>Prototype Configuration & Safety Parameters</span>
+              </span>
+              <button class="btn btn-primary btn-sm" id="btn-save-settings">
+                <i class="fa-solid fa-check"></i> Save Changes
+              </button>
+            </div>
+
+            <div class="card-body" style="display: flex; flex-direction: column; gap: 20px;">
+              
+              <!-- Safety Switch Box -->
+              <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-md); padding: 18px; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <strong style="color: #fbbf24; font-size: 0.95rem;">Live Voucher Posting Lock (<code>POSTING_ENABLED</code>)</strong>
+                  <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px;">
+                    When set to false, posting actions target only the test company sandbox or mock generator. Keep disabled until test-company validation passes.
+                  </div>
+                </div>
+                <label style="position: relative; display: inline-block; width: 48px; height: 26px; cursor: pointer;">
+                  <input type="checkbox" id="setting-posting-enabled" style="opacity: 0; width: 0; height: 0;">
+                  <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #334155; transition: .3s; border-radius: 34px;" id="toggle-slider"></span>
+                </label>
+              </div>
+
+              <!-- General Settings -->
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label">Database URL</label>
+                  <input type="text" class="form-control mono" value="sqlite:///./bill_to_tally.db">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Original Document Storage Path</label>
+                  <input type="text" class="form-control mono" value="./data/incoming/">
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label">Maximum Rounding Tolerance (₹)</label>
+                  <input type="number" class="form-control mono" value="0.50" step="0.05">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Default Invoice Mode</label>
+                  <select class="form-control">
+                    <option value="item" selected>Item Invoice (Inventory Purchase)</option>
+                    <option value="accounting">Accounting Invoice (Ledger Only)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label">OCR Confidence Warning Threshold</label>
+                  <input type="text" class="form-control mono" value="85%">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Audit Log Retention</label>
+                  <input type="text" class="form-control" value="Indefinite (Full History)">
+                </div>
+              </div>
+
+              <!-- Roles & Permissions Matrix -->
+              <div style="border-top: 1px solid var(--border-subtle); padding-top: 16px;">
+                <h4 style="font-size: 0.88rem; font-weight: 700; margin-bottom: 10px;">Role Authorization Matrix</h4>
+                <table class="data-table" style="font-size: 0.78rem;">
+                  <thead>
+                    <tr>
+                      <th>User Role</th>
+                      <th>Upload Bills</th>
+                      <th>Edit Extracted OCR</th>
+                      <th>Approve Invoices</th>
+                      <th>Post to Tally</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>Operator (Data Entry)</strong></td>
+                      <td><i class="fa-solid fa-check" style="color: #10b981;"></i></td>
+                      <td><i class="fa-solid fa-check" style="color: #10b981;"></i></td>
+                      <td><i class="fa-solid fa-xmark" style="color: #ef4444;"></i></td>
+                      <td><i class="fa-solid fa-xmark" style="color: #ef4444;"></i></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Reviewer / Accountant</strong></td>
+                      <td><i class="fa-solid fa-check" style="color: #10b981;"></i></td>
+                      <td><i class="fa-solid fa-check" style="color: #10b981;"></i></td>
+                      <td><i class="fa-solid fa-check" style="color: #10b981;"></i></td>
+                      <td><i class="fa-solid fa-xmark" style="color: #ef4444;"></i></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Authorizer / Admin</strong></td>
+                      <td><i class="fa-solid fa-check" style="color: #10b981;"></i></td>
+                      <td><i class="fa-solid fa-check" style="color: #10b981;"></i></td>
+                      <td><i class="fa-solid fa-check" style="color: #10b981;"></i></td>
+                      <td><i class="fa-solid fa-check" style="color: #10b981;"></i></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+  </div>
+
+  <!-- ====================================================================
+       MODALS
+       ==================================================================== -->
+  
+  <!-- XML Payload Inspector Modal -->
+  <div class="modal-overlay" id="modal-xml-inspector">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="card-title">
+          <i class="fa-solid fa-code" style="color: var(--accent-cyan);"></i>
+          <span>TallyPrime Purchase Voucher XML Envelope</span>
+        </span>
+        <button class="btn btn-secondary btn-icon" id="close-modal-xml-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px;">
+          The exact XML payload generated for transmission to <code>http://127.0.0.1:9000</code>. Validated against the TallyPrime Purchase Voucher DTD.
+        </p>
+        <pre class="xml-code-view" id="xml-modal-content"></pre>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" id="btn-copy-xml"><i class="fa-solid fa-copy"></i> Copy XML</button>
+        <button class="btn btn-primary btn-sm" id="btn-done-xml">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Post to Tally Confirmation Modal -->
+  <div class="modal-overlay" id="modal-post-confirm">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <span class="card-title" style="color: var(--color-amber-text);">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span>Confirm TallyPrime Voucher Posting</span>
+        </span>
+        <button class="btn btn-secondary btn-icon" id="close-modal-post-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 14px;">
+          You are about to post an approved purchase voucher to <strong>ASHAN TEST LABS PVT LTD</strong> in TallyPrime:
+        </p>
+        <div style="background: var(--bg-surface); padding: 14px; border-radius: var(--radius-sm); font-size: 0.8rem; display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--border-subtle); box-shadow: var(--shadow-xs);">
+          <div><strong>Supplier:</strong> <span id="modal-confirm-supplier">Delta Tech Electronics Pvt Ltd</span></div>
+          <div><strong>Invoice No:</strong> <span class="mono" id="modal-confirm-inv-no">DTE-2026-0891</span></div>
+          <div><strong>Voucher Date:</strong> <span class="mono" id="modal-confirm-date">20261018</span></div>
+          <div><strong>Grand Total:</strong> <span class="mono" style="color: #059669; font-weight: 700;" id="modal-confirm-total">₹ 1,39,240.00</span></div>
+          <div><strong>Idempotency Key:</strong> <span class="mono" style="font-size: 0.72rem; color: var(--color-azure-text);" id="modal-confirm-key">ATL_TEST:DELTA_TECH:DTE-2026-0891:20261018</span></div>
+        </div>
+        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 12px;">
+          <i class="fa-solid fa-shield-halved" style="color: #10b981;"></i> Idempotency protection is active. Duplicate entries will be rejected automatically by the gateway.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-cancel-post">Cancel</button>
+        <button class="btn btn-success" id="btn-execute-post">
+          <i class="fa-solid fa-check"></i> Confirm & Transmit to Tally
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notifications Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Application Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
