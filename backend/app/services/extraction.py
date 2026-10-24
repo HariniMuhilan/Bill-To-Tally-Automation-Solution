@@ -155,14 +155,14 @@ class GeminiExtractionService:
     """Extracts structured purchase bills from OCR results using Gemini."""
 
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
-        self.api_key = api_key or settings.GEMINI_API_KEY
-        self.model_name = model or settings.GEMINI_MODEL
+        self.api_key = api_key
+        self.model_name = model
         self._client: Optional[genai.Client] = None
         self.rate_limiter = _rate_limiter
 
     def _read_live_gemini_key(self) -> str:
         """Dynamically detect GEMINI_API_KEY from environment or .env files."""
-        if self.api_key and self.api_key.strip() not in ("", "your_gemini_api_key_here"):
+        if self.api_key is not None:
             return self.api_key.strip()
         env_key = os.environ.get("GEMINI_API_KEY", "").strip()
         if env_key and env_key not in ("", "your_gemini_api_key_here"):
@@ -187,6 +187,29 @@ class GeminiExtractionService:
                 except Exception:
                     pass
         return ""
+
+    def _get_model_name(self) -> str:
+        """Dynamically detect GEMINI_MODEL from environment or .env files, fallback to gemini-3.8-flash."""
+        env_model = os.environ.get("GEMINI_MODEL", "").strip()
+        if env_model:
+            return env_model
+        for candidate in [
+            Path("backend/.env"),
+            Path(".env"),
+            Path(__file__).resolve().parent.parent.parent / ".env",
+            Path(__file__).resolve().parent.parent.parent.parent / "backend" / ".env",
+        ]:
+            if candidate.exists() and candidate.is_file():
+                try:
+                    for line in candidate.read_text(encoding="utf-8").splitlines():
+                        line = line.strip()
+                        if line.startswith("GEMINI_MODEL=") and not line.startswith("#"):
+                            val = line.split("=", 1)[1].strip().strip("'\"")
+                            if val:
+                                return val
+                except Exception:
+                    pass
+        return getattr(settings, "GEMINI_MODEL", "gemini-3.8-flash") or "gemini-3.8-flash"
 
     def _get_client(self) -> Optional[genai.Client]:
         """Lazy loader for Google GenAI client (re-checks for live .env updates)."""
@@ -223,9 +246,12 @@ class GeminiExtractionService:
                 raw_ocr_text="",
             )
 
+        client = self._get_client()
+        is_custom_client = getattr(self, "_client", None) is not None and getattr(self, "_cached_key", None) is None
+
         # Cache check: if identical OCR text was already extracted, return cached result without consuming quota
         cache_key = hashlib.sha256(ocr_result.raw_text.encode("utf-8")).hexdigest()
-        if cache_key in _extraction_cache:
+        if not is_custom_client and cache_key in _extraction_cache:
             logger.info("Serving Gemini extraction from cache for key %s", cache_key[:12])
             cached = _extraction_cache[cache_key].model_copy(deep=True)
             cached.warnings = list(cached.warnings)
@@ -238,7 +264,6 @@ class GeminiExtractionService:
             )
             return cached
 
-        client = self._get_client()
         if client:
             # Check rate limiter before calling Gemini
             can_call, limit_reason = self.rate_limiter.can_request()
@@ -259,7 +284,7 @@ class GeminiExtractionService:
                 self.rate_limiter.record_request()
                 logger.info(
                     "Calling Gemini %s (Daily remaining: %d/20, Minute: %d/5)",
-                    self.model_name,
+                    self._get_model_name(),
                     self.rate_limiter.remaining_today,
                     self.rate_limiter.requests_in_current_minute,
                 )
@@ -357,14 +382,30 @@ Respond ONLY with a valid JSON object matching this schema:
             contents.append(types.Part.from_bytes(data=image_bytes, mime_type=mime_type))
         contents.append(prompt)
 
-        response = client.models.generate_content(
-            model=self.model_name,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                temperature=0.0,
-            ),
-        )
+        primary_model = self._get_model_name()
+        candidates = [primary_model] + [m for m in ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-flash-latest"] if m != primary_model]
+
+        response = None
+        last_err: Optional[Exception] = None
+        for candidate in candidates:
+            try:
+                response = client.models.generate_content(
+                    model=candidate,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        temperature=0.0,
+                    ),
+                )
+                if response:
+                    break
+            except Exception as e:
+                last_err = e
+                logger.warning("Gemini model %s call failed (%s), trying next candidate...", candidate, str(e))
+                continue
+
+        if response is None and last_err is not None:
+            raise last_err
 
         content_text = response.text or "{}"
         cleaned_text = content_text.strip()
