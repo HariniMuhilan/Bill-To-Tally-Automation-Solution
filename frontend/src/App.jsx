@@ -7,6 +7,7 @@ import MasterMappingsView from './components/MasterMappingsView';
 import TallyConnectorView from './components/TallyConnectorView';
 import AuditTrailView from './components/AuditTrailView';
 import SettingsView from './components/SettingsView';
+import Login from './components/Login';
 import { XmlModal, ConfirmPostModal, SaveDraftModal } from './components/Modals';
 import Toast from './components/Toast';
 import { generateTallyPurchaseXml } from './utils/tallyXml';
