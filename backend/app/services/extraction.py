@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 import logging
 import re
+import time
 from typing import Any, Dict, List, Optional
 
 # Ensure project root and backend directory are in sys.path for direct execution or IDE tools
@@ -50,6 +51,7 @@ except (ImportError, ValueError):
             OCRResult,
         )
     except (ImportError, ValueError):
+        # pyrefly: ignore[missing-import]
         from ..core.config import settings
         from ..schemas.invoice import (
             ExtractionWarning,
@@ -81,6 +83,73 @@ def safe_decimal(val: Any, default: Optional[Decimal] = None) -> Optional[Decima
         return default
 
 
+import hashlib
+from collections import deque
+from datetime import datetime, date
+
+
+class GeminiRateLimiter:
+    """Strict in-memory rate limiter to protect free-tier Gemini API quota.
+    
+    Enforces:
+    - Max 5 requests per 60 seconds (1 minute window)
+    - Max 20 requests per calendar day (UTC/Local day)
+    """
+
+    def __init__(self, max_per_minute: int = 5, max_per_day: int = 20):
+        self.max_per_minute = max_per_minute
+        self.max_per_day = max_per_day
+        self._minute_timestamps: deque[float] = deque()
+        self._current_day: date = datetime.now().date()
+        self._daily_count: int = 0
+
+    def can_request(self) -> tuple[bool, Optional[str]]:
+        now = time.time()
+        today = datetime.now().date()
+
+        # Reset daily counter on date change
+        if today != self._current_day:
+            self._current_day = today
+            self._daily_count = 0
+
+        # Purge timestamps older than 60 seconds
+        while self._minute_timestamps and now - self._minute_timestamps[0] > 60:
+            self._minute_timestamps.popleft()
+
+        if self._daily_count >= self.max_per_day:
+            return False, f"Daily Gemini quota reached ({self._daily_count}/{self.max_per_day} requests today). Using rule-based fallback."
+
+        if len(self._minute_timestamps) >= self.max_per_minute:
+            wait_time = int(60 - (now - self._minute_timestamps[0])) + 1
+            return False, f"Gemini rate limit exceeded ({len(self._minute_timestamps)}/min). Please wait {wait_time}s before next LLM call."
+
+        return True, None
+
+    def record_request(self) -> None:
+        now = time.time()
+        self._minute_timestamps.append(now)
+        self._daily_count += 1
+
+    @property
+    def remaining_today(self) -> int:
+        today = datetime.now().date()
+        if today != self._current_day:
+            return self.max_per_day
+        return max(0, self.max_per_day - self._daily_count)
+
+    @property
+    def requests_in_current_minute(self) -> int:
+        now = time.time()
+        while self._minute_timestamps and now - self._minute_timestamps[0] > 60:
+            self._minute_timestamps.popleft()
+        return len(self._minute_timestamps)
+
+
+# Global rate limiter and extraction cache singleton
+_rate_limiter = GeminiRateLimiter(max_per_minute=5, max_per_day=20)
+_extraction_cache: Dict[str, InvoiceExtractedData] = {}
+
+
 class GeminiExtractionService:
     """Extracts structured purchase bills from OCR results using Gemini."""
 
@@ -88,13 +157,17 @@ class GeminiExtractionService:
         self.api_key = api_key or settings.GEMINI_API_KEY
         self.model_name = model or settings.GEMINI_MODEL
         self._client: Optional[genai.Client] = None
+        self.rate_limiter = _rate_limiter
 
     def _get_client(self) -> Optional[genai.Client]:
-        """Lazy loader for Google GenAI client."""
-        if not self.api_key:
+        """Lazy loader for Google GenAI client (re-checks settings for live .env updates)."""
+        if self._client is not None:
+            return self._client
+        key = self.api_key or settings.GEMINI_API_KEY
+        if not key or key.strip() in ("", "your_gemini_api_key_here"):
             return None
-        if self._client is None:
-            self._client = genai.Client(api_key=self.api_key)
+        self._cached_key = key
+        self._client = genai.Client(api_key=key)
         return self._client
 
     def extract(
@@ -103,7 +176,7 @@ class GeminiExtractionService:
         image_bytes: Optional[bytes] = None,
         mime_type: str = "image/jpeg",
     ) -> InvoiceExtractedData:
-        """Main extraction pipeline: calls Gemini if configured, else applies robust heuristic parsing."""
+        """Main extraction pipeline: respects strict rate limits, checks cache, and falls back gracefully."""
         if not ocr_result or not ocr_result.raw_text.strip():
             return InvoiceExtractedData(
                 overall_confidence=0.0,
@@ -117,11 +190,53 @@ class GeminiExtractionService:
                 raw_ocr_text="",
             )
 
+        # Cache check: if identical OCR text was already extracted, return cached result without consuming quota
+        cache_key = hashlib.sha256(ocr_result.raw_text.encode("utf-8")).hexdigest()
+        if cache_key in _extraction_cache:
+            logger.info("Serving Gemini extraction from cache for key %s", cache_key[:12])
+            cached = _extraction_cache[cache_key].model_copy(deep=True)
+            cached.warnings = list(cached.warnings)
+            cached.warnings.append(
+                ExtractionWarning(
+                    field_name="gemini_cache",
+                    severity="info",
+                    message="Served from local extraction cache (no Gemini quota used).",
+                )
+            )
+            return cached
+
         client = self._get_client()
         if client:
+            # Check rate limiter before calling Gemini
+            can_call, limit_reason = self.rate_limiter.can_request()
+            if not can_call:
+                logger.warning("Gemini rate limit guard triggered: %s. Using heuristic parser.", limit_reason)
+                fallback = self._heuristic_fallback(ocr_result)
+                fallback.warnings.append(
+                    ExtractionWarning(
+                        field_name="gemini_rate_limit",
+                        severity="warning",
+                        message=limit_reason or "Gemini rate limit exceeded. Used fallback parser.",
+                    )
+                )
+                return self._post_process_and_validate(fallback, ocr_result)
+
             try:
+                # Record API call towards minute and daily limits
+                self.rate_limiter.record_request()
+                logger.info(
+                    "Calling Gemini %s (Daily remaining: %d/20, Minute: %d/5)",
+                    self.model_name,
+                    self.rate_limiter.remaining_today,
+                    self.rate_limiter.requests_in_current_minute,
+                )
+
                 extracted = self._extract_with_gemini(client, ocr_result, image_bytes, mime_type)
-                return self._post_process_and_validate(extracted, ocr_result)
+                validated = self._post_process_and_validate(extracted, ocr_result)
+                
+                # Cache successful extraction
+                _extraction_cache[cache_key] = validated.model_copy(deep=True)
+                return validated
             except Exception as e:
                 logger.warning("Gemini API extraction failed: %s. Falling back to heuristic extractor.", str(e))
                 fallback = self._heuristic_fallback(ocr_result)

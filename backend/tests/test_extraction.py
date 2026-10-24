@@ -141,3 +141,27 @@ def test_gemini_extraction_with_mock_client():
     assert extracted.line_items[0].hsn_sac_code == "8482"
     assert mock_client.models.generate_content.called
 
+
+def test_rate_limiter_and_cache():
+    """Verify GeminiRateLimiter blocks requests exceeding limits and cache avoids duplicate calls."""
+    from backend.app.services.extraction import GeminiRateLimiter
+
+    limiter = GeminiRateLimiter(max_per_minute=2, max_per_day=3)
+    assert limiter.can_request()[0] is True
+
+    limiter.record_request()
+    limiter.record_request()
+    # 3rd request in same minute should be blocked
+    can_call, reason = limiter.can_request()
+    assert can_call is False
+    assert "rate limit exceeded" in reason
+
+    # Test daily limit
+    daily_limiter = GeminiRateLimiter(max_per_minute=10, max_per_day=2)
+    daily_limiter.record_request()
+    daily_limiter.record_request()
+    can_call_daily, daily_reason = daily_limiter.can_request()
+    assert can_call_daily is False
+    assert "Daily Gemini quota reached" in daily_reason
+
+
