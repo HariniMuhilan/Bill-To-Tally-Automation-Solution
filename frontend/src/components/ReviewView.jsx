@@ -8,6 +8,7 @@ export default function ReviewView({
   onUpdateInvoice,
   onPreviewXml,
   onConfirmPost,
+  onSaveDraft,
   onShowToast
 }) {
   const inv = invoices.find(i => i.id === currentInvoiceId) || invoices[0] || {};
@@ -254,6 +255,15 @@ export default function ReviewView({
             onClick={() => onPreviewXml(inv)}
           >
             <i className="fa-solid fa-code"></i> Tally XML
+          </button>
+          <button 
+            type="button" 
+            className="btn btn-secondary btn-sm"
+            style={{ color: '#059669', borderColor: 'rgba(16, 185, 129, 0.4)' }}
+            onClick={() => onSaveDraft ? onSaveDraft(inv) : onShowToast('Draft saved locally.', 'success')}
+            title="Save draft and export Excel spreadsheet to Tally Connector"
+          >
+            <i className="fa-solid fa-file-excel"></i> Save Draft (XL)
           </button>
         </div>
       </div>
@@ -721,9 +731,11 @@ export default function ReviewView({
               <button 
                 type="button" 
                 className="btn btn-secondary btn-sm"
-                onClick={() => onShowToast('Draft edits saved locally.', 'success')}
+                style={{ color: '#059669', borderColor: 'rgba(16, 185, 129, 0.4)', background: 'rgba(16, 185, 129, 0.05)' }}
+                onClick={() => onSaveDraft ? onSaveDraft(inv) : onShowToast('Draft edits saved locally.', 'success')}
+                title="Save draft invoice and export Excel spreadsheet to Tally Connector"
               >
-                <i className="fa-solid fa-floppy-disk"></i> Save Draft
+                <i className="fa-solid fa-file-excel"></i> Save Draft
               </button>
             </div>
 

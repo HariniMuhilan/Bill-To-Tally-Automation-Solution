@@ -11,6 +11,7 @@ import Login from './components/Login';
 import { XmlModal, ConfirmPostModal } from './components/Modals';
 import Toast from './components/Toast';
 import { generateTallyPurchaseXml } from './utils/tallyXml';
+import { downloadTallyInvoiceExcel, downloadAllDraftsExcel } from './utils/tallyExcel';
 import { getSystemHealth, getTallyHealth } from './services/api';
 import { 
   INITIAL_INVOICES, 
@@ -21,6 +22,7 @@ import {
 
 const STORAGE_SESSION_KEY = 'bill_to_tally_session';
 const STORAGE_INVOICES_KEY = 'bill_to_tally_invoices';
+const STORAGE_DRAFTS_KEY = 'bill_to_tally_draft_sheets';
 
 export default function App() {
   // Authentication State
@@ -62,6 +64,14 @@ export default function App() {
   const [mappings, setMappings] = useState(INITIAL_MAPPINGS);
   const [postingAttempts, setPostingAttempts] = useState(INITIAL_POSTING_ATTEMPTS);
   const [auditLogs, setAuditLogs] = useState(INITIAL_AUDIT_LOGS);
+  const [draftSheets, setDraftSheets] = useState(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_DRAFTS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  });
 
   // Backend Connectivity Probes
   const [systemHealth, setSystemHealth] = useState(null);
@@ -91,6 +101,13 @@ export default function App() {
       localStorage.setItem(STORAGE_INVOICES_KEY, JSON.stringify(invoices));
     } catch (e) {}
   }, [invoices]);
+
+  // Save draft Excel sheets to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_DRAFTS_KEY, JSON.stringify(draftSheets));
+    } catch (e) {}
+  }, [draftSheets]);
 
   function showToast(message, type = 'success') {
     const id = Date.now() + Math.random();
@@ -142,6 +159,69 @@ export default function App() {
 
   function handleUpdateInvoice(updatedInvoice) {
     setInvoices(prev => prev.map(inv => inv.id === updatedInvoice.id ? updatedInvoice : inv));
+  }
+
+  function handleSaveDraft(invoice) {
+    // Persist changes to active invoice
+    handleUpdateInvoice(invoice);
+
+    const safeName = `Tally_Purchase_${invoice.invoiceNo && invoice.invoiceNo !== '—' ? invoice.invoiceNo : invoice.id}_${invoice.supplierRaw || 'Supplier'}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileName = `${safeName}.xlsx`;
+
+    const newDraft = {
+      id: `XL-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      invoiceId: invoice.id,
+      fileName,
+      savedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      invoice: { ...invoice }
+    };
+
+    // Update draftSheets registry
+    setDraftSheets(prev => [newDraft, ...prev.filter(d => d.invoiceId !== invoice.id)]);
+
+    // Trigger immediate browser download of the Excel spreadsheet
+    downloadTallyInvoiceExcel(invoice, safeName);
+
+    // Record audit trail entry
+    setAuditLogs(prev => [
+      {
+        time: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        actor: user?.username || 'accounts_user_01',
+        action: 'DRAFT_EXCEL_STORED',
+        summary: `Draft voucher saved to Tally Connector and downloaded as Excel sheet (${fileName})`,
+        diff: {
+          draft_id: newDraft.id,
+          invoice_id: invoice.id,
+          invoice_no: invoice.invoiceNo,
+          grand_total: invoice.grandTotal,
+          file_name: fileName
+        }
+      },
+      ...prev
+    ]);
+
+    showToast(`Draft registered in Tally Connector! Excel sheet downloaded: ${fileName}`, 'success');
+  }
+
+  function handleDownloadDraftSheet(draft) {
+    const inv = draft.invoice || draft;
+    const safeName = draft.fileName ? draft.fileName.replace('.xlsx', '') : `Tally_Draft_${inv.invoiceNo || inv.id}`;
+    downloadTallyInvoiceExcel(inv, safeName);
+    showToast(`Downloading Excel sheet: ${draft.fileName || safeName + '.xlsx'}`, 'success');
+  }
+
+  function handleDownloadAllDrafts() {
+    if (draftSheets.length === 0) {
+      showToast('No draft Excel sheets to download.', 'warning');
+      return;
+    }
+    downloadAllDraftsExcel(draftSheets);
+    showToast(`Downloaded master Excel workbook with ${draftSheets.length} draft vouchers!`, 'success');
+  }
+
+  function handleDeleteDraftSheet(draftId) {
+    setDraftSheets(prev => prev.filter(d => d.id !== draftId));
+    showToast('Draft Excel sheet removed from Tally Connector.', 'info');
   }
 
   function handlePreviewXml(invoice) {
@@ -257,6 +337,7 @@ export default function App() {
               onUpdateInvoice={handleUpdateInvoice}
               onPreviewXml={handlePreviewXml}
               onConfirmPost={handleOpenConfirmPost}
+              onSaveDraft={handleSaveDraft}
               onShowToast={showToast}
             />
           )}
@@ -271,6 +352,10 @@ export default function App() {
           {activeTab === 'tally' && (
             <TallyConnectorView 
               postingAttempts={postingAttempts}
+              draftSheets={draftSheets}
+              onDownloadDraft={handleDownloadDraftSheet}
+              onDownloadAllDrafts={handleDownloadAllDrafts}
+              onDeleteDraft={handleDeleteDraftSheet}
               tallyHealth={tallyHealth}
               onShowToast={showToast}
             />
