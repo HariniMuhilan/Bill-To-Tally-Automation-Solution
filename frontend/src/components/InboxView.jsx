@@ -312,17 +312,16 @@ export default function InboxView({
                     <td><strong className="mono" style={{ color: 'var(--color-azure-text)' }}>{inv.id}</strong></td>
                     <td>
                       <div className="file-name-cell">
-                        {/* Bill Image Thumbnail with Approved Stamp Overlay */}
+                        {/* Bill Image / Document Thumbnail */}
                         <div style={{
                           position: 'relative',
-                          width: '46px',
-                          height: '46px',
-                          borderRadius: '8px',
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '6px',
                           overflow: 'hidden',
                           flexShrink: 0,
                           background: '#1e293b',
-                          border: inv.status === 'APPROVED' ? '2px solid #10b981' : '1px solid var(--border-subtle)',
-                          boxShadow: inv.status === 'APPROVED' ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none',
+                          border: '1px solid var(--border-subtle)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center'
@@ -334,39 +333,12 @@ export default function InboxView({
                               style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                             />
                           ) : (
-                            <i className={`fa-solid ${inv.sourceFilename?.endsWith('.pdf') ? 'fa-file-pdf' : 'fa-file-invoice'}`} style={{ color: inv.status === 'APPROVED' ? '#10b981' : 'var(--text-muted)', fontSize: '1.3rem' }}></i>
-                          )}
-
-                          {/* Visual APPROVED Stamp Overlay directly on Image */}
-                          {inv.status === 'APPROVED' && (
-                            <div style={{
-                              position: 'absolute',
-                              inset: 0,
-                              background: 'rgba(5, 150, 105, 0.78)',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: '#ffffff',
-                              fontWeight: 800,
-                              fontSize: '0.52rem',
-                              letterSpacing: '0.5px'
-                            }} title="Approved Voucher">
-                              <i className="fa-solid fa-circle-check" style={{ fontSize: '1.1rem', marginBottom: '1px' }}></i>
-                              <span>APPROVED</span>
-                            </div>
+                            <i className={`fa-solid ${inv.sourceFilename?.endsWith('.pdf') ? 'fa-file-pdf' : 'fa-file-invoice'}`} style={{ color: 'var(--text-muted)', fontSize: '1.2rem' }}></i>
                           )}
                         </div>
 
                         <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{inv.sourceFilename}</span>
-                            {inv.status === 'APPROVED' && (
-                              <span className="badge" style={{ background: '#10b981', color: '#ffffff', fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                                <i className="fa-solid fa-check"></i> Approved
-                              </span>
-                            )}
-                          </div>
+                          <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{inv.sourceFilename}</div>
                           <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
                             Confidence: {inv.confidence}
                           </div>
