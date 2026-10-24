@@ -107,11 +107,34 @@
             <span>Upload Invoice</span>
           </button>
 
-          <div class="user-profile-badge">
-            <div class="avatar-circle">AU</div>
-            <div class="user-info">
-              <span class="user-name">accounts_user_01</span>
-              <span class="user-role">Reviewer & Approver</span>
+          <!-- User Profile & Session Dropdown -->
+          <div class="user-profile-container" id="user-profile-container">
+            <div class="user-profile-badge" id="user-profile-badge" title="Click for profile options & session management">
+              <div class="avatar-circle" id="header-user-avatar">AU</div>
+              <div class="user-info">
+                <span class="user-name" id="header-user-name">accounts_user_01</span>
+                <span class="user-role" id="header-user-role">Reviewer & Approver</span>
+              </div>
+              <i class="fa-solid fa-chevron-down profile-chevron"></i>
+            </div>
+            
+            <div class="user-dropdown" id="user-dropdown-menu">
+              <div class="dropdown-header">
+                <div class="dropdown-avatar" id="dropdown-user-avatar">AU</div>
+                <div>
+                  <div class="dropdown-name" id="dropdown-user-name">Accounts User 01</div>
+                  <div class="dropdown-role" id="dropdown-user-role">Reviewer & Approver</div>
+                </div>
+              </div>
+              <div class="dropdown-divider"></div>
+              <a href="login.html" class="dropdown-item" id="btn-switch-account">
+                <i class="fa-solid fa-users" style="color: var(--color-azure-text);"></i>
+                <span>Switch / Re-login</span>
+              </a>
+              <button type="button" class="dropdown-item text-danger" id="btn-logout">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                <span>Log Out</span>
+              </button>
             </div>
           </div>
         </div>

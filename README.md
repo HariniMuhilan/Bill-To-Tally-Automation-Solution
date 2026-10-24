@@ -14,10 +14,20 @@ Bill-to-Tally Automation streamlines the accounts payable workflow by:
 ## 📁 Repository Contents
 
 - `frontend/`
+  - `login.html` - Test authentication portal with Sign In, Create Account (Sign Up), and 1-click test credentials quick-fill.
   - `index.html` - Interactive web application interface for invoice inbox, review & validation, master mapping, Tally connector, and audit logs.
   - `styles.css` - UI stylesheets with responsive layouts and modern design tokens.
   - `app.js` - Application logic, state management, validation engine, Tally XML generator, and simulation pipelines.
 - `AGENTS.md` - Agent rules and system specifications.
+
+### 🔑 Test Credentials
+
+| Role | Username | Password |
+|---|---|---|
+| **Reviewer & Approver** | `accounts_user_01` | `tally@2026` |
+| **Administrator** | `admin` | `admin@2026` |
+| **Data Entry Operator** | `operator` | `operator123` |
+
 
 ## 🛠️ How to Run
 

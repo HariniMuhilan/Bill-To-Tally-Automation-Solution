@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login & Sign Up | Bill-to-Tally Automation</title>
+  <meta name="description" content="Authentication portal for Bill-to-Tally Purchase Voucher Automation by Ashan Tech Labs.">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="auth-page">
+  <div class="auth-wrapper">
+    
+    <!-- Top Branding Header -->
+    <header class="auth-brand-header">
+      <div class="auth-logo-badge">
+        <i class="fa-solid fa-receipt"></i>
+      </div>
+      <div class="auth-brand-text">
+        <h1>BILL TO TALLY</h1>
+        <span>Ashan Tech Labs &bull; TallyPrime Voucher Automation Gateway</span>
+      </div>
+    </header>
+
+    <!-- Main Auth Card Container -->
+    <main class="auth-layout-grid">
+      
+      <!-- Primary Card: Sign In & Sign Up Form -->
+      <section class="auth-card" aria-label="Authentication Form">
+        <!-- Auth Tab Navigation -->
+        <div class="auth-tabs" role="tablist">
+          <button class="auth-tab-btn active" id="tab-btn-signin" role="tab" aria-selected="true" aria-controls="pane-signin">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i>
+            <span>Sign In</span>
+          </button>
+          <button class="auth-tab-btn" id="tab-btn-signup" role="tab" aria-selected="false" aria-controls="pane-signup">
+            <i class="fa-solid fa-user-plus"></i>
+            <span>Create Account</span>
+          </button>
+        </div>
+
+        <!-- TAB 1: SIGN IN FORM -->
+        <div class="auth-tab-pane active" id="pane-signin" role="tabpanel" aria-labelledby="tab-btn-signin">
+          <div class="auth-pane-header">
+            <h2>Welcome Back</h2>
+            <p>Sign in to access your purchase voucher inbox, OCR review, and TallyPrime connector.</p>
+          </div>
+
+          <form id="form-signin" autocomplete="on">
+            <!-- Username Input -->
+            <div class="form-group">
+              <label for="signin-username">Username or ID</label>
+              <div class="input-icon-wrap">
+                <i class="fa-solid fa-user input-icon"></i>
+                <input 
+                  type="text" 
+                  id="signin-username" 
+                  name="username" 
+                  class="auth-input" 
+                  placeholder="Enter your username" 
+                  required 
+                  autofocus
+                >
+              </div>
+            </div>
+
+            <!-- Password Input -->
+            <div class="form-group">
+              <label for="signin-password">Password</label>
+              <div class="input-icon-wrap">
+                <i class="fa-solid fa-lock input-icon"></i>
+                <input 
+                  type="password" 
+                  id="signin-password" 
+                  name="password" 
+                  class="auth-input" 
+                  placeholder="Enter your password" 
+                  required
+                >
+                <button type="button" class="btn-toggle-password" data-target="signin-password" title="Toggle password visibility">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Form Extras: Remember Me -->
+            <div class="auth-extras-row">
+              <label class="custom-checkbox">
+                <input type="checkbox" id="signin-remember" checked>
+                <span class="checkbox-mark"></span>
+                <span class="checkbox-label">Keep me logged in</span>
+              </label>
+            </div>
+
+            <!-- Sign In Submit Button -->
+            <button type="submit" class="btn btn-primary btn-auth-submit" id="btn-signin-submit">
+              <span class="btn-text">
+                <i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In to Bill-to-Tally
+              </span>
+              <span class="btn-loading d-none">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Authenticating...
+              </span>
+            </button>
+          </form>
+        </div>
+
+        <!-- TAB 2: SIGN UP FORM (CREATE ACCOUNT) -->
+        <div class="auth-tab-pane" id="pane-signup" role="tabpanel" aria-labelledby="tab-btn-signup">
+          <div class="auth-pane-header">
+            <h2>Create an Account</h2>
+            <p>Register a new account to begin processing bills and syncing vouchers to TallyPrime.</p>
+          </div>
+
+          <form id="form-signup" autocomplete="off">
+            <!-- Full Name -->
+            <div class="form-group">
+              <label for="signup-name">Full Name</label>
+              <div class="input-icon-wrap">
+                <i class="fa-solid fa-id-card input-icon"></i>
+                <input 
+                  type="text" 
+                  id="signup-name" 
+                  name="fullName" 
+                  class="auth-input" 
+                  placeholder="e.g. Harini Muhilan" 
+                  required
+                >
+              </div>
+            </div>
+
+            <!-- Username -->
+            <div class="form-group">
+              <label for="signup-username">Username</label>
+              <div class="input-icon-wrap">
+                <i class="fa-solid fa-at input-icon"></i>
+                <input 
+                  type="text" 
+                  id="signup-username" 
+                  name="username" 
+                  class="auth-input" 
+                  placeholder="Choose a unique username" 
+                  required
+                >
+              </div>
+            </div>
+
+            <!-- Password -->
+            <div class="form-group">
+              <label for="signup-password">Password</label>
+              <div class="input-icon-wrap">
+                <i class="fa-solid fa-lock input-icon"></i>
+                <input 
+                  type="password" 
+                  id="signup-password" 
+                  name="password" 
+                  class="auth-input" 
+                  placeholder="At least 6 characters" 
+                  minlength="6"
+                  required
+                >
+                <button type="button" class="btn-toggle-password" data-target="signup-password" title="Toggle password visibility">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Confirm Password -->
+            <div class="form-group">
+              <label for="signup-confirm-password">Confirm Password</label>
+              <div class="input-icon-wrap">
+                <i class="fa-solid fa-check-double input-icon"></i>
+                <input 
+                  type="password" 
+                  id="signup-confirm-password" 
+                  name="confirmPassword" 
+                  class="auth-input" 
+                  placeholder="Re-enter password" 
+                  required
+                >
+                <button type="button" class="btn-toggle-password" data-target="signup-confirm-password" title="Toggle password visibility">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+              </div>
+              <span class="validation-message" id="password-match-error"></span>
+            </div>
+
+            <!-- Sign Up Submit Button -->
+            <button type="submit" class="btn btn-primary btn-auth-submit" id="btn-signup-submit">
+              <span class="btn-text">
+                <i class="fa-solid fa-user-plus"></i> Create Account & Enter App
+              </span>
+              <span class="btn-loading d-none">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Registering Account...
+              </span>
+            </button>
+          </form>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bottom Footer -->
+    <footer class="auth-footer">
+      <span>Ashan Tech Labs &bull; Bill-to-Tally Automation Solution</span>
+    </footer>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Authentication Script -->
+  <script>
+    (function() {
+      // Pre-configured Default Accounts for Testing
+      const DEFAULT_ACCOUNTS = [
+        {
+          username: 'accounts_user_01',
+          password: 'tally@2026',
+          fullName: 'Accounts User 01',
+          role: 'Reviewer & Approver',
+          initials: 'AU'
+        },
+        {
+          username: 'admin',
+          password: 'admin@2026',
+          fullName: 'System Administrator',
+          role: 'Administrator',
+          initials: 'SA'
+        },
+        {
+          username: 'operator',
+          password: 'operator123',
+          fullName: 'Data Entry Operator',
+          role: 'Data Entry Operator',
+          initials: 'OP'
+        }
+      ];
+
+      // Local Storage Keys
+      const STORAGE_USERS_KEY = 'bill_to_tally_users';
+      const STORAGE_SESSION_KEY = 'bill_to_tally_session';
+
+      // Initialize accounts in localStorage if missing
+      function getStoredUsers() {
+        try {
+          const stored = localStorage.getItem(STORAGE_USERS_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              return parsed;
+            }
+          }
+        } catch (e) {
+          console.error('Error reading stored users:', e);
+        }
+        localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(DEFAULT_ACCOUNTS));
+        return DEFAULT_ACCOUNTS;
+      }
+
+      function saveUser(user) {
+        const users = getStoredUsers();
+        const existingIdx = users.findIndex(u => u.username.toLowerCase() === user.username.toLowerCase());
+        if (existingIdx !== -1) {
+          users[existingIdx] = user;
+        } else {
+          users.push(user);
+        }
+        localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
+      }
+
+      function createSession(user, remember = true) {
+        const sessionData = {
+          username: user.username,
+          fullName: user.fullName || user.username,
+          role: user.role || 'Reviewer & Approver',
+          initials: user.initials || (user.fullName ? user.fullName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() : user.username.substring(0, 2).toUpperCase()),
+          loggedInAt: new Date().toISOString()
+        };
+        sessionStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(sessionData));
+        if (remember) {
+          localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(sessionData));
+        } else {
+          localStorage.removeItem(STORAGE_SESSION_KEY);
+        }
+        return sessionData;
+      }
+
+      // UI Element References
+      const tabBtnSignIn = document.getElementById('tab-btn-signin');
+      const tabBtnSignUp = document.getElementById('tab-btn-signup');
+      const paneSignIn = document.getElementById('pane-signin');
+      const paneSignUp = document.getElementById('pane-signup');
+      const formSignIn = document.getElementById('form-signin');
+      const formSignUp = document.getElementById('form-signup');
+      const toastContainer = document.getElementById('toast-container');
+
+      // Toast Notifications
+      function showToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        
+        let icon = 'fa-circle-check';
+        if (type === 'warning') icon = 'fa-triangle-exclamation';
+        if (type === 'error') icon = 'fa-circle-xmark';
+
+        toast.innerHTML = `
+          <i class="fa-solid ${icon}" style="font-size: 1.1rem; color: ${type === 'success' ? '#10b981' : (type === 'warning' ? '#f59e0b' : '#ef4444')};"></i>
+          <span>${message}</span>
+        `;
+
+        toastContainer.appendChild(toast);
+
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateX(100%)';
+          toast.style.transition = 'all 0.3s ease';
+          setTimeout(() => toast.remove(), 300);
+        }, 4000);
+      }
+
+      // Tab Switching
+      function switchTab(target) {
+        if (target === 'signin') {
+          tabBtnSignIn.classList.add('active');
+          tabBtnSignIn.setAttribute('aria-selected', 'true');
+          tabBtnSignUp.classList.remove('active');
+          tabBtnSignUp.setAttribute('aria-selected', 'false');
+          paneSignIn.classList.add('active');
+          paneSignUp.classList.remove('active');
+          document.getElementById('signin-username').focus();
+        } else {
+          tabBtnSignUp.classList.add('active');
+          tabBtnSignUp.setAttribute('aria-selected', 'true');
+          tabBtnSignIn.classList.remove('active');
+          tabBtnSignIn.setAttribute('aria-selected', 'false');
+          paneSignUp.classList.add('active');
+          paneSignIn.classList.remove('active');
+          document.getElementById('signup-name').focus();
+        }
+      }
+
+      tabBtnSignIn.addEventListener('click', () => switchTab('signin'));
+      tabBtnSignUp.addEventListener('click', () => switchTab('signup'));
+
+      // Password Visibility Toggle
+      document.querySelectorAll('.btn-toggle-password').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const targetId = btn.getAttribute('data-target');
+          const input = document.getElementById(targetId);
+          if (input) {
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            const icon = btn.querySelector('i');
+            if (icon) {
+              icon.className = isPassword ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+            }
+          }
+        });
+      });
+
+      // Handle Sign In Submission
+      formSignIn.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = document.getElementById('signin-username').value.trim();
+        const password = document.getElementById('signin-password').value;
+        const remember = document.getElementById('signin-remember').checked;
+
+        const submitBtn = document.getElementById('btn-signin-submit');
+        const btnText = submitBtn.querySelector('.btn-text');
+        const btnLoading = submitBtn.querySelector('.btn-loading');
+
+        // Check against stored accounts
+        const users = getStoredUsers();
+        const userMatch = users.find(u => 
+          u.username.toLowerCase() === username.toLowerCase() && u.password === password
+        );
+
+        if (!userMatch) {
+          showToast('Invalid username or password. Please try again.', 'error');
+          document.getElementById('signin-password').focus();
+          return;
+        }
+
+        // Show loading state
+        submitBtn.disabled = true;
+        btnText.classList.add('d-none');
+        btnLoading.classList.remove('d-none');
+
+        // Set session
+        createSession(userMatch, remember);
+        showToast(`Welcome back, ${userMatch.fullName}! Redirecting to dashboard...`, 'success');
+
+        // Transition to main app
+        setTimeout(() => {
+          window.location.href = 'index.html';
+        }, 700);
+      });
+
+      // Handle Sign Up Submission
+      formSignUp.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const fullName = document.getElementById('signup-name').value.trim();
+        const username = document.getElementById('signup-username').value.trim();
+        const password = document.getElementById('signup-password').value;
+        const confirmPassword = document.getElementById('signup-confirm-password').value;
+        const matchError = document.getElementById('password-match-error');
+
+        matchError.textContent = '';
+
+        if (!fullName || !username || !password) {
+          showToast('Please fill out all required fields.', 'warning');
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          matchError.textContent = 'Passwords do not match.';
+          document.getElementById('signup-confirm-password').focus();
+          showToast('Passwords do not match.', 'error');
+          return;
+        }
+
+        const users = getStoredUsers();
+        const existing = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+        if (existing) {
+          showToast(`Username "${username}" is already taken. Please choose another.`, 'warning');
+          document.getElementById('signup-username').focus();
+          return;
+        }
+
+        // Default role is Reviewer & Approver
+        const role = 'Reviewer & Approver';
+
+        // Create initials
+        const nameParts = fullName.split(' ').filter(Boolean);
+        const initials = nameParts.length >= 2 
+          ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
+          : fullName.substring(0, 2).toUpperCase();
+
+        const newUser = {
+          username,
+          password,
+          fullName,
+          role,
+          initials,
+          createdAt: new Date().toISOString()
+        };
+
+        const submitBtn = document.getElementById('btn-signup-submit');
+        const btnText = submitBtn.querySelector('.btn-text');
+        const btnLoading = submitBtn.querySelector('.btn-loading');
+
+        submitBtn.disabled = true;
+        btnText.classList.add('d-none');
+        btnLoading.classList.remove('d-none');
+
+        // Save & establish session
+        saveUser(newUser);
+        createSession(newUser, true);
+
+        showToast(`Account created for ${fullName}! Loading workspace...`, 'success');
+
+        setTimeout(() => {
+          window.location.href = 'index.html';
+        }, 800);
+      });
+
+      // Auto-check existing session
+      const existingSession = sessionStorage.getItem(STORAGE_SESSION_KEY) || localStorage.getItem(STORAGE_SESSION_KEY);
+      if (existingSession) {
+        try {
+          const sess = JSON.parse(existingSession);
+          if (sess && sess.username) {
+            const userField = document.getElementById('signin-username');
+            if (userField && !userField.value) {
+              userField.value = sess.username;
+            }
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      // Ensure default accounts exist on first run
+      getStoredUsers();
+    })();
+  </script>
+</body>
+</html>

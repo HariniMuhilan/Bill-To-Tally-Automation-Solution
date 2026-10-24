@@ -1386,10 +1386,84 @@ function showToast(message, type = 'success') {
 }
 
 // ============================================================================
+// 12. User Session Management & Profile Dropdown
+// ============================================================================
+
+const STORAGE_SESSION_KEY = 'bill_to_tally_session';
+
+function initUserSession() {
+  const container = document.getElementById('user-profile-container');
+  const badge = document.getElementById('user-profile-badge');
+  const btnLogout = document.getElementById('btn-logout');
+
+  if (!container || !badge) return;
+
+  // Retrieve active session or fallback to default reviewer
+  let session = null;
+  try {
+    const raw = sessionStorage.getItem(STORAGE_SESSION_KEY) || localStorage.getItem(STORAGE_SESSION_KEY);
+    if (raw) session = JSON.parse(raw);
+  } catch (e) {
+    console.warn('Could not parse session:', e);
+  }
+
+  if (!session) {
+    session = {
+      username: 'accounts_user_01',
+      fullName: 'Accounts User 01',
+      role: 'Reviewer & Approver',
+      initials: 'AU'
+    };
+  }
+
+  // Populate Header UI
+  const headerAvatar = document.getElementById('header-user-avatar');
+  const headerName = document.getElementById('header-user-name');
+  const headerRole = document.getElementById('header-user-role');
+  const dropdownAvatar = document.getElementById('dropdown-user-avatar');
+  const dropdownName = document.getElementById('dropdown-user-name');
+  const dropdownRole = document.getElementById('dropdown-user-role');
+
+  if (headerAvatar) headerAvatar.textContent = session.initials || 'AU';
+  if (headerName) headerName.textContent = session.username;
+  if (headerRole) headerRole.textContent = session.role;
+  if (dropdownAvatar) dropdownAvatar.textContent = session.initials || 'AU';
+  if (dropdownName) dropdownName.textContent = session.fullName || session.username;
+  if (dropdownRole) dropdownRole.textContent = session.role;
+
+  // Toggle Dropdown
+  badge.addEventListener('click', (e) => {
+    e.stopPropagation();
+    container.classList.toggle('open');
+  });
+
+  // Close Dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!container.contains(e.target)) {
+      container.classList.remove('open');
+    }
+  });
+
+  // Handle Logout
+  if (btnLogout) {
+    btnLogout.addEventListener('click', () => {
+      sessionStorage.removeItem(STORAGE_SESSION_KEY);
+      localStorage.removeItem(STORAGE_SESSION_KEY);
+      showToast('Logged out successfully. Redirecting to login...', 'warning');
+      setTimeout(() => {
+        window.location.href = 'login.html';
+      }, 500);
+    });
+  }
+}
+
+// ============================================================================
 // Initialization on Page Load
 // ============================================================================
 
 window.addEventListener('DOMContentLoaded', () => {
+  initUserSession();
   switchTab('inbox');
   loadInvoiceForReview(state.currentInvoiceId);
 });
+
