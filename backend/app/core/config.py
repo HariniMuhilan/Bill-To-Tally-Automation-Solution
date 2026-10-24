@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
     # Gemini LLM Configuration
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.0-flash"
+    GEMINI_MODEL: str = "gemini-2.5-flash"
 
     # Tally Prime Connector (Safety defaults)
     TALLY_HOST: str = "127.0.0.1"

@@ -3,7 +3,27 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .core.config import settings
+from pathlib import Path
+import sys
+
+# Ensure project root and backend directory are in sys.path for direct execution or IDE tools
+_current_dir = Path(__file__).resolve().parent
+_project_root = _current_dir.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+_backend_dir = _project_root / "backend"
+if str(_backend_dir) not in sys.path:
+    sys.path.insert(0, str(_backend_dir))
+try:
+    from backend.app.core.config import settings
+    from backend.app.api.routes.invoices import router as invoices_router
+except (ImportError, ValueError):
+    try:
+        from app.core.config import settings
+        from app.api.routes.invoices import router as invoices_router
+    except (ImportError, ValueError):
+        from .core.config import settings
+        from .api.routes.invoices import router as invoices_router
 
 
 @asynccontextmanager
@@ -29,6 +49,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount routes
+app.include_router(invoices_router)
 
 
 @app.get("/api/health", tags=["System"])

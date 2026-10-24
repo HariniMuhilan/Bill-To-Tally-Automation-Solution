@@ -909,6 +909,30 @@
        MODALS
        ==================================================================== -->
   
+  <!-- Raw OCR Text Inspector Modal -->
+  <div class="modal-overlay" id="modal-ocr-inspector">
+    <div class="modal-card" style="max-width: 640px;">
+      <div class="modal-header">
+        <span class="card-title">
+          <i class="fa-solid fa-file-lines" style="color: var(--color-azure-text);"></i>
+          <span>PaddleOCR Extracted Raw Text Payload</span>
+        </span>
+        <button class="btn btn-secondary btn-icon" id="close-modal-ocr-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="font-size: 0.78rem; color: var(--text-muted);" id="ocr-modal-meta">Lines: 0 | Avg Confidence: 0%</span>
+          <span class="badge" style="background: rgba(14, 165, 233, 0.15); color: var(--color-azure-text); font-weight: 700; font-size: 0.72rem;">PaddleOCR Engine</span>
+        </div>
+        <pre class="xml-code-view" id="ocr-modal-content" style="white-space: pre-wrap; max-height: 400px; font-size: 0.8rem;"></pre>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" id="btn-copy-ocr"><i class="fa-solid fa-copy"></i> Copy Text</button>
+        <button class="btn btn-primary btn-sm" id="btn-done-ocr">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- XML Payload Inspector Modal -->
   <div class="modal-overlay" id="modal-xml-inspector">
     <div class="modal-card">
