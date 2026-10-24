@@ -594,30 +594,43 @@ function loadInvoiceForReview(invoiceId) {
   }
 
   if (inv.imageUrl && dom.docViewport) {
-    let bboxesHtml = '';
-    if (inv.ocrResult && inv.ocrResult.lines && state.showBBoxes) {
-      bboxesHtml = inv.ocrResult.lines.map(l => {
-        if (!l.bbox || l.bbox.length < 4) return '';
-        const minX = Math.min(l.bbox[0][0], l.bbox[3][0]);
-        const minY = Math.min(l.bbox[0][1], l.bbox[1][1]);
-        const maxX = Math.max(l.bbox[1][0], l.bbox[2][0]);
-        const maxY = Math.max(l.bbox[2][1], l.bbox[3][1]);
-        const width = Math.max(20, maxX - minX);
-        const height = Math.max(10, maxY - minY);
-        return `<div class="ocr-bbox" style="position: absolute; left: ${minX}px; top: ${minY}px; width: ${width}px; height: ${height}px; border: 1.5px solid #0284c7; background: rgba(14, 165, 233, 0.15); border-radius: 2px;" title="${l.text} (${(l.confidence * 100).toFixed(0)}%)">
-          <span class="ocr-tag" style="position: absolute; top: -18px; left: 0; background: #0284c7; color: white; font-size: 9px; padding: 1px 4px; border-radius: 2px; white-space: nowrap;">${l.text.substring(0, 20)} (${(l.confidence * 100).toFixed(0)}%)</span>
-        </div>`;
-      }).join('');
-    }
-
     dom.docViewport.innerHTML = `
-      <div style="position: relative; display: inline-block; width: 100%; text-align: center;">
-        <img src="${inv.imageUrl}" alt="${inv.sourceFilename}" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" id="live-bill-image">
-        <div id="live-bboxes-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
-          ${bboxesHtml}
-        </div>
+      <div style="position: relative; display: inline-block; width: 100%; max-width: 650px; margin: 0 auto; text-align: center;" id="bill-img-wrapper">
+        <img src="${inv.imageUrl}" alt="${inv.sourceFilename}" style="width: 100%; height: auto; display: block; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.18);" id="live-bill-image">
+        <div id="live-bboxes-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden;"></div>
       </div>
     `;
+
+    const img = document.getElementById('live-bill-image');
+    const bboxContainer = document.getElementById('live-bboxes-container');
+    const renderBBoxes = () => {
+      if (!bboxContainer || !img || !inv.ocrResult || !inv.ocrResult.lines || !state.showBBoxes) return;
+      const naturalW = img.naturalWidth || img.clientWidth || 1;
+      const naturalH = img.naturalHeight || img.clientHeight || 1;
+      const renderW = img.clientWidth;
+      const renderH = img.clientHeight;
+      const scaleX = renderW / naturalW;
+      const scaleY = renderH / naturalH;
+
+      bboxContainer.innerHTML = inv.ocrResult.lines.map(l => {
+        if (!l.bbox || l.bbox.length < 4) return '';
+        const minX = Math.min(l.bbox[0][0], l.bbox[3][0]) * scaleX;
+        const minY = Math.min(l.bbox[0][1], l.bbox[1][1]) * scaleY;
+        const maxX = Math.max(l.bbox[1][0], l.bbox[2][0]) * scaleX;
+        const maxY = Math.max(l.bbox[2][1], l.bbox[3][1]) * scaleY;
+        const width = Math.max(12, maxX - minX);
+        const height = Math.max(8, maxY - minY);
+        return `<div class="ocr-bbox" style="position: absolute; left: ${minX}px; top: ${minY}px; width: ${width}px; height: ${height}px; border: 1.5px solid #0284c7; background: rgba(14, 165, 233, 0.15); border-radius: 2px;" title="${l.text} (${(l.confidence * 100).toFixed(0)}%)">
+          <span class="ocr-tag" style="position: absolute; top: -16px; left: 0; background: #0284c7; color: white; font-size: 8px; padding: 1px 3px; border-radius: 2px; white-space: nowrap;">${l.text.substring(0, 18)}</span>
+        </div>`;
+      }).join('');
+    };
+
+    if (img.complete) {
+      renderBBoxes();
+    } else {
+      img.onload = renderBBoxes;
+    }
   } else if (dom.docViewport && defaultBillPaperHtml) {
     dom.docViewport.innerHTML = defaultBillPaperHtml;
     const sellerEl = document.getElementById('doc-seller-name');
@@ -1324,8 +1337,10 @@ document.getElementById('btn-quick-upload').addEventListener('click', () => {
 });
 
 document.getElementById('hidden-file-input').addEventListener('change', (e) => {
-  if (e.target.files.length > 0) {
-    handleFileUpload(e.target.files[0]);
+  if (e.target.files && e.target.files.length > 0) {
+    const file = e.target.files[0];
+    e.target.value = ''; // Reset so uploading the same file triggers change again
+    handleFileUpload(file);
   }
 });
 

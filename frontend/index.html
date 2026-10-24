@@ -196,14 +196,14 @@
           </div>
 
           <!-- Drag & Drop Upload Zone -->
-          <div class="upload-dropzone" id="upload-dropzone-box">
+          <div class="upload-dropzone" id="upload-dropzone-box" style="cursor: pointer;" onclick="document.getElementById('hidden-file-input').click();">
             <div class="upload-icon">
               <i class="fa-solid fa-file-arrow-up"></i>
             </div>
             <div class="upload-title">Drop supplier bills or click to browse</div>
-            <div class="upload-subtitle">Supports PDF, JPG, PNG &bull; Auto-OCR deskewing, GSTIN extraction & SHA-256 integrity hash</div>
-            <input type="file" id="hidden-file-input" style="display: none;" accept=".pdf,.png,.jpg,.jpeg">
-            <button class="btn btn-secondary btn-sm" style="margin-top: 6px;" onclick="document.getElementById('hidden-file-input').click();">
+            <div class="upload-subtitle">Supports JPG, PNG, WEBP &bull; Auto-OCR deskewing, GSTIN extraction & SHA-256 integrity hash</div>
+            <input type="file" id="hidden-file-input" style="display: none;" accept=".png,.jpg,.jpeg,.webp,.bmp">
+            <button class="btn btn-secondary btn-sm" style="margin-top: 6px;" type="button" onclick="event.stopPropagation(); document.getElementById('hidden-file-input').click();">
               <i class="fa-solid fa-plus"></i> Select Files
             </button>
           </div>
