@@ -13,11 +13,11 @@ Bill-to-Tally Automation streamlines the accounts payable workflow by:
 
 ## 📁 Repository Contents
 
-- `index.html` - Interactive web application interface for invoice inbox, review & validation, master mapping, Tally connector, and audit logs.
-- `styles.css` - UI stylesheets with responsive layouts and modern design tokens.
-- `app.js` - Application logic, state management, validation engine, Tally XML generator, and simulation pipelines.
-- `Ashan_Tech_Labs_Bill_to_Tally_Automation_Proposal.pdf` - Project proposal document.
-- `Ashan_Tech_Labs_Final_Bill_to_Tally_Prototype_Specification.pdf` - Technical prototype specification document.
+- `frontend/`
+  - `index.html` - Interactive web application interface for invoice inbox, review & validation, master mapping, Tally connector, and audit logs.
+  - `styles.css` - UI stylesheets with responsive layouts and modern design tokens.
+  - `app.js` - Application logic, state management, validation engine, Tally XML generator, and simulation pipelines.
+- `AGENTS.md` - Agent rules and system specifications.
 
 ## 🛠️ How to Run
 
@@ -25,13 +25,13 @@ Bill-to-Tally Automation streamlines the accounts payable workflow by:
    ```bash
    git clone https://github.com/HariniMuhilan/Bill-To-Tally-Automation-Solution.git
    ```
-2. Open `index.html` in any modern web browser, or serve it using a local static file server:
+2. Open `frontend/index.html` in any modern web browser, or serve the directory using a local static file server:
    ```bash
    # Using Python
-   python -m http.server 3000
+   python -m http.server 3000 --directory frontend
 
    # Or using npx
-   npx serve .
+   npx serve frontend
    ```
 3. Connect to your local TallyPrime instance (ensure XML server is enabled on port 9000 in Tally configuration).
 
