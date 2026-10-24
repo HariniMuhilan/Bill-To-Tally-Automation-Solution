@@ -7,11 +7,33 @@ from typing import List, Optional
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+import sys
 
-from ...core.config import settings
-from ...schemas.invoice import InvoiceExtractedData, OCRResult
-from ...services.extraction import get_extraction_service
-from ...services.ocr_service import get_ocr_service
+# Ensure project root and backend directory are in sys.path for direct execution or IDE tools
+_current_dir = Path(__file__).resolve().parent
+_project_root = _current_dir.parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+_backend_dir = _project_root / "backend"
+if str(_backend_dir) not in sys.path:
+    sys.path.insert(0, str(_backend_dir))
+
+try:
+    from backend.app.core.config import settings
+    from backend.app.schemas.invoice import InvoiceExtractedData, OCRResult
+    from backend.app.services.extraction import get_extraction_service
+    from backend.app.services.ocr_service import get_ocr_service
+except (ImportError, ValueError):
+    try:
+        from app.core.config import settings
+        from app.schemas.invoice import InvoiceExtractedData, OCRResult
+        from app.services.extraction import get_extraction_service
+        from app.services.ocr_service import get_ocr_service
+    except (ImportError, ValueError):
+        from ...core.config import settings
+        from ...schemas.invoice import InvoiceExtractedData, OCRResult
+        from ...services.extraction import get_extraction_service
+        from ...services.ocr_service import get_ocr_service
 
 router = APIRouter(prefix="/api/invoices", tags=["Invoices"])
 

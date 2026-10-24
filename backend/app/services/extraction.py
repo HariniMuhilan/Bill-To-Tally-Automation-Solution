@@ -8,20 +8,56 @@ precise Decimal arithmetic, and untrusted input sanitization).
 
 from decimal import Decimal, InvalidOperation
 import json
+import sys
+from pathlib import Path
 import logging
 import re
 from typing import Any, Dict, List, Optional
-import google.genai as genai
-from google.genai import types
 
-from ..core.config import settings
-from ..schemas.invoice import (
-    ExtractionWarning,
-    InvoiceExtractedData,
-    InvoiceLineItem,
-    InvoiceMode,
-    OCRResult,
-)
+# Ensure project root and backend directory are in sys.path for direct execution or IDE tools
+_current_dir = Path(__file__).resolve().parent
+_project_root = _current_dir.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+_backend_dir = _project_root / "backend"
+if str(_backend_dir) not in sys.path:
+    sys.path.insert(0, str(_backend_dir))
+
+try:
+    from google import genai
+    from google.genai import types
+except ImportError:
+    import google.genai as genai  # type: ignore
+    from google.genai import types  # type: ignore
+
+try:
+    from backend.app.core.config import settings
+    from backend.app.schemas.invoice import (
+        ExtractionWarning,
+        InvoiceExtractedData,
+        InvoiceLineItem,
+        InvoiceMode,
+        OCRResult,
+    )
+except (ImportError, ValueError):
+    try:
+        from app.core.config import settings
+        from app.schemas.invoice import (
+            ExtractionWarning,
+            InvoiceExtractedData,
+            InvoiceLineItem,
+            InvoiceMode,
+            OCRResult,
+        )
+    except (ImportError, ValueError):
+        from ..core.config import settings
+        from ..schemas.invoice import (
+            ExtractionWarning,
+            InvoiceExtractedData,
+            InvoiceLineItem,
+            InvoiceMode,
+            OCRResult,
+        )
 
 logger = logging.getLogger(__name__)
 

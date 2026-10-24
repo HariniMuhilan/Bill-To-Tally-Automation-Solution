@@ -9,11 +9,29 @@ import io
 import logging
 from pathlib import Path
 from typing import List, Optional, Union
+import sys
 import numpy as np
 from PIL import Image, ImageOps
 
-from ..core.config import settings
-from ..schemas.invoice import OCRLine, OCRResult
+# Ensure project root and backend directory are in sys.path for direct execution or IDE tools
+_current_dir = Path(__file__).resolve().parent
+_project_root = _current_dir.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+_backend_dir = _project_root / "backend"
+if str(_backend_dir) not in sys.path:
+    sys.path.insert(0, str(_backend_dir))
+
+try:
+    from backend.app.core.config import settings
+    from backend.app.schemas.invoice import OCRLine, OCRResult
+except (ImportError, ValueError):
+    try:
+        from app.core.config import settings
+        from app.schemas.invoice import OCRLine, OCRResult
+    except (ImportError, ValueError):
+        from ..core.config import settings
+        from ..schemas.invoice import OCRLine, OCRResult
 
 logger = logging.getLogger(__name__)
 
