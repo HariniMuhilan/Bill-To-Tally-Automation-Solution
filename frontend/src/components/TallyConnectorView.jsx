@@ -102,72 +102,80 @@ export default function TallyConnectorView({
         <table className="data-table">
           <thead>
             <tr>
-              <th>File / Sheet Name</th>
-              <th>Invoice ID</th>
-              <th>Voucher Date</th>
-              <th>Supplier / Party Ledger</th>
-              <th>Items</th>
-              <th>Taxable (₹)</th>
-              <th>Grand Total (₹)</th>
-              <th>Saved At</th>
+              <th>Excel Sheet / File Name</th>
+              <th>Vouchers Contained</th>
+              <th>Party / Supplier Ledgers</th>
+              <th>Total Items</th>
+              <th>Consolidated Total (₹)</th>
+              <th>Last Saved / Updated</th>
               <th style={{ textAlign: 'right' }}>Download / Actions</th>
             </tr>
           </thead>
           <tbody>
             {draftSheets.length === 0 ? (
               <tr>
-                <td colSpan="9" style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-muted)' }}>
+                <td colSpan="7" style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-muted)' }}>
                   <i className="fa-solid fa-file-excel" style={{ fontSize: '2.4rem', marginBottom: '10px', display: 'block', color: 'rgba(16, 185, 129, 0.3)' }}></i>
                   <div style={{ fontWeight: 600, color: 'var(--text-light)', marginBottom: '4px', fontSize: '0.95rem' }}>
                     No Draft Excel Sheets Stored Yet
                   </div>
                   <div style={{ fontSize: '0.82rem', maxWidth: '520px', margin: '0 auto', lineHeight: 1.5 }}>
-                    When you click <strong>"Save Draft"</strong> in the Review & Validate screen, your invoice and line items will automatically be saved here as a Tally-formatted Excel spreadsheet and downloaded as a <code>.xlsx</code> file.
+                    When you click <strong>"Save Draft"</strong> in Review & Validate, you can choose to store into a new or existing Excel sheet. Stored sheets can be downloaded here anytime as <code>.xlsx</code> files.
                   </div>
                 </td>
               </tr>
             ) : (
               draftSheets.map(draft => {
-                const inv = draft.invoice || {};
-                const lineCount = (inv.lines || []).length;
+                const invs = draft.invoices && draft.invoices.length > 0 
+                  ? draft.invoices 
+                  : (draft.invoice ? [draft.invoice] : []);
+                const voucherCount = invs.length;
+                const totalLineCount = invs.reduce((acc, i) => acc + (i.lines || []).length, 0);
+                const totalAmt = invs.reduce((acc, i) => acc + Number(i.grandTotal || 0), 0);
+                const suppliers = Array.from(new Set(invs.map(i => i.supplierMapped || i.supplierRaw || 'Supplier'))).join(', ');
+                const invoiceNos = invs.map(i => i.invoiceNo || i.id).join(', ');
+
                 return (
                   <tr key={draft.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <i className="fa-solid fa-file-excel" style={{ color: '#10b981', fontSize: '1.1rem' }}></i>
+                        <i className="fa-solid fa-file-excel" style={{ color: '#10b981', fontSize: '1.2rem' }}></i>
                         <div>
-                          <strong className="mono" style={{ color: 'var(--text-primary)', fontSize: '0.84rem' }}>
+                          <strong className="mono" style={{ color: 'var(--text-primary)', fontSize: '0.85rem' }}>
                             {draft.fileName}
                           </strong>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>ID: {draft.id}</div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Sheet ID: {draft.id}</div>
                         </div>
                       </div>
                     </td>
-                    <td><span className="mono" style={{ fontWeight: 600 }}>{draft.invoiceId || inv.id}</span></td>
-                    <td><span className="mono" style={{ fontSize: '0.78rem' }}>{inv.invoiceDate || '—'}</span></td>
                     <td>
-                      <span style={{ fontWeight: 600, color: 'var(--text-light)' }}>
-                        {inv.supplierMapped || inv.supplierRaw || '—'}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#059669', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, width: 'fit-content' }}>
+                          {voucherCount} {voucherCount === 1 ? 'Voucher' : 'Vouchers'}
+                        </span>
+                        <span className="mono" style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }} title={invoiceNos}>
+                          {invoiceNos.length > 25 ? invoiceNos.substring(0, 25) + '...' : invoiceNos}
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <span style={{ fontWeight: 600, color: 'var(--text-light)', fontSize: '0.82rem' }} title={suppliers}>
+                        {suppliers.length > 30 ? suppliers.substring(0, 30) + '...' : suppliers}
                       </span>
                     </td>
                     <td>
                       <span className="badge" style={{ background: 'var(--bg-card)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
-                        {lineCount} {lineCount === 1 ? 'item' : 'items'}
+                        {totalLineCount} {totalLineCount === 1 ? 'item' : 'items'}
                       </span>
                     </td>
                     <td>
-                      <span className="mono">
-                        ₹ {Number(inv.subtotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </span>
-                    </td>
-                    <td>
-                      <strong className="mono" style={{ color: '#059669', fontSize: '0.9rem' }}>
-                        ₹ {Number(inv.grandTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      <strong className="mono" style={{ color: '#059669', fontSize: '0.92rem' }}>
+                        ₹ {Number(totalAmt || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </strong>
                     </td>
                     <td>
                       <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                        {draft.savedAt}
+                        {draft.updatedAt || draft.savedAt}
                       </span>
                     </td>
                     <td style={{ textAlign: 'right' }}>

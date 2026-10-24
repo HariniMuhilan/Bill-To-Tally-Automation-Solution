@@ -46,14 +46,22 @@ export function formatInvoiceForTallyExcel(inv) {
 }
 
 /**
- * Generates an XLSX workbook for a single invoice.
+ * Downloads a specific draft sheet (which may contain one or multiple vouchers).
  */
-export function generateInvoiceWorkbook(inv) {
-  const wb = XLSX.utils.book_new();
-  const rows = formatInvoiceForTallyExcel(inv);
-  const ws = XLSX.utils.json_to_sheet(rows);
+export function downloadDraftSheetWorkbook(sheet) {
+  if (!sheet) return;
+  const invoices = sheet.invoices && sheet.invoices.length > 0 
+    ? sheet.invoices 
+    : (sheet.invoice ? [sheet.invoice] : []);
 
-  // Set column widths for clean readability in Microsoft Excel
+  if (invoices.length === 0) return;
+
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Line-by-line Tally voucher ledger
+  const allRows = invoices.flatMap(inv => formatInvoiceForTallyExcel(inv));
+  const ws = XLSX.utils.json_to_sheet(allRows);
+
   ws['!cols'] = [
     { wch: 14 }, // Voucher Type
     { wch: 13 }, // Voucher Date
@@ -78,65 +86,84 @@ export function generateInvoiceWorkbook(inv) {
     { wch: 10 }  // Status
   ];
 
-  const sheetName = (inv.invoiceNo && inv.invoiceNo !== '—' ? `Voucher_${inv.invoiceNo}` : `Draft_${inv.id}`)
-    .replace(/[\\/?*[\]:]/g, '_')
-    .substring(0, 31);
+  XLSX.utils.book_append_sheet(wb, ws, 'Voucher Items');
 
-  XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  return wb;
+  // Sheet 2: Summary Register
+  const summaryRows = invoices.map((inv, idx) => ({
+    'S.No': idx + 1,
+    'Invoice ID': inv.id,
+    'Invoice / Bill No': inv.invoiceNo || '—',
+    'Voucher Date': inv.invoiceDate || '—',
+    'Supplier Name': inv.supplierRaw || '—',
+    'Mapped Tally Ledger': inv.supplierMapped || 'Pending',
+    'Line Items Count': (inv.lines || []).length,
+    'Taxable Amount (₹)': Number(inv.subtotal || 0),
+    'Total Tax (₹)': Number((inv.cgst || 0) + (inv.sgst || 0) + (inv.igst || 0)),
+    'Grand Total (₹)': Number(inv.grandTotal || 0),
+    'Voucher Mode': inv.type || 'Accounting Purchase'
+  }));
+
+  const summaryWs = XLSX.utils.json_to_sheet(summaryRows);
+  summaryWs['!cols'] = [
+    { wch: 6 }, { wch: 14 }, { wch: 18 }, { wch: 14 }, { wch: 28 },
+    { wch: 24 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 18 }, { wch: 22 }
+  ];
+  XLSX.utils.book_append_sheet(wb, summaryWs, 'Voucher Register');
+
+  const safeName = (sheet.fileName || `Tally_Draft_${sheet.id}`)
+    .replace(/[\\/?*[\]:]/g, '_');
+  const finalFilename = safeName.endsWith('.xlsx') ? safeName : `${safeName}.xlsx`;
+
+  XLSX.writeFile(wb, finalFilename);
 }
 
 /**
- * Triggers browser download of a single draft invoice Excel file.
+ * Downloads all stored draft sheets consolidated into one master file.
  */
-export function downloadTallyInvoiceExcel(inv, customFilename) {
-  const wb = generateInvoiceWorkbook(inv);
-  const safeName = customFilename || `Tally_Draft_${inv.invoiceNo || inv.id}_${inv.supplierRaw || 'Supplier'}`.replace(/[^a-zA-Z0-9_-]/g, '_');
-  XLSX.writeFile(wb, `${safeName}.xlsx`);
-}
-
-/**
- * Generates and downloads a consolidated workbook containing all saved draft invoices.
- */
-export function downloadAllDraftsExcel(drafts, filename = 'Tally_Draft_Invoices_Master') {
-  if (!drafts || drafts.length === 0) return;
+export function downloadAllDraftsExcel(draftSheets, filename = 'Tally_All_Draft_Sheets_Master.xlsx') {
+  if (!draftSheets || draftSheets.length === 0) return;
 
   const wb = XLSX.utils.book_new();
-  
-  // Sheet 1: Master Consolidated Table
-  const allRows = drafts.flatMap(draft => formatInvoiceForTallyExcel(draft.invoice || draft));
-  const masterWs = XLSX.utils.json_to_sheet(allRows);
-  masterWs['!cols'] = [
+
+  // Flatten all invoices across all sheets
+  const allInvoices = draftSheets.flatMap(sheet => 
+    sheet.invoices && sheet.invoices.length > 0 
+      ? sheet.invoices 
+      : (sheet.invoice ? [sheet.invoice] : [])
+  );
+
+  const allRows = allInvoices.flatMap(inv => formatInvoiceForTallyExcel(inv));
+  const ws = XLSX.utils.json_to_sheet(allRows);
+  ws['!cols'] = [
     { wch: 14 }, { wch: 13 }, { wch: 18 }, { wch: 28 }, { wch: 18 },
     { wch: 8 }, { wch: 30 }, { wch: 24 }, { wch: 14 }, { wch: 10 },
     { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 12 }, { wch: 12 },
     { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 20 }, { wch: 25 }, { wch: 10 }
   ];
-  XLSX.utils.book_append_sheet(wb, masterWs, 'Consolidated Drafts');
+  XLSX.utils.book_append_sheet(wb, ws, 'All Draft Vouchers');
 
-  // Sheet 2: Voucher Summary
-  const summaryRows = drafts.map((draft, idx) => {
-    const inv = draft.invoice || draft;
+  // Summary per sheet
+  const sheetSummary = draftSheets.map((sheet, idx) => {
+    const invs = sheet.invoices && sheet.invoices.length > 0 
+      ? sheet.invoices 
+      : (sheet.invoice ? [sheet.invoice] : []);
+    const sumTotal = invs.reduce((acc, i) => acc + Number(i.grandTotal || 0), 0);
     return {
       'S.No': idx + 1,
-      'Draft ID': draft.id || `DFT-${idx + 1}`,
-      'Invoice No': inv.invoiceNo || '—',
-      'Invoice Date': inv.invoiceDate || '—',
-      'Supplier Name': inv.supplierRaw || '—',
-      'Mapped Ledger': inv.supplierMapped || 'Pending',
-      'Line Items': (inv.lines || []).length,
-      'Taxable (₹)': Number(inv.subtotal || 0),
-      'GST (₹)': Number((inv.cgst || 0) + (inv.sgst || 0) + (inv.igst || 0)),
-      'Grand Total (₹)': Number(inv.grandTotal || 0),
-      'Saved At': draft.savedAt || new Date().toISOString().replace('T', ' ').substring(0, 19)
+      'Sheet / File Name': sheet.fileName,
+      'Sheet ID': sheet.id,
+      'Vouchers Count': invs.length,
+      'Total Amount (₹)': sumTotal,
+      'Created / Saved At': sheet.savedAt || '—',
+      'Last Updated': sheet.updatedAt || sheet.savedAt || '—'
     };
   });
-  const summaryWs = XLSX.utils.json_to_sheet(summaryRows);
-  summaryWs['!cols'] = [
-    { wch: 6 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 28 },
-    { wch: 24 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 20 }
+  const sheetWs = XLSX.utils.json_to_sheet(sheetSummary);
+  sheetWs['!cols'] = [
+    { wch: 6 }, { wch: 32 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 22 }, { wch: 22 }
   ];
-  XLSX.utils.book_append_sheet(wb, summaryWs, 'Voucher Register');
+  XLSX.utils.book_append_sheet(wb, sheetWs, 'Sheets Summary');
 
-  XLSX.writeFile(wb, `${filename}.xlsx`);
+  const finalName = filename.endsWith('.xlsx') ? filename : `${filename}.xlsx`;
+  XLSX.writeFile(wb, finalName);
 }
