@@ -1234,7 +1234,10 @@ async function handleFileUpload(file) {
     const extractedLines = data.ocr_result.lines || [];
     const rawText = data.ocr_result.raw_text || '';
 
-    // Create an invoice entry from real OCR scan
+    const extData = data.extracted_data || {};
+    const hasItems = extData.line_items && extData.line_items.length > 0;
+
+    // Create an invoice entry from real OCR + Gemini extraction
     const newInvoice = {
       id: data.id,
       sourceFilename: data.filename,
@@ -1242,34 +1245,53 @@ async function handleFileUpload(file) {
       imageUrl: `${API_BASE_URL}${data.image_url}`,
       ocrResult: data.ocr_result,
       rawOcrText: rawText,
-      supplierRaw: extractedLines.length > 0 ? extractedLines[0].text : 'Scanned Bill',
+      extractedData: extData,
+      supplierRaw: extData.supplier_name || (extractedLines.length > 0 ? extractedLines[0].text : 'Scanned Bill'),
       supplierMapped: '',
-      invoiceNo: data.id.replace('INV-', 'BILL-'),
-      invoiceDate: new Date().toISOString().split('T')[0],
-      tallyDate: new Date().toISOString().split('T')[0].replace(/-/g, ''),
-      gstin: '—',
-      type: 'Accounting Purchase',
-      subtotal: 0.00,
-      cgst: 0.00,
-      sgst: 0.00,
-      grandTotal: 0.00,
+      invoiceNo: extData.invoice_number || data.id.replace('INV-', 'BILL-'),
+      invoiceDate: extData.invoice_date || new Date().toISOString().split('T')[0],
+      tallyDate: (extData.invoice_date || new Date().toISOString().split('T')[0]).replace(/-/g, ''),
+      gstin: extData.supplier_gstin || '—',
+      type: extData.invoice_mode === 'inventory' ? 'Inventory Purchase' : 'Accounting Purchase',
+      subtotal: extData.subtotal_amount ? parseFloat(extData.subtotal_amount) : 0.00,
+      cgst: extData.cgst_amount ? parseFloat(extData.cgst_amount) : 0.00,
+      sgst: extData.sgst_amount ? parseFloat(extData.sgst_amount) : 0.00,
+      grandTotal: extData.total_amount ? parseFloat(extData.total_amount) : 0.00,
       status: 'NEEDS_REVIEW',
       tallyRef: '—',
-      confidence: `${confPercent}%`,
-      lines: extractedLines.slice(0, 15).map((l, idx) => ({
-        lineNo: idx + 1,
-        descRaw: l.text,
-        stockItem: '',
-        qty: 1,
-        unit: 'NOS',
-        rate: 0.00,
-        taxable: 0.00,
-        taxRate: 18,
-        taxAmount: 0.00,
-        total: 0.00,
-        confidence: (l.confidence * 100).toFixed(1),
-        bbox: l.bbox
-      }))
+      confidence: extData.overall_confidence ? `${(extData.overall_confidence * 100).toFixed(1)}%` : `${confPercent}%`,
+      lines: hasItems
+        ? extData.line_items.map((l, idx) => {
+            const taxAmt = (l.cgst_amount ? parseFloat(l.cgst_amount) : 0) + (l.sgst_amount ? parseFloat(l.sgst_amount) : 0) + (l.igst_amount ? parseFloat(l.igst_amount) : 0);
+            return {
+              lineNo: idx + 1,
+              descRaw: l.item_description,
+              stockItem: l.tally_item_name || '',
+              qty: l.quantity ? parseFloat(l.quantity) : 1,
+              unit: l.unit_of_measure || 'NOS',
+              rate: l.unit_price ? parseFloat(l.unit_price) : (l.total_line_amount ? parseFloat(l.total_line_amount) : 0.00),
+              taxable: l.taxable_amount ? parseFloat(l.taxable_amount) : (l.total_line_amount ? parseFloat(l.total_line_amount) - taxAmt : 0.00),
+              taxRate: l.gst_rate_percent ? parseFloat(l.gst_rate_percent) : 18,
+              taxAmount: taxAmt,
+              total: l.total_line_amount ? parseFloat(l.total_line_amount) : 0.00,
+              confidence: l.confidence_score ? (l.confidence_score * 100).toFixed(1) : confPercent,
+              bbox: null
+            };
+          })
+        : extractedLines.slice(0, 15).map((l, idx) => ({
+            lineNo: idx + 1,
+            descRaw: l.text,
+            stockItem: '',
+            qty: 1,
+            unit: 'NOS',
+            rate: 0.00,
+            taxable: 0.00,
+            taxRate: 18,
+            taxAmount: 0.00,
+            total: 0.00,
+            confidence: (l.confidence * 100).toFixed(1),
+            bbox: l.bbox
+          }))
     };
 
     // Prepend to active invoices

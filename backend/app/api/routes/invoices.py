@@ -9,7 +9,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from ...core.config import settings
-from ...schemas.invoice import OCRResult
+from ...schemas.invoice import InvoiceExtractedData, OCRResult
+from ...services.extraction import get_extraction_service
 from ...services.ocr_service import get_ocr_service
 
 router = APIRouter(prefix="/api/invoices", tags=["Invoices"])
@@ -25,6 +26,7 @@ class OCRExtractionResponse(BaseModel):
     file_hash_sha256: str
     image_url: str
     ocr_result: OCRResult
+    extracted_data: InvoiceExtractedData
     line_count: int
 
 
@@ -66,6 +68,19 @@ async def upload_and_extract_ocr(file: UploadFile = File(...)):
             detail=f"OCR engine extraction failed: {str(e)}",
         )
 
+    # Determine media type for multimodal extraction
+    media_type = "image/jpeg"
+    if ext == ".png":
+        media_type = "image/png"
+    elif ext == ".webp":
+        media_type = "image/webp"
+    elif ext == ".bmp":
+        media_type = "image/bmp"
+
+    # Execute Gemini Extraction into structured invoice fields
+    extractor = get_extraction_service()
+    extracted_data = extractor.extract(ocr_result, image_bytes=content, mime_type=media_type)
+
     invoice_id = f"INV-{int(time.time() * 1000) % 1000000:06d}"
 
     return OCRExtractionResponse(
@@ -74,8 +89,16 @@ async def upload_and_extract_ocr(file: UploadFile = File(...)):
         file_hash_sha256=file_hash,
         image_url=f"/api/invoices/file/{safe_filename}",
         ocr_result=ocr_result,
+        extracted_data=extracted_data,
         line_count=len(ocr_result.lines),
     )
+
+
+@router.post("/extract-text", response_model=InvoiceExtractedData)
+async def extract_from_raw_ocr(ocr_result: OCRResult):
+    """Directly run Gemini structured bill extraction on an existing OCR result payload."""
+    extractor = get_extraction_service()
+    return extractor.extract(ocr_result)
 
 
 @router.get("/file/{filename}")
