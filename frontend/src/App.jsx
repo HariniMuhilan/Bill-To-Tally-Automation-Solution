@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import Sidebar from './components/Sidebar';
 import Header from './components/Header';
+import BottomNavBar from './components/BottomNavBar';
+import UserProfileBottomLeft from './components/UserProfileBottomLeft';
 import InboxView from './components/InboxView';
 import ReviewView from './components/ReviewView';
-import MasterMappingsView from './components/MasterMappingsView';
 import TallyConnectorView from './components/TallyConnectorView';
-import AuditTrailView from './components/AuditTrailView';
-import SettingsView from './components/SettingsView';
 import Login from './components/Login';
 import { XmlModal, ConfirmPostModal, SaveDraftModal } from './components/Modals';
 import Toast from './components/Toast';
@@ -344,23 +342,11 @@ export default function App() {
   };
 
   return (
-    <div className="app-container">
-      {/* Sidebar Navigation */}
-      <Sidebar 
-        activeTab={activeTab} 
-        onSelectTab={setActiveTab} 
-        invoiceCounts={invoiceCounts}
-        tallyConnected={tallyHealth?.connected || false}
-        tallyCompany={tallyHealth?.company}
-      />
-
-      {/* Main Content Area */}
-      <main className="main-wrapper">
+    <div className="app-container app-bottom-nav-layout">
+      {/* Main Content Area (Full width across desktop & mobile) */}
+      <main className="main-wrapper full-width">
         <Header 
           activeTab={activeTab}
-          user={user}
-          onLogout={handleLogout}
-          onSwitchAccount={() => setShowAuthModal(true)}
           onTriggerUpload={() => {
             setActiveTab('inbox');
             const dropzoneInput = document.getElementById('upload-dropzone-box');
@@ -394,39 +380,31 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'mappings' && (
-            <MasterMappingsView 
-              mappings={mappings}
-              onShowToast={showToast}
-            />
-          )}
-
           {activeTab === 'tally' && (
             <TallyConnectorView 
-              postingAttempts={postingAttempts}
               draftSheets={draftSheets}
               onDownloadDraft={handleDownloadDraftSheet}
               onDownloadAllDrafts={handleDownloadAllDrafts}
               onDeleteDraft={handleDeleteDraftSheet}
-              tallyHealth={tallyHealth}
-              onShowToast={showToast}
-            />
-          )}
-
-          {activeTab === 'audit' && (
-            <AuditTrailView 
-              auditLogs={auditLogs}
-              onShowToast={showToast}
-            />
-          )}
-
-          {activeTab === 'settings' && (
-            <SettingsView 
-              onShowToast={showToast}
             />
           )}
         </div>
       </main>
+
+      {/* Bottom Navigation Dock (3 components for desktop & mobile) */}
+      <BottomNavBar 
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        invoiceCounts={invoiceCounts}
+        tallyConnected={tallyHealth?.connected || false}
+      />
+
+      {/* Bottom Left Admin / User Profile Button & Dropdown */}
+      <UserProfileBottomLeft 
+        user={user}
+        onLogout={handleLogout}
+        onSwitchAccount={() => setShowAuthModal(true)}
+      />
 
       {/* Modals */}
       <XmlModal 

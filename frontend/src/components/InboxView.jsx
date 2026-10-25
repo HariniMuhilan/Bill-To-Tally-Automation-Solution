@@ -275,14 +275,14 @@ export default function InboxView({
           </div>
         </div>
 
-        <table className="data-table">
+        <div className="table-responsive">
+          <table className="data-table">
           <thead>
             <tr>
               <th>Invoice ID</th>
               <th>Source File</th>
               <th>Supplier (Raw / Mapped)</th>
               <th>Invoice No & Date</th>
-              <th>Type</th>
               <th>Total Amount</th>
               <th>Status</th>
               <th>Tally Ref</th>
@@ -292,7 +292,7 @@ export default function InboxView({
           <tbody>
             {filteredInvoices.length === 0 ? (
               <tr>
-                <td colSpan="9" style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--text-muted)' }}>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--text-muted)' }}>
                   <i className="fa-solid fa-cloud-arrow-up" style={{ fontSize: '2.5rem', marginBottom: '12px', display: 'block', color: 'rgba(255,255,255,0.2)' }}></i>
                   <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-light)', marginBottom: '6px' }}>
                     {invoices.length === 0 ? 'No Invoices Uploaded Yet' : 'No matching invoices found in this view.'}
@@ -361,7 +361,6 @@ export default function InboxView({
                         {inv.invoiceDate}
                       </div>
                     </td>
-                    <td><span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{inv.type}</span></td>
                     <td>
                       <strong className="mono" style={{ color: 'var(--text-primary)' }}>
                         ₹ {Number(inv.grandTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -391,6 +390,7 @@ export default function InboxView({
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </section>
   );

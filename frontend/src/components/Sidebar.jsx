@@ -1,6 +1,28 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
-export default function Sidebar({ activeTab, onSelectTab, invoiceCounts, tallyConnected, tallyCompany }) {
+export default function Sidebar({ 
+  activeTab, 
+  onSelectTab, 
+  invoiceCounts, 
+  tallyConnected, 
+  tallyCompany,
+  user,
+  onLogout,
+  onSwitchAccount
+}) {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -14,8 +36,7 @@ export default function Sidebar({ activeTab, onSelectTab, invoiceCounts, tallyCo
       </div>
 
       <nav className="sidebar-nav">
-        <div className="nav-section-title">Invoices & Processing</div>
-        
+        {/* Only 3 components: Invoice Inbox, Review & Validate, Tally Connector (No section headers) */}
         <a 
           className={`nav-item ${activeTab === 'inbox' ? 'active' : ''}`}
           onClick={() => onSelectTab('inbox')}
@@ -36,16 +57,6 @@ export default function Sidebar({ activeTab, onSelectTab, invoiceCounts, tallyCo
           )}
         </a>
 
-        <div className="nav-section-title">Accounting & Masters</div>
-        
-        <a 
-          className={`nav-item ${activeTab === 'mappings' ? 'active' : ''}`}
-          onClick={() => onSelectTab('mappings')}
-        >
-          <span className="nav-icon"><i className="fa-solid fa-diagram-project"></i></span>
-          <span>Master Mappings</span>
-        </a>
-
         <a 
           className={`nav-item ${activeTab === 'tally' ? 'active' : ''}`}
           onClick={() => onSelectTab('tally')}
@@ -53,27 +64,60 @@ export default function Sidebar({ activeTab, onSelectTab, invoiceCounts, tallyCo
           <span className="nav-icon"><i className="fa-solid fa-server"></i></span>
           <span>Tally Connector</span>
         </a>
-
-        <div className="nav-section-title">Governance & Config</div>
-        
-        <a 
-          className={`nav-item ${activeTab === 'audit' ? 'active' : ''}`}
-          onClick={() => onSelectTab('audit')}
-        >
-          <span className="nav-icon"><i className="fa-solid fa-clock-rotate-left"></i></span>
-          <span>Audit Trail</span>
-        </a>
-
-        <a 
-          className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
-          onClick={() => onSelectTab('settings')}
-        >
-          <span className="nav-icon"><i className="fa-solid fa-sliders"></i></span>
-          <span>Settings & Safety</span>
-        </a>
       </nav>
 
       <div className="sidebar-footer">
+        {/* User Profile in Bottom Left Corner (Screenshot 3 relocated here) */}
+        <div className={`user-profile-container upward ${dropdownOpen ? 'open' : ''}`} ref={dropdownRef}>
+          <div 
+            className="user-profile-badge sidebar-user-badge" 
+            id="user-profile-badge" 
+            title="Click for profile options & session management"
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+          >
+            <div className="avatar-circle" id="sidebar-user-avatar">
+              {user?.initials || 'AU'}
+            </div>
+            <div className="user-info">
+              <span className="user-name" id="sidebar-user-name">{user?.username || 'accounts_user_01'}</span>
+              <span className="user-role" id="sidebar-user-role">{user?.role || 'Reviewer & Approver'}</span>
+            </div>
+            <i className="fa-solid fa-chevron-up profile-chevron"></i>
+          </div>
+
+          {dropdownOpen && (
+            <div className="user-dropdown upward-dropdown" id="user-dropdown-menu" style={{ display: 'flex' }}>
+              <div className="dropdown-header">
+                <div className="dropdown-avatar" id="dropdown-user-avatar">
+                  {user?.initials || 'AU'}
+                </div>
+                <div>
+                  <div className="dropdown-name" id="dropdown-user-name">{user?.fullName || user?.username}</div>
+                  <div className="dropdown-role" id="dropdown-user-role">{user?.role || 'Reviewer & Approver'}</div>
+                </div>
+              </div>
+              <div className="dropdown-divider"></div>
+              <button 
+                type="button" 
+                className="dropdown-item" 
+                onClick={() => { setDropdownOpen(false); onSwitchAccount(); }}
+              >
+                <i className="fa-solid fa-users" style={{ color: 'var(--color-azure-text)' }}></i>
+                <span>Switch / Re-login</span>
+              </button>
+              <button 
+                type="button" 
+                className="dropdown-item text-danger" 
+                onClick={() => { setDropdownOpen(false); onLogout(); }}
+              >
+                <i className="fa-solid fa-arrow-right-from-bracket"></i>
+                <span>Log Out</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Tally Status Card */}
         <div className="tally-status-card">
           <div className="tally-header-row">
             <span className="tally-title">TallyPrime Link</span>

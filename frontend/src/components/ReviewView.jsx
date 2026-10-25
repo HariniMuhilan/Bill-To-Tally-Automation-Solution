@@ -223,8 +223,7 @@ export default function ReviewView({
         <div className="sample-picker-group">
           <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Active Invoice:</label>
           <select 
-            className="form-control" 
-            style={{ width: '340px' }}
+            className="form-control review-select-input" 
             value={inv.id}
             onChange={(e) => onSelectInvoice(e.target.value)}
           >
@@ -663,15 +662,15 @@ export default function ReviewView({
               </table>
             </div>
 
-            <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="review-lines-footer">
               <button type="button" className="btn btn-secondary btn-sm" onClick={handleAddLine}>
                 <i className="fa-solid fa-plus"></i> Add Line Item
               </button>
               
-              <div style={{ display: 'flex', gap: '20px', fontSize: '0.82rem' }}>
+              <div className="review-totals-summary">
                 <div>Taxable: <strong className="mono">₹ {Number(inv.subtotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></div>
                 <div>GST: <strong className="mono">₹ {Number((inv.cgst || 0) + (inv.sgst || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></div>
-                <div>Grand Total: <strong className="mono" style={{ color: '#059669', fontSize: '0.95rem' }}>₹ {Number(inv.grandTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></div>
+                <div>Grand Total: <strong className="mono" style={{ color: 'var(--color-success-green)', fontSize: '0.95rem' }}>₹ {Number(inv.grandTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></div>
               </div>
             </div>
           </div>
@@ -706,8 +705,8 @@ export default function ReviewView({
           </div>
 
           {/* Action Footer */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', padding: '16px 20px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-card)', boxShadow: 'var(--shadow-sm)' }}>
-            <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="review-action-footer">
+            <div className="action-footer-left">
               <button 
                 type="button" 
                 className="btn btn-secondary btn-sm"
@@ -720,7 +719,7 @@ export default function ReviewView({
               </button>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div className="action-footer-right">
               <button 
                 type="button" 
                 className="btn btn-secondary" 
@@ -731,7 +730,7 @@ export default function ReviewView({
               
               <button 
                 type="button" 
-                className="btn btn-primary" 
+                className="btn btn-primary btn-approve" 
                 disabled={!canApprove}
                 title={!canApprove ? 'Provide supplier name and valid total before approving' : 'Approve invoice and store in Tally Connector Excel Sheet'}
                 onClick={() => onApprove(inv)}
