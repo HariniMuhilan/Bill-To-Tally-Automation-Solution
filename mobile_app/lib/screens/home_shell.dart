@@ -349,7 +349,7 @@ class _HomeShellState extends State<HomeShell> {
                 ),
               ),
 
-              // Popped Out Center Camera Action Button matching reference mockup
+              // Popped Out Center Camera Action Button (Royal Plum, clearly distinct from green Approve button)
               Positioned(
                 top: -20,
                 child: GestureDetector(
@@ -359,11 +359,11 @@ class _HomeShellState extends State<HomeShell> {
                     height: 58,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF487E64), // Fresh eucalyptus jade
-                      border: Border.all(color: const Color(0xFF68A484), width: 2.5),
+                      color: AppColors.plumSlate, // #65395E - Brand royal plum tone
+                      border: Border.all(color: const Color(0xFF8F5D7E), width: 2.5),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF487E64).withOpacity(0.35),
+                          color: AppColors.plumSlate.withOpacity(0.40),
                           blurRadius: 14,
                           offset: const Offset(0, 5),
                         ),
