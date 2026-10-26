@@ -24,15 +24,15 @@ class InboxScreen extends StatefulWidget {
   });
 
   @override
-  State<InboxScreen> createState() => _InboxScreenState();
+  State<InboxScreen> createState() => InboxScreenState();
 }
 
-class _InboxScreenState extends State<InboxScreen> {
+class InboxScreenState extends State<InboxScreen> {
   String _activeFilter = 'ALL';
   bool _isUploading = false;
   String _uploadStatusText = '';
 
-  Future<void> _handleCaptureCamera() async {
+  Future<void> handleCaptureCamera() async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -54,25 +54,25 @@ class _InboxScreenState extends State<InboxScreen> {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'webp'],
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
         withData: true,
       );
 
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
         if (file.bytes != null) {
-          await _processBillUpload(file.bytes!, file.name, null);
+          await _processBillUpload(file.bytes!, file.name, 'image/jpeg');
         }
       }
     } catch (e) {
-      _showSnackbar('File picker error: $e', isError: true);
+      _showSnackbar('Photo picker error: $e', isError: true);
     }
   }
 
   Future<void> _processBillUpload(Uint8List bytes, String filename, String? mimeType) async {
     setState(() {
       _isUploading = true;
-      _uploadStatusText = 'Uploading & Extracting with PaddleOCR + Gemini...';
+      _uploadStatusText = 'Reading bill details...';
     });
 
     final res = await widget.api.uploadInvoiceBytes(
@@ -89,7 +89,7 @@ class _InboxScreenState extends State<InboxScreen> {
       widget.onInvoicesChanged(updatedList);
       widget.storage.saveInvoices(updatedList);
 
-      _showSnackbar('Extracted ${newInvoice.id}: ${newInvoice.supplierRaw}');
+      _showSnackbar('Scanned ${newInvoice.id}: ${newInvoice.supplierRaw}');
       widget.onSelectInvoice(newInvoice);
     } else {
       _showSnackbar(res.error ?? 'Upload failed. Check backend connection.', isError: true);
@@ -100,7 +100,7 @@ class _InboxScreenState extends State<InboxScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: isError ? AppColors.errorRed : AppColors.successGreen,
+        backgroundColor: isError ? AppColors.errorRed : AppColors.softSage,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -110,9 +110,7 @@ class _InboxScreenState extends State<InboxScreen> {
     if (_activeFilter == 'NEEDS_REVIEW') {
       return widget.invoices.where((i) => i.status == 'NEEDS_REVIEW' || i.status == 'NEEDS_CORRECTION').toList();
     } else if (_activeFilter == 'APPROVED') {
-      return widget.invoices.where((i) => i.status == 'APPROVED').toList();
-    } else if (_activeFilter == 'POSTED') {
-      return widget.invoices.where((i) => i.status == 'POSTED').toList();
+      return widget.invoices.where((i) => i.status == 'APPROVED' || i.status == 'POSTED').toList();
     }
     return widget.invoices;
   }
@@ -120,6 +118,8 @@ class _InboxScreenState extends State<InboxScreen> {
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredInvoices;
+    final needsReviewCount = widget.invoices.where((i) => i.status == 'NEEDS_REVIEW' || i.status == 'NEEDS_CORRECTION').length;
+    final approvedCount = widget.invoices.where((i) => i.status == 'APPROVED' || i.status == 'POSTED').length;
 
     return Stack(
       children: [
@@ -130,7 +130,7 @@ class _InboxScreenState extends State<InboxScreen> {
               setState(() {});
             },
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.only(bottom: 32),
               children: [
                 // Top Upload / Camera Action Banner with Plum Slate to Forest Charcoal Gradient
                 Container(
@@ -160,7 +160,7 @@ class _InboxScreenState extends State<InboxScreen> {
                             color: Colors.white.withOpacity(0.08),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.crop_free_rounded, color: Colors.white70, size: 22),
+                          child: const Icon(Icons.crop_free_rounded, color: AppColors.softSage, size: 22),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -174,7 +174,7 @@ class _InboxScreenState extends State<InboxScreen> {
                       ),
                       const SizedBox(height: 4),
                       const Text(
-                        'Direct camera capture or PDF document upload',
+                        'Take a photo of your bill or pick from gallery',
                         style: TextStyle(color: Colors.white70, fontSize: 11),
                       ),
                       const SizedBox(height: 16),
@@ -182,14 +182,15 @@ class _InboxScreenState extends State<InboxScreen> {
                         children: [
                           Expanded(
                             child: ElevatedButton.icon(
-                              onPressed: _isUploading ? null : _handleCaptureCamera,
+                              onPressed: _isUploading ? null : handleCaptureCamera,
                               icon: const Icon(Icons.camera_alt_rounded, size: 18),
-                              label: const Text('Scan Bill'),
+                              label: const Text('Take Photo'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.accentOrange,
-                                foregroundColor: Colors.white,
+                                backgroundColor: AppColors.softSage,
+                                foregroundColor: AppColors.inkNavy,
                                 padding: const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                               ),
                             ),
                           ),
@@ -197,8 +198,8 @@ class _InboxScreenState extends State<InboxScreen> {
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: _isUploading ? null : _handlePickFile,
-                              icon: const Icon(Icons.upload_file_rounded, size: 18, color: Colors.white),
-                              label: const Text('Upload File', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                              icon: const Icon(Icons.photo_library_rounded, size: 18, color: Colors.white),
+                              label: const Text('Upload Photo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
                               style: OutlinedButton.styleFrom(
                                 backgroundColor: Colors.white.withOpacity(0.08),
                                 side: BorderSide(color: Colors.white.withOpacity(0.25)),
@@ -213,27 +214,34 @@ class _InboxScreenState extends State<InboxScreen> {
                   ),
                 ),
 
-                // Horizontal Filter Chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
+                // Symmetric Filter Tabs with equal margin on both sides
+                Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     children: [
-                      _buildFilterChip('ALL', 'All Invoices (${widget.invoices.length})'),
-                      const SizedBox(width: 8),
-                      _buildFilterChip(
-                        'NEEDS_REVIEW',
-                        'Needs Review (${widget.invoices.where((i) => i.status == 'NEEDS_REVIEW').length})',
+                      Expanded(
+                        child: _buildFilterTab(
+                          value: 'ALL',
+                          label: 'All Bills',
+                          count: widget.invoices.length,
+                        ),
                       ),
                       const SizedBox(width: 8),
-                      _buildFilterChip(
-                        'APPROVED',
-                        'Approved (${widget.invoices.where((i) => i.status == 'APPROVED').length})',
+                      Expanded(
+                        child: _buildFilterTab(
+                          value: 'NEEDS_REVIEW',
+                          label: 'Needs Review',
+                          count: needsReviewCount,
+                          isUrgent: true,
+                        ),
                       ),
                       const SizedBox(width: 8),
-                      _buildFilterChip(
-                        'POSTED',
-                        'Posted (${widget.invoices.where((i) => i.status == 'POSTED').length})',
+                      Expanded(
+                        child: _buildFilterTab(
+                          value: 'APPROVED',
+                          label: 'Approved',
+                          count: approvedCount,
+                        ),
                       ),
                     ],
                   ),
@@ -266,7 +274,7 @@ class _InboxScreenState extends State<InboxScreen> {
                           ),
                           const SizedBox(height: 6),
                           const Text(
-                            'Tap "Scan Bill" or "Upload File" above to process your first invoice.',
+                            'Tap "Take Photo" or "Upload Photo" above to process your first invoice.',
                             textAlign: TextAlign.center,
                             style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                           ),
@@ -287,25 +295,51 @@ class _InboxScreenState extends State<InboxScreen> {
           ),
         ),
 
-        // Uploading Loading Overlay
+        // Simple, Jargon-Free Loading Overlay
         if (_isUploading)
           Container(
-            color: Colors.black.withOpacity(0.6),
+            color: Colors.black.withOpacity(0.55),
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                margin: const EdgeInsets.symmetric(horizontal: 32),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceWhite,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const CircularProgressIndicator(color: AppColors.accentOrange),
-                    const SizedBox(height: 16),
+                    const SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: CircularProgressIndicator(
+                        color: AppColors.plumSlate,
+                        strokeWidth: 3.5,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
                     Text(
                       _uploadStatusText,
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: AppColors.inkNavy,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Please wait while we read the bill details.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                     ),
                   ],
                 ),
@@ -316,26 +350,65 @@ class _InboxScreenState extends State<InboxScreen> {
     );
   }
 
-  Widget _buildFilterChip(String value, String label) {
+  Widget _buildFilterTab({
+    required String value,
+    required String label,
+    required int count,
+    bool isUrgent = false,
+  }) {
     final isSelected = _activeFilter == value;
-    return ChoiceChip(
-      avatar: isSelected ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (selected) {
-        if (selected) setState(() => _activeFilter = value);
-      },
-      selectedColor: AppColors.plumSlate,
-      backgroundColor: AppColors.surfaceWhite,
-      labelStyle: TextStyle(
-        color: isSelected ? Colors.white : AppColors.textPrimary,
-        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-        fontSize: 12,
+    return InkWell(
+      onTap: () => setState(() => _activeFilter = value),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.plumSlate : AppColors.surfaceWhite,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.plumSlate
+                : (isUrgent && count > 0 ? AppColors.errorRed.withOpacity(0.4) : AppColors.borderSubtle),
+            width: isUrgent && count > 0 && !isSelected ? 1.2 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.plumSlate.withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+                color: isSelected
+                    ? Colors.white
+                    : (isUrgent && count > 0 ? AppColors.errorRed : AppColors.inkNavy),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: isSelected ? Colors.white70 : AppColors.textMuted,
+              ),
+            ),
+          ],
+        ),
       ),
-      side: BorderSide(
-        color: isSelected ? AppColors.plumSlate : AppColors.borderSubtle,
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     );
   }
 }

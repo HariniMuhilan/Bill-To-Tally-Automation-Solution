@@ -8,7 +8,6 @@ import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import 'inbox_screen.dart';
 import 'review_screen.dart';
-import 'mappings_screen.dart';
 import 'tally_connector_screen.dart';
 import 'audit_trail_screen.dart';
 import 'settings_screen.dart';
@@ -37,6 +36,7 @@ class _HomeShellState extends State<HomeShell> {
   List<DraftSheet> _draftSheets = [];
   List<MasterMapping> _mappings = [];
   Invoice? _selectedReviewInvoice;
+  final GlobalKey<InboxScreenState> _inboxKey = GlobalKey<InboxScreenState>();
 
   @override
   void initState() {
@@ -62,9 +62,20 @@ class _HomeShellState extends State<HomeShell> {
     });
   }
 
+  void _handleQuickCameraCapture() {
+    if (_currentIndex != 0) {
+      setState(() => _currentIndex = 0);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _inboxKey.currentState?.handleCaptureCamera();
+      });
+    } else {
+      _inboxKey.currentState?.handleCaptureCamera();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final needsReviewCount = _invoices.where((i) => i.status == 'NEEDS_REVIEW').length;
+    final needsReviewCount = _invoices.where((i) => i.status == 'NEEDS_REVIEW' || i.status == 'NEEDS_CORRECTION').length;
 
     // Build Current Body
     Widget body;
@@ -74,6 +85,7 @@ class _HomeShellState extends State<HomeShell> {
       case 0:
         title = 'Invoice Inbox';
         body = InboxScreen(
+          key: _inboxKey,
           storage: widget.storage,
           api: widget.api,
           invoices: _invoices,
@@ -112,7 +124,7 @@ class _HomeShellState extends State<HomeShell> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Go to Inbox and tap "Review"\non any bill.',
+                    'Go to Inbox and tap "REVIEW NOW"\non any bill.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: AppColors.textMuted, fontSize: 13),
                   ),
@@ -158,14 +170,6 @@ class _HomeShellState extends State<HomeShell> {
         }
         break;
       case 2:
-        title = 'Master Mappings';
-        body = MappingsScreen(
-          storage: widget.storage,
-          mappings: _mappings,
-          onMappingsChanged: (updated) => setState(() => _mappings = updated),
-        );
-        break;
-      case 3:
         title = 'Tally Connector';
         body = TallyConnectorScreen(
           storage: widget.storage,
@@ -174,7 +178,7 @@ class _HomeShellState extends State<HomeShell> {
           onDraftSheetsChanged: (updated) => setState(() => _draftSheets = updated),
         );
         break;
-      case 4:
+      case 3:
         title = 'Audit & Settings';
         body = DefaultTabController(
           length: 2,
@@ -214,117 +218,183 @@ class _HomeShellState extends State<HomeShell> {
       appBar: AppBar(
         backgroundColor: AppColors.inkNavy,
         foregroundColor: Colors.white,
+        elevation: 0,
         title: Row(
           children: [
-            const Icon(Icons.receipt_long, color: AppColors.accentOrange, size: 20),
-            const SizedBox(width: 8),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17, color: Colors.white)),
+            const Icon(Icons.receipt_long_rounded, color: AppColors.softSage, size: 22),
+            const SizedBox(width: 10),
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: Colors.white),
+            ),
           ],
         ),
         actions: [
-          // Safety Mode Pill
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.shield_outlined, color: Colors.white, size: 12),
-                const SizedBox(width: 4),
-                Text(
-                  widget.storage.postingEnabled ? 'LIVE' : 'TEST',
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // User Profile Initials Avatar
+          // User Profile Initials Avatar (Curated Palette)
           Padding(
-            padding: const EdgeInsets.only(right: 14),
+            padding: const EdgeInsets.only(right: 16),
             child: CircleAvatar(
-              backgroundColor: AppColors.accentOrange,
-              radius: 14,
+              backgroundColor: AppColors.softSage,
+              radius: 15,
               child: Text(
                 widget.user.initials,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 10),
+                style: const TextStyle(
+                  color: AppColors.inkNavy,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 11,
+                ),
               ),
             ),
           ),
         ],
       ),
       body: body,
-      bottomNavigationBar: _buildMockupBottomNav(needsReviewCount),
+      bottomNavigationBar: _buildPoppedOutCameraBottomNav(needsReviewCount),
     );
   }
 
-  Widget _buildMockupBottomNav(int needsReviewCount) {
-    final navItems = [
-      (Icons.all_inbox_rounded, 'Inbox'),
-      (Icons.fact_check_rounded, 'Review'),
-      (Icons.alt_route_rounded, 'Mappings'),
-      (Icons.electrical_services_rounded, 'Tally'),
-      (Icons.more_horiz_rounded, 'More'),
-    ];
-
+  Widget _buildPoppedOutCameraBottomNav(int needsReviewCount) {
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceWhite,
-        border: Border(top: BorderSide(color: AppColors.borderSubtle, width: 1)),
-      ),
-      padding: const EdgeInsets.only(top: 8, bottom: 8),
+      color: Colors.transparent,
       child: SafeArea(
         top: false,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: List.generate(navItems.length, (index) {
-            final isSelected = _currentIndex == index;
-            final (iconData, label) = navItems[index];
-
-            return InkWell(
-              onTap: () => setState(() => _currentIndex = index),
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+        child: SizedBox(
+          height: 68,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.topCenter,
+            children: [
+              // Navigation Bar Base
+              Container(
+                height: 68,
+                decoration: const BoxDecoration(
+                  color: AppColors.surfaceWhite,
+                  border: Border(top: BorderSide(color: AppColors.borderSubtle, width: 1)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x0C000000),
+                      blurRadius: 10,
+                      offset: Offset(0, -3),
+                    ),
+                  ],
+                ),
+                child: Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.plumSlate : Colors.transparent,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Badge(
-                        isLabelVisible: index == 0 && needsReviewCount > 0,
-                        label: Text('$needsReviewCount'),
-                        backgroundColor: AppColors.accentOrange,
-                        child: Icon(
-                          iconData,
-                          size: 20,
-                          color: isSelected ? Colors.white : AppColors.mutedMauve,
-                        ),
+                    // Item 0: Inbox
+                    Expanded(
+                      child: _buildNavTab(
+                        index: 0,
+                        icon: Icons.all_inbox_rounded,
+                        label: 'Inbox',
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected ? AppColors.plumSlate : AppColors.textMuted,
+                    // Item 1: Review
+                    Expanded(
+                      child: _buildNavTab(
+                        index: 1,
+                        icon: Icons.fact_check_rounded,
+                        label: 'Review',
+                        badgeCount: needsReviewCount,
+                        isAlertBadge: true,
+                      ),
+                    ),
+                    // Center Spacer for Popped Out Camera Button
+                    const SizedBox(width: 72),
+                    // Item 2: Tally
+                    Expanded(
+                      child: _buildNavTab(
+                        index: 2,
+                        icon: Icons.electrical_services_rounded,
+                        label: 'Tally',
+                      ),
+                    ),
+                    // Item 3: More
+                    Expanded(
+                      child: _buildNavTab(
+                        index: 3,
+                        icon: Icons.settings_rounded,
+                        label: 'More',
                       ),
                     ),
                   ],
                 ),
               ),
-            );
-          }),
+
+              // Popped Out Center Camera Action Button
+              Positioned(
+                top: -20,
+                child: GestureDetector(
+                  onTap: _handleQuickCameraCapture,
+                  child: Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.plumSlate,
+                      border: Border.all(color: AppColors.softSage, width: 2.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.plumSlate.withOpacity(0.4),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.camera_alt_rounded,
+                        color: AppColors.softSage,
+                        size: 28,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavTab({
+    required int index,
+    required IconData icon,
+    required String label,
+    int? badgeCount,
+    bool isAlertBadge = false,
+  }) {
+    final isSelected = _currentIndex == index;
+    return InkWell(
+      onTap: () => setState(() => _currentIndex = index),
+      borderRadius: BorderRadius.circular(12),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Badge(
+              isLabelVisible: badgeCount != null && badgeCount > 0,
+              label: Text(
+                '$badgeCount',
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
+              ),
+              backgroundColor: isAlertBadge ? AppColors.errorRed : AppColors.plumSlate,
+              child: Icon(
+                icon,
+                size: 24,
+                color: isSelected ? AppColors.plumSlate : AppColors.mutedMauve,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: isSelected ? AppColors.plumSlate : AppColors.textMuted,
+              ),
+            ),
+          ],
         ),
       ),
     );

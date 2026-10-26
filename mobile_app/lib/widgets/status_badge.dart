@@ -36,10 +36,10 @@ class StatusBadge extends StatelessWidget {
         break;
       case 'NEEDS_REVIEW':
       default:
-        bg = AppColors.mauveBg;
-        text = AppColors.mutedMauve;
-        icon = Icons.schedule_rounded;
-        label = 'NEEDS_REVIEW';
+        bg = AppColors.errorRedBg;
+        text = AppColors.errorRed;
+        icon = Icons.priority_high_rounded;
+        label = 'NEEDS REVIEW';
         break;
     }
 

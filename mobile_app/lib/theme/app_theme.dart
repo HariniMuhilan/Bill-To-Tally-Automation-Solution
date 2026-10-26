@@ -10,7 +10,7 @@ class AppColors {
   static const Color blushIvory = Color(0xFFF7F2F4);      // #F7F2F4 BLUSH IVORY
 
   // Accents & Surfaces
-  static const Color accentOrange = Color(0xFFFF9900);    // Scan Bill & Receipt Icon
+  static const Color accentOrange = softSage;             // Mapped to Soft Sage from user's palette
   static const Color surfaceWhite = Color(0xFFFFFFFF);    // Cards, sheets
   static const Color textPrimary = Color(0xFF111522);     // Ink Navy text
   static const Color textMuted = Color(0xFF7E757D);       // Muted mauve-tinted grey
@@ -24,7 +24,7 @@ class AppColors {
   static const Color appleBg = blushIvory;
   static const Color appleGrey = mutedMauve;
   static const Color amazonNavy = inkNavy;
-  static const Color amazonOrange = accentOrange;
+  static const Color amazonOrange = softSage;
   static const Color successGreen = softSage;
   static const Color successGreenBg = successBg;
 }
@@ -56,7 +56,7 @@ class AppTheme {
       primaryColor: AppColors.plumSlate,
       colorScheme: const ColorScheme.light(
         primary: AppColors.plumSlate,
-        secondary: AppColors.accentOrange,
+        secondary: AppColors.softSage,
         surface: AppColors.surfaceWhite,
         background: AppColors.blushIvory,
         error: AppColors.errorRed,

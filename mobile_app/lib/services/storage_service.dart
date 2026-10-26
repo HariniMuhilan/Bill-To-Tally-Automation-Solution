@@ -65,7 +65,24 @@ class StorageService {
   // --- Invoices ---
   List<Invoice> getInvoices() {
     final raw = _prefs.getString(_keyInvoices);
-    if (raw == null) return [];
+    if (raw == null) {
+      return [
+        Invoice(
+          id: 'INV-743425',
+          sourceFilename: 'sample_bill_sr2.jpg',
+          supplierRaw: 'RAGA PVT LTD',
+          supplierMapped: '',
+          invoiceNo: 'SR2',
+          invoiceDate: '2020-03-23',
+          grandTotal: 811.00,
+          subtotal: 687.29,
+          cgst: 61.86,
+          sgst: 61.86,
+          status: 'NEEDS_REVIEW',
+          confidence: '97.7%',
+        ),
+      ];
+    }
     try {
       final List list = jsonDecode(raw);
       return list.map((i) => Invoice.fromJson(i as Map<String, dynamic>)).toList();
