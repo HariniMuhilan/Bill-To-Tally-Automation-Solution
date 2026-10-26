@@ -13,53 +13,61 @@
 
 :root {
   /* User-Defined Theme Palette */
-  --bg-apple: #F5F5F7;          /* Apple-style background: Main page background */
+  --bg-apple: #F7F2F4;          /* Blush Ivory: Main page background */
   --bg-white: #FFFFFF;          /* Pure white: Cards, tables and forms */
-  --color-amazon-navy: #232F3E; /* Amazon navy: Sidebar, headings, primary buttons */
-  --color-amazon-orange: #FF9900; /* Amazon orange: Upload, export and important actions */
-  --color-apple-grey: #6E6E73;  /* Apple grey: Secondary text and labels */
-  --color-success-green: #16794B; /* Success green: Validated bills and successful exports */
+  --color-amazon-navy: #111522; /* Ink Navy: Sidebar, headings, primary buttons */
+  --color-amazon-orange: #FF9900; /* Warm orange: Upload, export and important actions */
+  --color-apple-grey: #80536F;  /* Muted Mauve: Secondary text and labels */
+  --color-success-green: #9CB9A6; /* Soft Sage: Validated bills and successful exports */
+
+  /* User's Curated Hex Swatch */
+  --color-ink-navy: #111522;
+  --color-forest-charcoal: #202A27;
+  --color-plum-slate: #493044;
+  --color-muted-mauve: #80536F;
+  --color-soft-sage: #9CB9A6;
+  --color-blush-ivory: #F7F2F4;
 
   /* Surfaces & Backgrounds */
-  --bg-primary: #F5F5F7;
+  --bg-primary: #F7F2F4;
   --bg-secondary: #FFFFFF;
   --bg-card: #FFFFFF;
-  --bg-card-hover: #FAFAFC;
+  --bg-card-hover: #FDFBFC;
   --bg-card-glass: rgba(255, 255, 255, 0.98);
-  --bg-surface: #F5F5F7;
-  --bg-input: #FFFFFF;
-  --bg-viewport: #EAEAEF;
+  --bg-surface: #F7F2F4;
+  --bg-input: #F7F2F4;
+  --bg-viewport: #EFE8EC;
 
   /* High-Contrast Tints */
-  --color-azure-text: #232F3E;
-  --color-cyan-text: #232F3E;
-  --color-mint-text: #16794B;
+  --color-azure-text: #111522;
+  --color-cyan-text: #111522;
+  --color-mint-text: #285C3A;
   --color-amber-text: #C67400;
   --color-gold-text: #C67400;
 
   /* Legacy Palette Fallback Aliases */
-  --palette-cyan: #232F3E;
-  --palette-mint: #16794B;
-  --palette-azure: #232F3E;
+  --palette-cyan: #111522;
+  --palette-mint: #9CB9A6;
+  --palette-azure: #111522;
   --palette-amber: #FF9900;
   --palette-gold: #FF9900;
 
   /* Borders & Dividers */
-  --border-subtle: #E5E5EA;
-  --border-card: #E5E5EA;
-  --border-focus: #232F3E;
+  --border-subtle: #E8E0E5;
+  --border-card: #E8E0E5;
+  --border-focus: #493044;
   --border-active: #FF9900;
 
   /* Primary Brand & Accents */
-  --primary: #232F3E;
-  --primary-hover: #131921;
-  --primary-glow: rgba(35, 47, 62, 0.22);
+  --primary: #493044;
+  --primary-hover: #372333;
+  --primary-glow: rgba(73, 48, 68, 0.22);
   
-  --gradient-brand: linear-gradient(135deg, #232F3E 0%, #1A232E 100%);
-  --gradient-brand-subtle: linear-gradient(135deg, rgba(35, 47, 62, 0.05) 0%, rgba(35, 47, 62, 0.02) 100%);
+  --gradient-brand: linear-gradient(135deg, #111522 0%, #202A27 100%);
+  --gradient-brand-subtle: linear-gradient(135deg, rgba(73, 48, 68, 0.06) 0%, rgba(73, 48, 68, 0.02) 100%);
   --gradient-warning: linear-gradient(135deg, #FF9900 0%, #E68A00 100%);
-  --gradient-mint: linear-gradient(135deg, #16794B 0%, #116840 100%);
-  --gradient-card: linear-gradient(180deg, #FFFFFF 0%, #FAFAFC 100%);
+  --gradient-mint: linear-gradient(135deg, #9CB9A6 0%, #7FA18A 100%);
+  --gradient-card: linear-gradient(180deg, #FFFFFF 0%, #FCF9FA 100%);
 
   /* Status Colors */
   --status-pending-bg: rgba(255, 153, 0, 0.12);
