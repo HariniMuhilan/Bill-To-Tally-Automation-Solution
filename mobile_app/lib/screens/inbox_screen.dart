@@ -29,8 +29,16 @@ class InboxScreen extends StatefulWidget {
 
 class InboxScreenState extends State<InboxScreen> {
   String _activeFilter = 'ALL';
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
   bool _isUploading = false;
   String _uploadStatusText = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   Future<void> handleCaptureCamera() async {
     try {
@@ -107,106 +115,153 @@ class InboxScreenState extends State<InboxScreen> {
   }
 
   List<Invoice> get _filteredInvoices {
+    var list = widget.invoices;
+
+    // Filter by Tab
     if (_activeFilter == 'NEEDS_REVIEW') {
-      return widget.invoices.where((i) => i.status == 'NEEDS_REVIEW' || i.status == 'NEEDS_CORRECTION').toList();
+      list = list.where((i) => i.status == 'NEEDS_REVIEW' || i.status == 'NEEDS_CORRECTION').toList();
     } else if (_activeFilter == 'APPROVED') {
-      return widget.invoices.where((i) => i.status == 'APPROVED' || i.status == 'POSTED').toList();
+      list = list.where((i) => i.status == 'APPROVED' || i.status == 'POSTED').toList();
     }
-    return widget.invoices;
+
+    // Filter by Search Query
+    if (_searchQuery.trim().isNotEmpty) {
+      final q = _searchQuery.trim().toLowerCase();
+      list = list.where((i) {
+        return i.invoiceNo.toLowerCase().contains(q) ||
+            i.supplierRaw.toLowerCase().contains(q) ||
+            i.grandTotal.toString().contains(q) ||
+            i.id.toLowerCase().contains(q);
+      }).toList();
+    }
+
+    return list;
   }
 
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredInvoices;
+    final allCount = widget.invoices.length;
     final needsReviewCount = widget.invoices.where((i) => i.status == 'NEEDS_REVIEW' || i.status == 'NEEDS_CORRECTION').length;
     final approvedCount = widget.invoices.where((i) => i.status == 'APPROVED' || i.status == 'POSTED').length;
 
     return Stack(
       children: [
         Scaffold(
-          backgroundColor: AppColors.blushIvory,
+          backgroundColor: const Color(0xFFF8F6F8),
           body: RefreshIndicator(
             onRefresh: () async {
               setState(() {});
             },
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 32),
+              padding: const EdgeInsets.only(bottom: 36),
               children: [
-                // Top Upload / Camera Action Banner with Plum Slate to Forest Charcoal Gradient
+                // Top Fast Invoice Scanner Banner
                 Container(
-                  margin: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                  margin: const EdgeInsets.fromLTRB(16, 14, 16, 12),
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [AppColors.plumSlate, AppColors.forestCharcoal],
+                      colors: [Color(0xFF3F263A), Color(0xFF222927)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.plumSlate.withOpacity(0.25),
+                        color: const Color(0xFF3F263A).withOpacity(0.25),
                         blurRadius: 16,
                         offset: const Offset(0, 6),
                       ),
                     ],
                   ),
-                  child: Column(
+                  child: Stack(
                     children: [
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(8),
+                      // Watermark Graphic on the Right
+                      Positioned(
+                        right: -10,
+                        top: -5,
+                        child: Opacity(
+                          opacity: 0.08,
+                          child: Icon(
+                            Icons.receipt_long_rounded,
+                            size: 90,
+                            color: Colors.white,
                           ),
-                          child: const Icon(Icons.crop_free_rounded, color: AppColors.softSage, size: 22),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Fast Invoice Scanner',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Take a photo of your bill or pick from gallery',
-                        style: TextStyle(color: Colors.white70, fontSize: 11),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
+
+                      Column(
                         children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _isUploading ? null : handleCaptureCamera,
-                              icon: const Icon(Icons.camera_alt_rounded, size: 18),
-                              label: const Text('Take Photo'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.softSage,
-                                foregroundColor: AppColors.inkNavy,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                          Row(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Center(
+                                  child: Icon(Icons.crop_free_rounded, color: Colors.white, size: 24),
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: const [
+                                    Text(
+                                      'Fast Invoice Scanner',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    SizedBox(height: 3),
+                                    Text(
+                                      'Take a photo of your bill or pick from gallery',
+                                      style: TextStyle(color: Colors.white70, fontSize: 11),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _isUploading ? null : _handlePickFile,
-                              icon: const Icon(Icons.photo_library_rounded, size: 18, color: Colors.white),
-                              label: const Text('Upload Photo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-                              style: OutlinedButton.styleFrom(
-                                backgroundColor: Colors.white.withOpacity(0.08),
-                                side: BorderSide(color: Colors.white.withOpacity(0.25)),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: _isUploading ? null : handleCaptureCamera,
+                                  icon: const Icon(Icons.camera_alt_outlined, size: 18),
+                                  label: const Text('Take Photo'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.softSage,
+                                    foregroundColor: AppColors.inkNavy,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                                  ),
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: _isUploading ? null : _handlePickFile,
+                                  icon: const Icon(Icons.upload_file_rounded, size: 18, color: Colors.white),
+                                  label: const Text('Upload Photo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
+                                  style: OutlinedButton.styleFrom(
+                                    backgroundColor: Colors.white.withOpacity(0.06),
+                                    side: BorderSide(color: Colors.white.withOpacity(0.22)),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -214,38 +269,125 @@ class InboxScreenState extends State<InboxScreen> {
                   ),
                 ),
 
-                // Symmetric Filter Tabs with equal margin on both sides
+                // 3 Filter Cards Row matching reference mockup
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   child: Row(
                     children: [
                       Expanded(
-                        child: _buildFilterTab(
+                        child: _buildFilterCard(
                           value: 'ALL',
                           label: 'All Bills',
-                          count: widget.invoices.length,
+                          count: allCount,
+                          dotColor: null,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: _buildFilterTab(
+                        child: _buildFilterCard(
                           value: 'NEEDS_REVIEW',
                           label: 'Needs Review',
                           count: needsReviewCount,
-                          isUrgent: true,
+                          dotColor: const Color(0xFFF59E0B), // Warm amber dot
+                          countColor: const Color(0xFFD94868), // Rose red accent count
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: _buildFilterTab(
+                        child: _buildFilterCard(
                           value: 'APPROVED',
                           label: 'Approved',
                           count: approvedCount,
+                          dotColor: const Color(0xFF10B981), // Green dot
                         ),
                       ),
                     ],
                   ),
                 ),
+
+                const SizedBox(height: 10),
+
+                // Search & Filter Tuning Bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      // Search TextField
+                      Expanded(
+                        child: Container(
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceWhite,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.borderSubtle),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.02),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: (val) => setState(() => _searchQuery = val),
+                            style: const TextStyle(fontSize: 13, color: AppColors.inkNavy),
+                            decoration: InputDecoration(
+                              hintText: 'Search invoices by number, vendor or amount...',
+                              hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF9E96A0)),
+                              prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF7E757D)),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear, size: 16, color: Color(0xFF7E757D)),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() => _searchQuery = '');
+                                      },
+                                    )
+                                  : null,
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+
+                      // Tuning / Filter Icon Button
+                      Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceWhite,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.borderSubtle),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.02),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: () {
+                              _showSnackbar('Filter presets: Showing active ${_activeFilter.toLowerCase()} bills');
+                            },
+                            child: const Center(
+                              child: Icon(Icons.tune_rounded, size: 20, color: AppColors.inkNavy),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 10),
 
                 // Invoices List or Empty State
                 if (filtered.isEmpty) ...[
@@ -273,10 +415,12 @@ class InboxScreenState extends State<InboxScreen> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          const Text(
-                            'Tap "Take Photo" or "Upload Photo" above to process your first invoice.',
+                          Text(
+                            _searchQuery.isNotEmpty
+                                ? 'No bills match "$_searchQuery". Try a different search.'
+                                : 'Tap "Take Photo" or "Upload Photo" above to process your first invoice.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                           ),
                         ],
                       ),
@@ -350,63 +494,82 @@ class InboxScreenState extends State<InboxScreen> {
     );
   }
 
-  Widget _buildFilterTab({
+  Widget _buildFilterCard({
     required String value,
     required String label,
     required int count,
-    bool isUrgent = false,
+    Color? dotColor,
+    Color? countColor,
   }) {
     final isSelected = _activeFilter == value;
-    return InkWell(
-      onTap: () => setState(() => _activeFilter = value),
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.plumSlate : AppColors.surfaceWhite,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected
-                ? AppColors.plumSlate
-                : (isUrgent && count > 0 ? AppColors.errorRed.withOpacity(0.4) : AppColors.borderSubtle),
-            width: isUrgent && count > 0 && !isSelected ? 1.2 : 1,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.plumSlate.withOpacity(0.2),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '$count',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => setState(() => _activeFilter = value),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.plumSlate : AppColors.surfaceWhite,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected ? AppColors.plumSlate : AppColors.borderSubtle,
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
                 color: isSelected
-                    ? Colors.white
-                    : (isUrgent && count > 0 ? AppColors.errorRed : AppColors.inkNavy),
+                    ? AppColors.plumSlate.withOpacity(0.25)
+                    : Colors.black.withOpacity(0.02),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                color: isSelected ? Colors.white70 : AppColors.textMuted,
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '$count',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: isSelected
+                          ? Colors.white
+                          : (countColor ?? AppColors.inkNavy),
+                    ),
+                  ),
+                  if (dotColor != null) ...[
+                    const SizedBox(width: 5),
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: dotColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                  color: isSelected ? Colors.white70 : AppColors.textMuted,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

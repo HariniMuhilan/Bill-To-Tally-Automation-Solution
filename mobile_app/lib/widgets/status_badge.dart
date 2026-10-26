@@ -10,36 +10,46 @@ class StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     Color bg;
     Color text;
+    Color border;
     IconData icon;
     String label = status;
 
     switch (status.toUpperCase()) {
       case 'APPROVED':
-        bg = AppColors.successBg;
-        text = const Color(0xFF285C3A); // Deep sage
+        bg = const Color(0xFFE8F5E9);
+        text = const Color(0xFF1B5E20);
+        border = const Color(0xFF81C784).withOpacity(0.4);
         icon = Icons.check_circle_rounded;
+        label = 'Approved';
         break;
       case 'POSTED':
-        bg = const Color(0x289CB9A6);
-        text = const Color(0xFF202A27);
+        bg = const Color(0xFFE0F2F1);
+        text = const Color(0xFF004D40);
+        border = const Color(0xFF4DB6AC).withOpacity(0.4);
         icon = Icons.verified_rounded;
+        label = 'Posted';
         break;
       case 'POST_FAILED':
         bg = AppColors.errorRedBg;
         text = AppColors.errorRed;
+        border = AppColors.errorRed.withOpacity(0.3);
         icon = Icons.error_outline_rounded;
+        label = 'Post Failed';
         break;
       case 'NEEDS_CORRECTION':
-        bg = AppColors.mauveBg;
-        text = AppColors.mutedMauve;
+        bg = const Color(0xFFFFF3E0);
+        text = const Color(0xFFE65100);
+        border = const Color(0xFFFFB74D).withOpacity(0.4);
         icon = Icons.edit_note_rounded;
+        label = 'Needs Correction';
         break;
       case 'NEEDS_REVIEW':
       default:
-        bg = AppColors.errorRedBg;
-        text = AppColors.errorRed;
-        icon = Icons.priority_high_rounded;
-        label = 'NEEDS REVIEW';
+        bg = const Color(0xFFFEF3EB);
+        text = const Color(0xFFB45309);
+        border = const Color(0xFFF59E0B).withOpacity(0.35);
+        icon = Icons.error_rounded;
+        label = 'Needs Review';
         break;
     }
 
@@ -48,7 +58,7 @@ class StatusBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: text.withOpacity(0.3), width: 1),
+        border: Border.all(color: border, width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -61,7 +71,7 @@ class StatusBadge extends StatelessWidget {
               color: text,
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              letterSpacing: 0.3,
+              letterSpacing: 0.2,
             ),
           ),
         ],

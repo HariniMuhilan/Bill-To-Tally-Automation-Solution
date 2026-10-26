@@ -124,7 +124,7 @@ class _HomeShellState extends State<HomeShell> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Go to Inbox and tap "REVIEW NOW"\non any bill.',
+                    'Go to Inbox and tap "Review Now"\non any bill.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: AppColors.textMuted, fontSize: 13),
                   ),
@@ -214,14 +214,14 @@ class _HomeShellState extends State<HomeShell> {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.blushIvory,
+      backgroundColor: const Color(0xFFF8F6F8),
       appBar: AppBar(
         backgroundColor: AppColors.inkNavy,
         foregroundColor: Colors.white,
         elevation: 0,
         title: Row(
           children: [
-            const Icon(Icons.receipt_long_rounded, color: AppColors.softSage, size: 22),
+            const Icon(Icons.receipt_long_rounded, color: Color(0xFFF59E0B), size: 22),
             const SizedBox(width: 10),
             Text(
               title,
@@ -230,18 +230,46 @@ class _HomeShellState extends State<HomeShell> {
           ],
         ),
         actions: [
-          // User Profile Initials Avatar (Curated Palette)
+          // TEST Shield Pill matching reference mockup
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 13),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withOpacity(0.18)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.shield_outlined, color: Colors.white, size: 12),
+                SizedBox(width: 4),
+                Text(
+                  'TEST',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+
+          // User Profile Initials Avatar (Soft Sage)
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: CircleAvatar(
               backgroundColor: AppColors.softSage,
-              radius: 15,
+              radius: 14,
               child: Text(
                 widget.user.initials,
                 style: const TextStyle(
                   color: AppColors.inkNavy,
                   fontWeight: FontWeight.w900,
-                  fontSize: 11,
+                  fontSize: 10,
                 ),
               ),
             ),
@@ -269,7 +297,7 @@ class _HomeShellState extends State<HomeShell> {
                 height: 68,
                 decoration: const BoxDecoration(
                   color: AppColors.surfaceWhite,
-                  border: Border(top: BorderSide(color: AppColors.borderSubtle, width: 1)),
+                  border: Border(top: BorderSide(color: Color(0xFFE8E0E5), width: 1)),
                   boxShadow: [
                     BoxShadow(
                       color: Color(0x0C000000),
@@ -286,13 +314,14 @@ class _HomeShellState extends State<HomeShell> {
                         index: 0,
                         icon: Icons.all_inbox_rounded,
                         label: 'Inbox',
+                        showActiveUnderline: true,
                       ),
                     ),
                     // Item 1: Review
                     Expanded(
                       child: _buildNavTab(
                         index: 1,
-                        icon: Icons.fact_check_rounded,
+                        icon: Icons.assignment_turned_in_outlined,
                         label: 'Review',
                         badgeCount: needsReviewCount,
                         isAlertBadge: true,
@@ -304,7 +333,7 @@ class _HomeShellState extends State<HomeShell> {
                     Expanded(
                       child: _buildNavTab(
                         index: 2,
-                        icon: Icons.electrical_services_rounded,
+                        icon: Icons.sync_rounded,
                         label: 'Tally',
                       ),
                     ),
@@ -312,7 +341,7 @@ class _HomeShellState extends State<HomeShell> {
                     Expanded(
                       child: _buildNavTab(
                         index: 3,
-                        icon: Icons.settings_rounded,
+                        icon: Icons.settings_outlined,
                         label: 'More',
                       ),
                     ),
@@ -320,7 +349,7 @@ class _HomeShellState extends State<HomeShell> {
                 ),
               ),
 
-              // Popped Out Center Camera Action Button
+              // Popped Out Center Camera Action Button matching reference mockup
               Positioned(
                 top: -20,
                 child: GestureDetector(
@@ -330,21 +359,21 @@ class _HomeShellState extends State<HomeShell> {
                     height: 58,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColors.plumSlate,
-                      border: Border.all(color: AppColors.softSage, width: 2.5),
+                      color: const Color(0xFF567C69), // Forest Sage green circle from image
+                      border: Border.all(color: const Color(0xFF9CB9A6), width: 2.5),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.plumSlate.withOpacity(0.4),
+                          color: const Color(0xFF567C69).withOpacity(0.35),
                           blurRadius: 14,
-                          offset: const Offset(0, 6),
+                          offset: const Offset(0, 5),
                         ),
                       ],
                     ),
                     child: const Center(
                       child: Icon(
                         Icons.camera_alt_rounded,
-                        color: AppColors.softSage,
-                        size: 28,
+                        color: Colors.white,
+                        size: 26,
                       ),
                     ),
                   ),
@@ -363,6 +392,7 @@ class _HomeShellState extends State<HomeShell> {
     required String label,
     int? badgeCount,
     bool isAlertBadge = false,
+    bool showActiveUnderline = false,
   }) {
     final isSelected = _currentIndex == index;
     return InkWell(
@@ -378,11 +408,11 @@ class _HomeShellState extends State<HomeShell> {
                 '$badgeCount',
                 style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
               ),
-              backgroundColor: isAlertBadge ? AppColors.errorRed : AppColors.plumSlate,
+              backgroundColor: isAlertBadge ? const Color(0xFFE11D48) : AppColors.plumSlate,
               child: Icon(
                 icon,
                 size: 24,
-                color: isSelected ? AppColors.plumSlate : AppColors.mutedMauve,
+                color: isSelected ? AppColors.plumSlate : const Color(0xFF7E757D),
               ),
             ),
             const SizedBox(height: 3),
@@ -391,9 +421,21 @@ class _HomeShellState extends State<HomeShell> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                color: isSelected ? AppColors.plumSlate : AppColors.textMuted,
+                color: isSelected ? AppColors.plumSlate : const Color(0xFF7E757D),
               ),
             ),
+            if (isSelected && showActiveUnderline)
+              Container(
+                margin: const EdgeInsets.only(top: 2),
+                width: 22,
+                height: 2,
+                decoration: BoxDecoration(
+                  color: AppColors.plumSlate,
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              )
+            else
+              const SizedBox(height: 4),
           ],
         ),
       ),
