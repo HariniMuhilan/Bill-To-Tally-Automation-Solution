@@ -43,29 +43,9 @@ class InvoiceCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Stack(
-        children: [
-          // Subtle Left Accent highlight for Needs Review
-          if (isNeedsReview)
-            Positioned(
-              left: 0,
-              top: 14,
-              bottom: 14,
-              child: Container(
-                width: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD94868),
-                  borderRadius: const BorderRadius.only(
-                    topRight: Radius.circular(4),
-                    bottomRight: Radius.circular(4),
-                  ),
-                ),
-              ),
-            ),
-
-          Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
             child: InkWell(
               onTap: onReview,
               borderRadius: BorderRadius.circular(16),
@@ -264,8 +244,6 @@ class InvoiceCard extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      ),
     );
   }
 }

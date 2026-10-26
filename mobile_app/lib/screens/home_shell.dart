@@ -359,11 +359,11 @@ class _HomeShellState extends State<HomeShell> {
                     height: 58,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF567C69), // Forest Sage green circle from image
-                      border: Border.all(color: const Color(0xFF9CB9A6), width: 2.5),
+                      color: const Color(0xFF487E64), // Fresh eucalyptus jade
+                      border: Border.all(color: const Color(0xFF68A484), width: 2.5),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF567C69).withOpacity(0.35),
+                          color: const Color(0xFF487E64).withOpacity(0.35),
                           blurRadius: 14,
                           offset: const Offset(0, 5),
                         ),

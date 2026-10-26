@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // User's Curated Palette
+  // User's Curated Palette (Slightly brighter rich plum & matching fresh eucalyptus jade)
   static const Color inkNavy = Color(0xFF111522);         // #111522 INK NAVY
   static const Color forestCharcoal = Color(0xFF202A27);  // #202A27 FOREST CHARCOAL
-  static const Color plumSlate = Color(0xFF493044);       // #493044 PLUM SLATE
-  static const Color mutedMauve = Color(0xFF80536F);      // #80536F MUTED MAUVE
-  static const Color softSage = Color(0xFF9CB9A6);        // #9CB9A6 SOFT SAGE
+  static const Color plumSlate = Color(0xFF65395E);       // #65395E BRIGHTER RICH PLUM
+  static const Color mutedMauve = Color(0xFF8F5D7E);      // #8F5D7E MUTED MAUVE
+  static const Color softSage = Color(0xFF68A484);        // #68A484 FRESH EUCALYPTUS JADE
   static const Color blushIvory = Color(0xFFF7F2F4);      // #F7F2F4 BLUSH IVORY
 
   // Accents & Surfaces
-  static const Color accentOrange = softSage;             // Mapped to Soft Sage from user's palette
+  static const Color accentOrange = softSage;             // Mapped to Eucalyptus Jade
   static const Color surfaceWhite = Color(0xFFFFFFFF);    // Cards, sheets
   static const Color textPrimary = Color(0xFF111522);     // Ink Navy text
   static const Color textMuted = Color(0xFF7E757D);       // Muted mauve-tinted grey
   static const Color borderSubtle = Color(0xFFE8E0E5);    // Subtle hairline divider
-  static const Color successBg = Color(0x289CB9A6);       // Soft Sage tint
-  static const Color mauveBg = Color(0x1E80536F);         // Muted Mauve tint
+  static const Color successBg = Color(0x2868A484);       // Jade tint
+  static const Color mauveBg = Color(0x1E8F5D7E);         // Mauve tint
   static const Color errorRed = Color(0xFFDC2626);
   static const Color errorRedBg = Color(0x1FDC2626);
 

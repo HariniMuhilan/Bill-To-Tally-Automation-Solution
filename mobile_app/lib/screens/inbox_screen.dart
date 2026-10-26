@@ -29,16 +29,8 @@ class InboxScreen extends StatefulWidget {
 
 class InboxScreenState extends State<InboxScreen> {
   String _activeFilter = 'ALL';
-  String _searchQuery = '';
-  final TextEditingController _searchController = TextEditingController();
   bool _isUploading = false;
   String _uploadStatusText = '';
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
 
   Future<void> handleCaptureCamera() async {
     try {
@@ -115,27 +107,12 @@ class InboxScreenState extends State<InboxScreen> {
   }
 
   List<Invoice> get _filteredInvoices {
-    var list = widget.invoices;
-
-    // Filter by Tab
     if (_activeFilter == 'NEEDS_REVIEW') {
-      list = list.where((i) => i.status == 'NEEDS_REVIEW' || i.status == 'NEEDS_CORRECTION').toList();
+      return widget.invoices.where((i) => i.status == 'NEEDS_REVIEW' || i.status == 'NEEDS_CORRECTION').toList();
     } else if (_activeFilter == 'APPROVED') {
-      list = list.where((i) => i.status == 'APPROVED' || i.status == 'POSTED').toList();
+      return widget.invoices.where((i) => i.status == 'APPROVED' || i.status == 'POSTED').toList();
     }
-
-    // Filter by Search Query
-    if (_searchQuery.trim().isNotEmpty) {
-      final q = _searchQuery.trim().toLowerCase();
-      list = list.where((i) {
-        return i.invoiceNo.toLowerCase().contains(q) ||
-            i.supplierRaw.toLowerCase().contains(q) ||
-            i.grandTotal.toString().contains(q) ||
-            i.id.toLowerCase().contains(q);
-      }).toList();
-    }
-
-    return list;
+    return widget.invoices;
   }
 
   @override
@@ -156,20 +133,20 @@ class InboxScreenState extends State<InboxScreen> {
             child: ListView(
               padding: const EdgeInsets.only(bottom: 36),
               children: [
-                // Top Fast Invoice Scanner Banner
+                // Top Fast Invoice Scanner Banner with brighter rich plum gradient
                 Container(
                   margin: const EdgeInsets.fromLTRB(16, 14, 16, 12),
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF3F263A), Color(0xFF222927)],
+                      colors: [Color(0xFF5B2B52), Color(0xFF28232D)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF3F263A).withOpacity(0.25),
+                        color: const Color(0xFF5B2B52).withOpacity(0.28),
                         blurRadius: 16,
                         offset: const Offset(0, 6),
                       ),
@@ -183,7 +160,7 @@ class InboxScreenState extends State<InboxScreen> {
                         top: -5,
                         child: Opacity(
                           opacity: 0.08,
-                          child: Icon(
+                          child: const Icon(
                             Icons.receipt_long_rounded,
                             size: 90,
                             color: Colors.white,
@@ -199,7 +176,7 @@ class InboxScreenState extends State<InboxScreen> {
                                 width: 44,
                                 height: 44,
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.08),
+                                  color: Colors.white.withOpacity(0.10),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Center(
@@ -254,8 +231,8 @@ class InboxScreenState extends State<InboxScreen> {
                                   icon: const Icon(Icons.upload_file_rounded, size: 18, color: Colors.white),
                                   label: const Text('Upload Photo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
                                   style: OutlinedButton.styleFrom(
-                                    backgroundColor: Colors.white.withOpacity(0.06),
-                                    side: BorderSide(color: Colors.white.withOpacity(0.22)),
+                                    backgroundColor: Colors.white.withOpacity(0.08),
+                                    side: BorderSide(color: Colors.white.withOpacity(0.24)),
                                     padding: const EdgeInsets.symmetric(vertical: 12),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
@@ -298,96 +275,14 @@ class InboxScreenState extends State<InboxScreen> {
                           value: 'APPROVED',
                           label: 'Approved',
                           count: approvedCount,
-                          dotColor: const Color(0xFF10B981), // Green dot
+                          dotColor: AppColors.softSage, // Matching fresh jade dot
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 10),
-
-                // Search & Filter Tuning Bar
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      // Search TextField
-                      Expanded(
-                        child: Container(
-                          height: 46,
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceWhite,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColors.borderSubtle),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.02),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: TextField(
-                            controller: _searchController,
-                            onChanged: (val) => setState(() => _searchQuery = val),
-                            style: const TextStyle(fontSize: 13, color: AppColors.inkNavy),
-                            decoration: InputDecoration(
-                              hintText: 'Search invoices by number, vendor or amount...',
-                              hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF9E96A0)),
-                              prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF7E757D)),
-                              suffixIcon: _searchQuery.isNotEmpty
-                                  ? IconButton(
-                                      icon: const Icon(Icons.clear, size: 16, color: Color(0xFF7E757D)),
-                                      onPressed: () {
-                                        _searchController.clear();
-                                        setState(() => _searchQuery = '');
-                                      },
-                                    )
-                                  : null,
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-
-                      // Tuning / Filter Icon Button
-                      Container(
-                        width: 46,
-                        height: 46,
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceWhite,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.borderSubtle),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.02),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(14),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(14),
-                            onTap: () {
-                              _showSnackbar('Filter presets: Showing active ${_activeFilter.toLowerCase()} bills');
-                            },
-                            child: const Center(
-                              child: Icon(Icons.tune_rounded, size: 20, color: AppColors.inkNavy),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
 
                 // Invoices List or Empty State
                 if (filtered.isEmpty) ...[
@@ -415,12 +310,10 @@ class InboxScreenState extends State<InboxScreen> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Text(
-                            _searchQuery.isNotEmpty
-                                ? 'No bills match "$_searchQuery". Try a different search.'
-                                : 'Tap "Take Photo" or "Upload Photo" above to process your first invoice.',
+                          const Text(
+                            'Tap "Take Photo" or "Upload Photo" above to process your first invoice.',
                             textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                            style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                           ),
                         ],
                       ),
@@ -439,7 +332,7 @@ class InboxScreenState extends State<InboxScreen> {
           ),
         ),
 
-        // Simple, Jargon-Free Loading Overlay
+        // Simple Loading Overlay
         if (_isUploading)
           Container(
             color: Colors.black.withOpacity(0.55),
@@ -520,7 +413,7 @@ class InboxScreenState extends State<InboxScreen> {
             boxShadow: [
               BoxShadow(
                 color: isSelected
-                    ? AppColors.plumSlate.withOpacity(0.25)
+                    ? AppColors.plumSlate.withOpacity(0.28)
                     : Colors.black.withOpacity(0.02),
                 blurRadius: 6,
                 offset: const Offset(0, 2),
