@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/user_session.dart';
 import '../services/storage_service.dart';
@@ -17,31 +18,39 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _LoginScreenState extends State<LoginScreen> {
+  bool _isSignUp = false;
+
+  // Sign In controllers
   final _usernameController = TextEditingController(text: 'accounts_user_01');
   final _passwordController = TextEditingController(text: 'tally@2026');
   bool _obscurePassword = true;
+
+  // Create Account controllers
+  final _fullNameController = TextEditingController();
+  final _regUsernameController = TextEditingController();
+  final _regPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _obscureRegPassword = true;
+  bool _obscureConfirmPassword = true;
+
   String? _errorMessage;
 
   @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
-
-  @override
   void dispose() {
-    _tabController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
+    _fullNameController.dispose();
+    _regUsernameController.dispose();
+    _regPasswordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
   void _handleSignIn() {
     final username = _usernameController.text.trim();
     if (username.isEmpty) {
-      setState(() => _errorMessage = 'Please enter a username');
+      setState(() => _errorMessage = 'Please enter your username');
       return;
     }
 
@@ -51,7 +60,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         username: username,
         fullName: username.toUpperCase(),
         role: 'Standard User',
-        initials: username.substring(0, 2).toUpperCase(),
+        initials: username.substring(0, min(2, username.length)).toUpperCase(),
       ),
     );
 
@@ -59,9 +68,42 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     widget.onLoginSuccess(matched);
   }
 
-  void _handleSelectPreset(UserSession user) {
-    widget.storage.saveUser(user);
-    widget.onLoginSuccess(user);
+  void _handleCreateAccount() {
+    final fullName = _fullNameController.text.trim();
+    final username = _regUsernameController.text.trim();
+    final password = _regPasswordController.text.trim();
+    final confirmPass = _confirmPasswordController.text.trim();
+
+    if (fullName.isEmpty) {
+      setState(() => _errorMessage = 'Please enter your full name');
+      return;
+    }
+    if (username.isEmpty) {
+      setState(() => _errorMessage = 'Please enter a username');
+      return;
+    }
+    if (password.isEmpty) {
+      setState(() => _errorMessage = 'Please enter a password');
+      return;
+    }
+    if (password.length < 6) {
+      setState(() => _errorMessage = 'Password must be at least 6 characters');
+      return;
+    }
+    if (password != confirmPass) {
+      setState(() => _errorMessage = 'Passwords do not match');
+      return;
+    }
+
+    final newUser = UserSession(
+      username: username,
+      fullName: fullName,
+      role: 'Reviewer',
+      initials: fullName.isNotEmpty ? fullName.substring(0, min(2, fullName.length)).toUpperCase() : 'AU',
+    );
+
+    widget.storage.saveUser(newUser);
+    widget.onLoginSuccess(newUser);
   }
 
   @override
@@ -71,27 +113,35 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Top Brand Logo
+                // Top Brand Logo with Soft Sage from New Palette
                 Container(
                   width: 72,
                   height: 72,
                   decoration: BoxDecoration(
                     color: AppColors.inkNavy,
                     borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: AppColors.softSage.withOpacity(0.35),
+                      width: 1.5,
+                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.inkNavy.withOpacity(0.35),
+                        color: AppColors.inkNavy.withOpacity(0.25),
                         blurRadius: 18,
                         offset: const Offset(0, 8),
                       ),
                     ],
                   ),
                   child: const Center(
-                    child: Icon(Icons.receipt_long_rounded, color: AppColors.accentOrange, size: 38),
+                    child: Icon(
+                      Icons.receipt_long_rounded,
+                      color: AppColors.softSage,
+                      size: 38,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -119,29 +169,95 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Tabs
+                        // Smoothly animated pill toggle with permanent curvy borders
                         Container(
                           height: 44,
+                          padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
                             color: AppColors.blushIvory,
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: TabBar(
-                            controller: _tabController,
-                            indicatorSize: TabBarIndicatorSize.tab,
-                            indicatorPadding: const EdgeInsets.all(4),
-                            dividerColor: Colors.transparent,
-                            indicator: BoxDecoration(
-                              color: AppColors.plumSlate,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            labelColor: Colors.white,
-                            unselectedLabelColor: AppColors.textMuted,
-                            labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                            tabs: const [
-                              Tab(text: 'Sign In'),
-                              Tab(text: 'Create Account'),
-                            ],
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final pillWidth = constraints.maxWidth / 2;
+                              return Stack(
+                                children: [
+                                  // Moving pill indicator (never flickers, keeps 10px rounded corners at all frames)
+                                  AnimatedPositioned(
+                                    duration: const Duration(milliseconds: 220),
+                                    curve: Curves.easeInOutCubic,
+                                    left: _isSignUp ? pillWidth : 0,
+                                    top: 0,
+                                    bottom: 0,
+                                    width: pillWidth,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: AppColors.plumSlate,
+                                        borderRadius: BorderRadius.circular(10),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: AppColors.plumSlate.withOpacity(0.25),
+                                            blurRadius: 6,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  // Interactive Touch Targets
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: InkWell(
+                                          onTap: () {
+                                            if (_isSignUp) {
+                                              setState(() {
+                                                _isSignUp = false;
+                                                _errorMessage = null;
+                                              });
+                                            }
+                                          },
+                                          borderRadius: BorderRadius.circular(10),
+                                          child: Center(
+                                            child: Text(
+                                              'Sign In',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: !_isSignUp ? Colors.white : AppColors.textMuted,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: InkWell(
+                                          onTap: () {
+                                            if (!_isSignUp) {
+                                              setState(() {
+                                                _isSignUp = true;
+                                                _errorMessage = null;
+                                              });
+                                            }
+                                          },
+                                          borderRadius: BorderRadius.circular(10),
+                                          child: Center(
+                                            child: Text(
+                                              'Create Account',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: _isSignUp ? Colors.white : AppColors.textMuted,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              );
+                            },
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -170,108 +286,190 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           const SizedBox(height: 14),
                         ],
 
-                        // Username Field
-                        const Text('Username', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 6),
-                        TextField(
-                          controller: _usernameController,
-                          decoration: InputDecoration(
-                            hintText: 'e.g. accounts_user_01',
-                            prefixIcon: const Icon(Icons.person_outline, size: 20),
-                            filled: true,
-                            fillColor: AppColors.blushIvory,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: AppColors.borderSubtle),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: AppColors.borderSubtle),
+                        // Dynamic Form: Sign In vs Create Account
+                        if (!_isSignUp) ...[
+                          // Sign In Form
+                          const Text('Username', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: _usernameController,
+                            decoration: InputDecoration(
+                              hintText: 'e.g. accounts_user_01',
+                              prefixIcon: const Icon(Icons.person_outline, size: 20),
+                              filled: true,
+                              fillColor: AppColors.blushIvory,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 14),
+                          const SizedBox(height: 14),
 
-                        // Password Field
-                        const Text('Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 6),
-                        TextField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          decoration: InputDecoration(
-                            hintText: '••••••••',
-                            prefixIcon: const Icon(Icons.lock_outline, size: 20),
-                            suffixIcon: IconButton(
-                              icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 18),
-                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                            ),
-                            filled: true,
-                            fillColor: AppColors.blushIvory,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: AppColors.borderSubtle),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: AppColors.borderSubtle),
+                          const Text('Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
+                              hintText: '••••••••',
+                              prefixIcon: const Icon(Icons.lock_outline, size: 20),
+                              suffixIcon: IconButton(
+                                icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 18),
+                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                              ),
+                              filled: true,
+                              fillColor: AppColors.blushIvory,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 20),
+                          const SizedBox(height: 22),
 
-                        // Sign In CTA
-                        ElevatedButton(
-                          onPressed: _handleSignIn,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.plumSlate,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          // SIGN IN CTA
+                          ElevatedButton(
+                            onPressed: _handleSignIn,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.plumSlate,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            child: const Text(
+                              'SIGN IN',
+                              style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.8),
+                            ),
                           ),
-                          child: const Text('Sign In to Workspace'),
-                        ),
+                        ] else ...[
+                          // Create Account Form
+                          const Text('Full Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: _fullNameController,
+                            decoration: InputDecoration(
+                              hintText: 'e.g. John Doe',
+                              prefixIcon: const Icon(Icons.badge_outlined, size: 20),
+                              filled: true,
+                              fillColor: AppColors.blushIvory,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          const Text('Username', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: _regUsernameController,
+                            decoration: InputDecoration(
+                              hintText: 'e.g. jdoe_admin',
+                              prefixIcon: const Icon(Icons.alternate_email_rounded, size: 20),
+                              filled: true,
+                              fillColor: AppColors.blushIvory,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          const Text('Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: _regPasswordController,
+                            obscureText: _obscureRegPassword,
+                            decoration: InputDecoration(
+                              hintText: 'At least 6 characters',
+                              prefixIcon: const Icon(Icons.lock_outline, size: 20),
+                              suffixIcon: IconButton(
+                                icon: Icon(_obscureRegPassword ? Icons.visibility_off : Icons.visibility, size: 18),
+                                onPressed: () => setState(() => _obscureRegPassword = !_obscureRegPassword),
+                              ),
+                              filled: true,
+                              fillColor: AppColors.blushIvory,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          const Text('Confirm Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: _confirmPasswordController,
+                            obscureText: _obscureConfirmPassword,
+                            decoration: InputDecoration(
+                              hintText: 'Re-enter password',
+                              prefixIcon: const Icon(Icons.lock_reset_rounded, size: 20),
+                              suffixIcon: IconButton(
+                                icon: Icon(_obscureConfirmPassword ? Icons.visibility_off : Icons.visibility, size: 18),
+                                onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                              ),
+                              filled: true,
+                              fillColor: AppColors.blushIvory,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 22),
+
+                          // CREATE ACCOUNT CTA
+                          ElevatedButton(
+                            onPressed: _handleCreateAccount,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.plumSlate,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            child: const Text(
+                              'CREATE ACCOUNT',
+                              style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.8),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 24),
-
-                // Quick Demo Roles Preset
-                const Text(
-                  'Quick Demo Roles',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textMuted),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: UserSession.demoPresets.map((u) {
-                    final isCurrent = u.username == _usernameController.text;
-                    return ActionChip(
-                      avatar: CircleAvatar(
-                        backgroundColor: isCurrent ? AppColors.plumSlate : AppColors.mutedMauve,
-                        radius: 12,
-                        child: Text(
-                          u.initials,
-                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                      label: Text('${u.username} (${u.role.split(' ')[0]})'),
-                      labelStyle: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: isCurrent ? AppColors.plumSlate : AppColors.textPrimary,
-                      ),
-                      backgroundColor: isCurrent ? AppColors.mauveBg : AppColors.surfaceWhite,
-                      side: BorderSide(color: isCurrent ? AppColors.plumSlate : AppColors.borderSubtle),
-                      onPressed: () {
-                        _usernameController.text = u.username;
-                        _handleSelectPreset(u);
-                      },
-                    );
-                  }).toList(),
                 ),
               ],
             ),
