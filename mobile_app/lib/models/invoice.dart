@@ -84,6 +84,7 @@ class Invoice {
   String gstin;
   String type;
   double subtotal;
+  double discount;
   double cgst;
   double sgst;
   double igst;
@@ -109,6 +110,7 @@ class Invoice {
     this.gstin = '',
     this.type = 'Accounting Purchase',
     this.subtotal = 0.0,
+    this.discount = 0.0,
     this.cgst = 0.0,
     this.sgst = 0.0,
     this.igst = 0.0,
@@ -138,6 +140,7 @@ class Invoice {
       tallyDate: json['tallyDate'] ?? '',
       gstin: json['gstin'] ?? '',
       subtotal: toDoubleSafe(json['subtotal'] ?? json['subtotal_amount']),
+      discount: toDoubleSafe(json['discount'] ?? json['discount_amount']),
       cgst: toDoubleSafe(json['cgst'] ?? json['cgst_amount']),
       sgst: toDoubleSafe(json['sgst'] ?? json['sgst_amount']),
       igst: toDoubleSafe(json['igst'] ?? json['igst_amount']),
@@ -165,6 +168,7 @@ class Invoice {
     'gstin': gstin,
     'type': type,
     'subtotal': subtotal,
+    'discount': discount,
     'cgst': cgst,
     'sgst': sgst,
     'igst': igst,

@@ -113,12 +113,13 @@ class ApiService {
           ext['subtotal_amount'],
           lineItems.fold<double>(0.0, (acc, l) => acc + l.taxable),
         );
+        final discount = toDoubleSafe(ext['discount_amount'] ?? ext['discount']);
         final cgst = toDoubleSafe(ext['cgst_amount']);
         final sgst = toDoubleSafe(ext['sgst_amount']);
         final igst = toDoubleSafe(ext['igst_amount']);
         final grandTotal = toDoubleSafe(
           ext['total_amount'],
-          subtotal + cgst + sgst + igst,
+          subtotal - discount + cgst + sgst + igst,
         );
 
         String? imgUrl = ocrData['image_url'];
@@ -139,6 +140,7 @@ class ApiService {
           gstin: ext['supplier_gstin'] ?? '',
           type: ext['invoice_mode'] == 'inventory' ? 'Inventory Purchase' : 'Accounting Purchase',
           subtotal: subtotal,
+          discount: discount,
           cgst: cgst,
           sgst: sgst,
           igst: igst,

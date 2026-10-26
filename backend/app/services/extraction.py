@@ -337,6 +337,7 @@ CRITICAL RULES (NEVER VIOLATE):
 5. INVOICE / BILL NUMBER: Extract the bill/invoice/receipt number accurately.
 6. TAX SPLITS: Extract CGST, SGST, IGST accurately. Intra-state usually has CGST and SGST. Inter-state has IGST.
 7. LINE ITEMS: Extract each purchased product or service line item with description, HSN/SAC code, quantity, unit, unit price, taxable amount, and GST rate.
+8. DISCOUNT: If the bill contains any trade discount, item discount, or bill-level discount (e.g. '(-) Discount 20.00' or 'Less: Discount'), extract the total discount as a positive numeric string in 'discount_amount' (e.g. '20.00').
 
 RAW OCR TEXT FROM BILL:
 {ocr_result.raw_text}
@@ -352,6 +353,7 @@ Respond ONLY with a valid JSON object matching this schema:
   "buyer_gstin": string or null,
   "place_of_supply": string or null,
   "subtotal_amount": "string amount" or null,
+  "discount_amount": "string amount" or "0.00",
   "cgst_amount": "string amount" or "0.00",
   "sgst_amount": "string amount" or "0.00",
   "igst_amount": "string amount" or "0.00",
@@ -455,6 +457,7 @@ Respond ONLY with a valid JSON object matching this schema:
             buyer_gstin=data.get("buyer_gstin"),
             place_of_supply=data.get("place_of_supply"),
             subtotal_amount=safe_decimal(data.get("subtotal_amount")),
+            discount_amount=safe_decimal(data.get("discount_amount"), Decimal("0.00")),
             cgst_amount=safe_decimal(data.get("cgst_amount"), Decimal("0.00")),
             sgst_amount=safe_decimal(data.get("sgst_amount"), Decimal("0.00")),
             igst_amount=safe_decimal(data.get("igst_amount"), Decimal("0.00")),
@@ -523,6 +526,13 @@ Respond ONLY with a valid JSON object matching this schema:
         )
         subtotal_amount = safe_decimal(subtotal_match.group(1)) if subtotal_match else None
 
+        # 5. Discount Search
+        discount_match = re.search(
+            r"(?i)(?:[-–(]*\s*discount|[-–(]*\s*disc|rebate|less\s*discount)[\s:₹rs.-]*([0-9,]+\.[0-9]{2})",
+            text,
+        )
+        discount_amount = safe_decimal(discount_match.group(1), Decimal("0.00")) if discount_match else Decimal("0.00")
+
         cgst_amount = Decimal("0.00")
         sgst_amount = Decimal("0.00")
         igst_amount = Decimal("0.00")
@@ -567,6 +577,7 @@ Respond ONLY with a valid JSON object matching this schema:
             supplier_gstin=supplier_gstin,
             buyer_gstin=buyer_gstin,
             subtotal_amount=subtotal_amount,
+            discount_amount=discount_amount,
             cgst_amount=cgst_amount,
             sgst_amount=sgst_amount,
             igst_amount=igst_amount,
@@ -633,7 +644,8 @@ Respond ONLY with a valid JSON object matching this schema:
             )
 
         if data.subtotal_amount and data.total_amount:
-            expected_grand = data.subtotal_amount + calculated_tax + (data.round_off_amount or Decimal("0"))
+            disc = data.discount_amount or Decimal("0.00")
+            expected_grand = data.subtotal_amount - disc + calculated_tax + (data.round_off_amount or Decimal("0"))
             diff = abs(data.total_amount - expected_grand)
             if diff > Decimal("1.00"):
                 warnings.append(

@@ -104,6 +104,7 @@ class InvoiceExtractedData(BaseModel):
 
     # Totals and Tax splits (all Decimal)
     subtotal_amount: Optional[Decimal] = None
+    discount_amount: Optional[Decimal] = Field(default=Decimal("0.00"))
     cgst_amount: Optional[Decimal] = Field(default=Decimal("0.00"))
     sgst_amount: Optional[Decimal] = Field(default=Decimal("0.00"))
     igst_amount: Optional[Decimal] = Field(default=Decimal("0.00"))
@@ -122,6 +123,7 @@ class InvoiceExtractedData(BaseModel):
 
     @field_serializer(
         "subtotal_amount",
+        "discount_amount",
         "cgst_amount",
         "sgst_amount",
         "igst_amount",
