@@ -18,13 +18,24 @@ class StorageService {
   static const String _keyTallyCompany = 'bill_to_tally_mobile_tally_company';
   static const String _keyPostingEnabled = 'bill_to_tally_mobile_posting_enabled';
 
+  static const String _keyCleanedOldData = 'bill_to_tally_mobile_cleaned_v4';
+
   final SharedPreferences _prefs;
 
   StorageService(this._prefs);
 
   static Future<StorageService> init() async {
     final prefs = await SharedPreferences.getInstance();
-    return StorageService(prefs);
+    final service = StorageService(prefs);
+    service._purgeOldDemoData();
+    return service;
+  }
+
+  void _purgeOldDemoData() {
+    if (!_prefs.containsKey(_keyCleanedOldData)) {
+      _prefs.remove(_keyInvoices);
+      _prefs.setBool(_keyCleanedOldData, true);
+    }
   }
 
   // --- Configuration ---
@@ -66,29 +77,21 @@ class StorageService {
   List<Invoice> getInvoices() {
     final raw = _prefs.getString(_keyInvoices);
     if (raw == null) {
-      return [
-        Invoice(
-          id: 'INV-743425',
-          sourceFilename: 'sample_bill_sr2.jpg',
-          supplierRaw: 'RAGA PVT LTD',
-          supplierMapped: '',
-          invoiceNo: 'SR2',
-          invoiceDate: '2020-03-23',
-          grandTotal: 811.00,
-          subtotal: 687.29,
-          cgst: 61.86,
-          sgst: 61.86,
-          status: 'NEEDS_REVIEW',
-          confidence: '97.7%',
-        ),
-      ];
+      return [];
     }
     try {
       final List list = jsonDecode(raw);
-      return list.map((i) => Invoice.fromJson(i as Map<String, dynamic>)).toList();
+      return list
+          .map((i) => Invoice.fromJson(i as Map<String, dynamic>))
+          .where((i) => i.id != 'INV-743425' && !i.sourceFilename.contains('sample_bill'))
+          .toList();
     } catch (_) {
       return [];
     }
+  }
+
+  Future<void> clearAllInvoices() async {
+    await _prefs.remove(_keyInvoices);
   }
 
   Future<void> saveInvoices(List<Invoice> invoices) async {

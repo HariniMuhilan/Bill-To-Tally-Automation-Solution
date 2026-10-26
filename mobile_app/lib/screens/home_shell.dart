@@ -49,9 +49,7 @@ class _HomeShellState extends State<HomeShell> {
       _invoices = widget.storage.getInvoices();
       _draftSheets = widget.storage.getDraftSheets();
       _mappings = widget.storage.getMappings();
-      if (_invoices.isNotEmpty) {
-        _selectedReviewInvoice = _invoices.first;
-      }
+      _selectedReviewInvoice = null; // Do NOT pre-select any old bill
     });
   }
 
@@ -97,47 +95,71 @@ class _HomeShellState extends State<HomeShell> {
         title = 'Review & Validate';
         if (_selectedReviewInvoice == null) {
           body = Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 76,
-                    height: 76,
+                    width: 86,
+                    height: 86,
                     decoration: BoxDecoration(
                       color: AppColors.mauveBg,
-                      borderRadius: BorderRadius.circular(22),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFEADBEC), width: 2),
                     ),
-                    child: const Icon(Icons.touch_app_rounded, size: 40, color: AppColors.mutedMauve),
+                    child: const Center(
+                      child: Icon(
+                        Icons.document_scanner_rounded,
+                        size: 42,
+                        color: AppColors.plumSlate,
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 22),
                   const Text(
-                    'No Invoice Selected\nfor Review',
+                    'Scan a Bill for Review',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      fontSize: 18,
+                      fontSize: 20,
                       color: AppColors.inkNavy,
-                      height: 1.25,
+                      letterSpacing: -0.2,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   const Text(
-                    'Go to Inbox and tap "Review Now"\non any bill.',
+                    'No bill has been scanned yet.\nTake a photo or upload a bill to review extracted items, verify totals, and send to Tally.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                    style: TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 13,
+                      height: 1.45,
+                    ),
                   ),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 28),
                   ElevatedButton.icon(
-                    onPressed: () => setState(() => _currentIndex = 0),
-                    icon: const Icon(Icons.all_inbox_rounded, size: 18),
-                    label: const Text('Go to Inbox'),
+                    onPressed: _handleQuickCameraCapture,
+                    icon: const Icon(Icons.camera_alt_rounded, size: 20),
+                    label: const Text(
+                      'Scan Bill Now',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.plumSlate,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 15),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: () => setState(() => _currentIndex = 0),
+                    icon: const Icon(Icons.all_inbox_rounded, size: 17, color: AppColors.textMuted),
+                    label: const Text(
+                      'Go to Inbox',
+                      style: TextStyle(color: AppColors.textMuted, fontSize: 13, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -165,7 +187,14 @@ class _HomeShellState extends State<HomeShell> {
             onDraftSheetsUpdated: (drafts) {
               setState(() => _draftSheets = drafts);
             },
-            onBack: () => setState(() => _currentIndex = 0),
+            onBack: () {
+              setState(() {
+                _currentIndex = 0;
+                if (_selectedReviewInvoice?.status == 'APPROVED') {
+                  _selectedReviewInvoice = null;
+                }
+              });
+            },
           );
         }
         break;
