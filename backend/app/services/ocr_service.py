@@ -30,7 +30,9 @@ except (ImportError, ValueError):
         from app.core.config import settings
         from app.schemas.invoice import OCRLine, OCRResult
     except (ImportError, ValueError):
+        # pyrefly: ignore[missing-import]
         from ..core.config import settings
+        # pyrefly: ignore[missing-import]
         from ..schemas.invoice import OCRLine, OCRResult
 
 logger = logging.getLogger(__name__)
