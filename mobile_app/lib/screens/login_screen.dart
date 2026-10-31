@@ -120,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 // Brand Logo & Typography (Thermal Printer + Billbooks)
                 const BillbooksLogo(
-                  iconSize: 84,
+                  iconSize: 110,
                   showWordmark: true,
                 ),
                 const SizedBox(height: 26),

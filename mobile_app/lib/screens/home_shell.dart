@@ -223,7 +223,22 @@ class _HomeShellState extends State<HomeShell> {
         elevation: 0,
         title: Row(
           children: [
-            const Icon(Icons.receipt_long_rounded, color: Color(0xFFF59E0B), size: 22),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.asset(
+                'assets/images/billbooks_icon.png',
+                width: 26,
+                height: 26,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => Image.network(
+                  'assets/images/billbooks_icon.png',
+                  width: 26,
+                  height: 26,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 22),
+                ),
+              ),
+            ),
             const SizedBox(width: 10),
             Text(
               title,
