@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import billbooksLogo from '../assets/billbooks_logo.svg';
 
 const DEFAULT_ACCOUNTS = [
   {
@@ -122,14 +123,12 @@ export default function Login({ onLoginSuccess }) {
   return (
     <div className="auth-page">
       <div className="auth-wrapper">
-        <header className="auth-brand-header">
-          <div className="auth-logo-badge">
-            <i className="fa-solid fa-receipt"></i>
-          </div>
-          <div className="auth-brand-text">
-            <h1>BILL TO TALLY</h1>
-            <span>Ashan Tech Labs &bull; TallyPrime Voucher Automation Gateway</span>
-          </div>
+        <header className="auth-brand-header auth-brand-billbooks">
+          <img 
+            src={billbooksLogo} 
+            alt="Billbooks - Purchase Voucher Automation" 
+            className="auth-billbooks-logo" 
+          />
         </header>
 
         <main className="auth-layout-grid">

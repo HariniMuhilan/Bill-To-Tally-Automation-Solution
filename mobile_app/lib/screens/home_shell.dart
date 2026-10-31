@@ -218,7 +218,7 @@ class _HomeShellState extends State<HomeShell> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F6F8),
       appBar: AppBar(
-        backgroundColor: AppColors.inkNavy,
+        backgroundColor: const Color(0xFF5B2B52),
         foregroundColor: Colors.white,
         elevation: 0,
         title: Row(
@@ -288,12 +288,12 @@ class _HomeShellState extends State<HomeShell> {
                       Row(
                         children: [
                           CircleAvatar(
-                            backgroundColor: AppColors.softSage,
+                            backgroundColor: const Color(0xFFC06C84),
                             radius: 16,
                             child: Text(
                               widget.user.initials,
                               style: const TextStyle(
-                                color: AppColors.inkNavy,
+                                color: Colors.white,
                                 fontWeight: FontWeight.w900,
                                 fontSize: 11,
                               ),
@@ -369,12 +369,12 @@ class _HomeShellState extends State<HomeShell> {
                 ),
               ],
               child: CircleAvatar(
-                backgroundColor: AppColors.softSage,
+                backgroundColor: const Color(0xFFC06C84),
                 radius: 14,
                 child: Text(
                   widget.user.initials,
                   style: const TextStyle(
-                    color: AppColors.inkNavy,
+                    color: Colors.white,
                     fontWeight: FontWeight.w900,
                     fontSize: 10,
                   ),

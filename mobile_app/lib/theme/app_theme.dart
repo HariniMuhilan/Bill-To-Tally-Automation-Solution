@@ -62,7 +62,7 @@ class AppTheme {
         error: AppColors.errorRed,
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.inkNavy,
+        backgroundColor: const Color(0xFF5B2B52),
         foregroundColor: Colors.white,
         elevation: 0,
         centerTitle: false,

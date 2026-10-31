@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/user_session.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/billbooks_logo.dart';
 
 class LoginScreen extends StatefulWidget {
   final StorageService storage;
@@ -117,49 +118,12 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Top Brand Logo with Soft Sage from New Palette
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: AppColors.inkNavy,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: AppColors.softSage.withOpacity(0.35),
-                      width: 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.inkNavy.withOpacity(0.25),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.receipt_long_rounded,
-                      color: AppColors.softSage,
-                      size: 38,
-                    ),
-                  ),
+                // Brand Logo & Typography (Thermal Printer + Billbooks)
+                const BillbooksLogo(
+                  iconSize: 84,
+                  showWordmark: true,
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'BILL TO TALLY',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                    color: AppColors.inkNavy,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Purchase Voucher Automation Gateway',
-                  style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-                ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 26),
 
                 // Main Auth Card
                 Card(

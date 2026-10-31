@@ -1608,6 +1608,20 @@ select.form-control {
   text-align: left;
 }
 
+.auth-brand-billbooks {
+  flex-direction: column;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.auth-billbooks-logo {
+  width: 190px;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
 .auth-logo-badge {
   width: 46px;
   height: 46px;

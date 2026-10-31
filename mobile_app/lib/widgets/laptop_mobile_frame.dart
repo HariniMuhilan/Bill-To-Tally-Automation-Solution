@@ -19,7 +19,7 @@ class LaptopMobileFrame extends StatelessWidget {
 
         // On Laptop/Desktop screen, render mobile chassis preview
         return Scaffold(
-          backgroundColor: AppColors.inkNavy, // Ink Navy desktop backdrop
+          backgroundColor: const Color(0xFF1E121E), // Deep purple desktop backdrop
           body: Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),

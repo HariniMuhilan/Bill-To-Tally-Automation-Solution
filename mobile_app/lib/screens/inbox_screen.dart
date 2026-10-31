@@ -215,8 +215,8 @@ class InboxScreenState extends State<InboxScreen> {
                                   icon: const Icon(Icons.camera_alt_outlined, size: 18),
                                   label: const Text('Take Photo'),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.softSage,
-                                    foregroundColor: AppColors.inkNavy,
+                                    backgroundColor: const Color(0xFFC06C84),
+                                    foregroundColor: Colors.white,
                                     padding: const EdgeInsets.symmetric(vertical: 12),
                                     elevation: 0,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
