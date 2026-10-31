@@ -74,12 +74,21 @@ class _ReviewScreenState extends State<ReviewScreen> {
   late TextEditingController _supplierRawController;
   late TextEditingController _invoiceNoController;
   late TextEditingController _invoiceDateController;
+  late TextEditingController _subtotalController;
   late TextEditingController _discountController;
+  late TextEditingController _cgstController;
+  late TextEditingController _sgstController;
+  late TextEditingController _igstController;
+  late TextEditingController _grandTotalController;
   late String _supplierMapped;
   late String _voucherType;
   final List<_EditableItemRow> _items = [];
 
   final currencyFormatter = NumberFormat.currency(locale: 'en_IN', symbol: '₹ ', decimalDigits: 2);
+
+  String _formatNum(double val) {
+    return val % 1 == 0 ? val.toInt().toString() : val.toStringAsFixed(2);
+  }
 
   @override
   void initState() {
@@ -87,13 +96,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
     _supplierRawController = TextEditingController(text: widget.invoice.supplierRaw);
     _invoiceNoController = TextEditingController(text: widget.invoice.invoiceNo);
     _invoiceDateController = TextEditingController(text: widget.invoice.invoiceDate);
-    _discountController = TextEditingController(
-      text: widget.invoice.discount > 0
-          ? (widget.invoice.discount % 1 == 0
-              ? widget.invoice.discount.toInt().toString()
-              : widget.invoice.discount.toStringAsFixed(2))
-          : '',
-    );
     _supplierMapped = widget.invoice.supplierMapped;
     _voucherType = widget.invoice.type;
 
@@ -110,6 +112,22 @@ class _ReviewScreenState extends State<ReviewScreen> {
         ),
       );
     }
+
+    final initialSub = widget.invoice.subtotal > 0
+        ? widget.invoice.subtotal
+        : (_items.isNotEmpty ? _items.fold<double>(0.0, (s, i) => s + i.total) : 0.0);
+    _subtotalController = TextEditingController(text: _formatNum(initialSub));
+    _discountController = TextEditingController(
+      text: widget.invoice.discount > 0 ? _formatNum(widget.invoice.discount) : '',
+    );
+    _cgstController = TextEditingController(text: _formatNum(widget.invoice.cgst));
+    _sgstController = TextEditingController(text: _formatNum(widget.invoice.sgst));
+    _igstController = TextEditingController(text: _formatNum(widget.invoice.igst));
+
+    final initialGrand = widget.invoice.grandTotal > 0
+        ? widget.invoice.grandTotal
+        : (initialSub - widget.invoice.discount + widget.invoice.cgst + widget.invoice.sgst + widget.invoice.igst);
+    _grandTotalController = TextEditingController(text: _formatNum(initialGrand));
   }
 
   @override
@@ -117,50 +135,61 @@ class _ReviewScreenState extends State<ReviewScreen> {
     _supplierRawController.dispose();
     _invoiceNoController.dispose();
     _invoiceDateController.dispose();
+    _subtotalController.dispose();
     _discountController.dispose();
+    _cgstController.dispose();
+    _sgstController.dispose();
+    _igstController.dispose();
+    _grandTotalController.dispose();
     for (final item in _items) {
       item.dispose();
     }
     super.dispose();
   }
 
-  double get _calculatedSubtotal {
-    if (_items.isEmpty) return widget.invoice.subtotal;
-    return _items.fold<double>(0.0, (sum, i) => sum + i.total);
+  double get _currentSubtotal => double.tryParse(_subtotalController.text.trim()) ?? 0.0;
+  double get _currentDiscount => double.tryParse(_discountController.text.trim()) ?? 0.0;
+  double get _currentCgst => double.tryParse(_cgstController.text.trim()) ?? 0.0;
+  double get _currentSgst => double.tryParse(_sgstController.text.trim()) ?? 0.0;
+  double get _currentIgst => double.tryParse(_igstController.text.trim()) ?? 0.0;
+  double get _currentGrandTotal => double.tryParse(_grandTotalController.text.trim()) ?? 0.0;
+
+  void _recalculateGrandTotal() {
+    final sub = _currentSubtotal;
+    final disc = _currentDiscount;
+    final taxes = _currentCgst + _currentSgst + _currentIgst;
+    final total = sub - disc + taxes;
+    _grandTotalController.text = _formatNum(total > 0 ? total : 0.0);
   }
 
-  double get _calculatedDiscount => double.tryParse(_discountController.text.trim()) ?? 0.0;
-
-  double get _calculatedGrandTotal {
-    final sub = _calculatedSubtotal;
-    final disc = _calculatedDiscount;
-    final taxes = widget.invoice.cgst + widget.invoice.sgst + widget.invoice.igst;
-    final total = sub - disc + taxes;
-    return total > 0 ? total : 0.0;
+  void _onItemsChanged() {
+    setState(() {
+      final newSub = _items.fold<double>(0.0, (sum, i) => sum + i.total);
+      _subtotalController.text = _formatNum(newSub);
+      _recalculateGrandTotal();
+    });
   }
 
   void _addNewItem() {
-    setState(() {
-      final nextNo = _items.length + 1;
-      _items.add(
-        _EditableItemRow(
-          lineNo: nextNo,
-          name: 'Item $nextNo',
-          qty: 1.0,
-          rate: 0.0,
-        ),
-      );
-    });
+    final nextNo = _items.length + 1;
+    _items.add(
+      _EditableItemRow(
+        lineNo: nextNo,
+        name: 'Item $nextNo',
+        qty: 1.0,
+        rate: 0.0,
+      ),
+    );
+    _onItemsChanged();
   }
 
   void _removeItem(int index) {
-    setState(() {
-      _items[index].dispose();
-      _items.removeAt(index);
-      for (int i = 0; i < _items.length; i++) {
-        _items[i].lineNo = i + 1;
-      }
-    });
+    _items[index].dispose();
+    _items.removeAt(index);
+    for (int i = 0; i < _items.length; i++) {
+      _items[i].lineNo = i + 1;
+    }
+    _onItemsChanged();
   }
 
   void _showFullScreenZoomModal(BuildContext context) {
@@ -289,12 +318,12 @@ class _ReviewScreenState extends State<ReviewScreen> {
       tallyDate: _invoiceDateController.text.trim().replaceAll('-', ''),
       gstin: widget.invoice.gstin,
       type: _voucherType,
-      subtotal: _calculatedSubtotal,
-      discount: _calculatedDiscount,
-      cgst: widget.invoice.cgst,
-      sgst: widget.invoice.sgst,
-      igst: widget.invoice.igst,
-      grandTotal: _calculatedGrandTotal,
+      subtotal: _currentSubtotal,
+      discount: _currentDiscount,
+      cgst: _currentCgst,
+      sgst: _currentSgst,
+      igst: _currentIgst,
+      grandTotal: _currentGrandTotal,
       status: 'APPROVED',
       tallyRef: voucherRef,
       confidence: widget.invoice.confidence,
@@ -848,7 +877,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                                   borderSide: const BorderSide(color: AppColors.borderSubtle),
                                                 ),
                                               ),
-                                              onChanged: (_) => setState(() {}),
+                                              onChanged: (_) => _onItemsChanged(),
                                             ),
                                           ],
                                         ),
@@ -885,7 +914,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                                   borderSide: const BorderSide(color: AppColors.borderSubtle),
                                                 ),
                                               ),
-                                              onChanged: (_) => setState(() {}),
+                                              onChanged: (_) => _onItemsChanged(),
                                             ),
                                           ],
                                         ),
@@ -948,7 +977,17 @@ class _ReviewScreenState extends State<ReviewScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       children: [
-                        _buildSummaryRow('Subtotal', _calculatedSubtotal),
+                        // Subtotal Row with Editable Field
+                        _buildEditableSummaryRow(
+                          label: 'Subtotal',
+                          controller: _subtotalController,
+                          onChanged: (_) {
+                            setState(() {
+                              _recalculateGrandTotal();
+                            });
+                          },
+                        ),
+
                         // Discount Row with Editable Field
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
@@ -969,7 +1008,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                 ],
                               ),
                               SizedBox(
-                                width: 105,
+                                width: 115,
                                 height: 32,
                                 child: TextField(
                                   controller: _discountController,
@@ -981,7 +1020,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                     fillColor: const Color(0xFFFFF1F2),
                                     isDense: true,
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-                                    prefixText: '₹ -',
+                                    prefixText: '₹ - ',
                                     prefixStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFFDC2626)),
                                     hintText: '0.00',
                                     hintStyle: const TextStyle(fontSize: 11, color: Color(0xFFFDA4AF)),
@@ -993,33 +1032,111 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                       borderRadius: BorderRadius.circular(6),
                                       borderSide: const BorderSide(color: Color(0xFFFECDD3)),
                                     ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                      borderSide: const BorderSide(color: Color(0xFFDC2626), width: 1.5),
+                                    ),
+                                  ),
+                                  onChanged: (_) {
+                                    setState(() {
+                                      _recalculateGrandTotal();
+                                    });
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // CGST Editable Row
+                        _buildEditableSummaryRow(
+                          label: 'CGST',
+                          controller: _cgstController,
+                          onChanged: (_) {
+                            setState(() {
+                              _recalculateGrandTotal();
+                            });
+                          },
+                        ),
+
+                        // SGST Editable Row
+                        _buildEditableSummaryRow(
+                          label: 'SGST',
+                          controller: _sgstController,
+                          onChanged: (_) {
+                            setState(() {
+                              _recalculateGrandTotal();
+                            });
+                          },
+                        ),
+
+                        // IGST Editable Row (if present or previously set)
+                        if (inv.igst > 0 || _currentIgst > 0)
+                          _buildEditableSummaryRow(
+                            label: 'IGST',
+                            controller: _igstController,
+                            onChanged: (_) {
+                              setState(() {
+                                _recalculateGrandTotal();
+                              });
+                            },
+                          ),
+
+                        const Divider(color: AppColors.borderSubtle, height: 16),
+
+                        // Grand Total Editable Row
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Grand Total',
+                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                              ),
+                              SizedBox(
+                                width: 130,
+                                height: 36,
+                                child: TextField(
+                                  controller: _grandTotalController,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  textAlign: TextAlign.end,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.inkNavy,
+                                  ),
+                                  decoration: InputDecoration(
+                                    filled: true,
+                                    fillColor: const Color(0xFFF0FDF4),
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                                    prefixText: '₹ ',
+                                    prefixStyle: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF166534),
+                                    ),
+                                    hintText: '0.00',
+                                    hintStyle: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: const BorderSide(color: Color(0xFFBBF7D0)),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: const BorderSide(color: Color(0xFFBBF7D0)),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: const BorderSide(color: Color(0xFF16A34A), width: 1.5),
+                                    ),
                                   ),
                                   onChanged: (_) => setState(() {}),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                        if (inv.cgst > 0) _buildSummaryRow('CGST', inv.cgst),
-                        if (inv.sgst > 0) _buildSummaryRow('SGST', inv.sgst),
-                        if (inv.igst > 0) _buildSummaryRow('IGST', inv.igst),
-                        const Divider(color: AppColors.borderSubtle, height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Grand Total',
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
-                            ),
-                            Text(
-                              currencyFormatter.format(_calculatedGrandTotal),
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.inkNavy,
-                              ),
-                            ),
-                          ],
                         ),
                       ],
                     ),
@@ -1074,16 +1191,52 @@ class _ReviewScreenState extends State<ReviewScreen> {
     );
   }
 
-  Widget _buildSummaryRow(String label, double amount) {
+  Widget _buildEditableSummaryRow({
+    required String label,
+    required TextEditingController controller,
+    required ValueChanged<String> onChanged,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
           Text(
-            currencyFormatter.format(amount),
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.inkNavy),
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textMuted),
+          ),
+          SizedBox(
+            width: 115,
+            height: 32,
+            child: TextField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.inkNavy),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                prefixText: '₹ ',
+                prefixStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.inkNavy),
+                hintText: '0.00',
+                hintStyle: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: const BorderSide(color: AppColors.borderSubtle),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: const BorderSide(color: AppColors.borderSubtle),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: const BorderSide(color: AppColors.plumSlate, width: 1.5),
+                ),
+              ),
+              onChanged: onChanged,
+            ),
           ),
         ],
       ),

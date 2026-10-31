@@ -73,6 +73,14 @@ class StorageService {
     }
   }
 
+  String getUserPassword(String username) {
+    return _prefs.getString('user_pwd_$username') ?? 'tally@2026';
+  }
+
+  Future<void> setUserPassword(String username, String password) async {
+    await _prefs.setString('user_pwd_$username', password);
+  }
+
   // --- Invoices ---
   List<Invoice> getInvoices() {
     final raw = _prefs.getString(_keyInvoices);
