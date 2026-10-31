@@ -30,9 +30,13 @@ except (ImportError, ValueError):
         from app.services.extraction import get_extraction_service
         from app.services.ocr_service import get_ocr_service
     except (ImportError, ValueError):
+        # pyrefly: ignore[missing-import]
         from ...core.config import settings
+        # pyrefly: ignore[missing-import]
         from ...schemas.invoice import InvoiceExtractedData, OCRResult
+        # pyrefly: ignore[missing-import]
         from ...services.extraction import get_extraction_service
+        # pyrefly: ignore[missing-import]
         from ...services.ocr_service import get_ocr_service
 
 router = APIRouter(prefix="/api/invoices", tags=["Invoices"])

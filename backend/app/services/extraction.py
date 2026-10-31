@@ -54,6 +54,7 @@ except (ImportError, ValueError):
     except (ImportError, ValueError):
         # pyrefly: ignore[missing-import]
         from ..core.config import settings
+        # pyrefly: ignore[missing-import]
         from ..schemas.invoice import (
             ExtractionWarning,
             InvoiceExtractedData,
