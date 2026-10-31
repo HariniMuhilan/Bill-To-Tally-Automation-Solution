@@ -386,7 +386,8 @@ Respond ONLY with a valid JSON object matching this schema:
         contents.append(prompt)
 
         primary_model = self._get_model_name()
-        candidates = [primary_model] + [m for m in ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-flash-latest"] if m != primary_model]
+        preferred = [primary_model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash"]
+        candidates = list(dict.fromkeys(preferred))
 
         response = None
         last_err: Optional[Exception] = None
