@@ -1,8 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../models/user_session.dart';
 import '../services/storage_service.dart';
-import '../theme/app_theme.dart';
 import '../widgets/billbooks_logo.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -22,12 +22,11 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   bool _isSignUp = false;
 
-  // Sign In controllers
+  // Controllers
   final _usernameController = TextEditingController(text: 'accounts_user_01');
   final _passwordController = TextEditingController(text: 'tally@2026');
   bool _obscurePassword = true;
 
-  // Create Account controllers
   final _fullNameController = TextEditingController();
   final _regUsernameController = TextEditingController();
   final _regPasswordController = TextEditingController();
@@ -36,6 +35,32 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscureConfirmPassword = true;
 
   String? _errorMessage;
+
+  // Color Palette as per spec
+  static const Color cBackground = Color(0xFFFCEEDE);     // Creamy peach bg
+  static const Color cInputBg = Color(0xFFFFCC80);        // Input fill
+  static const Color cPrimaryOrange = Color(0xFFF25F3D);  // Sign in CTA button
+  static const Color cCardBg = Color(0xFFFFFFFF);         // White form card
+  static const Color cPillTrack = Color(0xFFD9D9D9);      // Segmented control track
+  static const Color cDeepPlum = Color(0xFF7C2946);       // Deep plum text/accents
+
+  // 3 DM Sans Typography Sizes: Large (16), Medium (13), Small (11)
+  static final TextStyle fontL = GoogleFonts.dmSans(
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.8,
+  );
+
+  static final TextStyle fontM = GoogleFonts.dmSans(
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+  );
+
+  static final TextStyle fontS = GoogleFonts.dmSans(
+    fontSize: 11,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.8,
+  );
 
   @override
   void dispose() {
@@ -67,6 +92,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
     widget.storage.saveUser(matched);
     widget.onLoginSuccess(matched);
+  }
+
+  void _handleGoogleSignIn() {
+    final googleUser = UserSession(
+      username: 'google_user',
+      fullName: 'Google User',
+      role: 'Reviewer',
+      initials: 'GU',
+    );
+    widget.storage.saveUser(googleUser);
+    widget.onLoginSuccess(googleUser);
   }
 
   void _handleCreateAccount() {
@@ -110,327 +146,456 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.blushIvory,
+      backgroundColor: cBackground,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Brand Logo & Typography (Thermal Printer + Billbooks)
+                // 1. Top Brand Logo & Tagline
                 const BillbooksLogo(
-                  iconSize: 110,
+                  iconSize: 100,
                   showWordmark: true,
                 ),
-                const SizedBox(height: 26),
+                const SizedBox(height: 32),
 
-                // Main Auth Card
-                Card(
-                  margin: EdgeInsets.zero,
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Smoothly animated pill toggle with permanent curvy borders
-                        Container(
-                          height: 44,
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: AppColors.blushIvory,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              final pillWidth = constraints.maxWidth / 2;
-                              return Stack(
-                                children: [
-                                  // Moving pill indicator (never flickers, keeps 10px rounded corners at all frames)
-                                  AnimatedPositioned(
-                                    duration: const Duration(milliseconds: 220),
-                                    curve: Curves.easeInOutCubic,
-                                    left: _isSignUp ? pillWidth : 0,
-                                    top: 0,
-                                    bottom: 0,
-                                    width: pillWidth,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: AppColors.plumSlate,
-                                        borderRadius: BorderRadius.circular(10),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: AppColors.plumSlate.withOpacity(0.25),
-                                            blurRadius: 6,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
+                // 2. White Card Container
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: cCardBg,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Pill Toggle: SIGN IN / CREATE ACCOUNT
+                      Container(
+                        height: 44,
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: cPillTrack,
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final pillWidth = constraints.maxWidth / 2;
+                            return Stack(
+                              children: [
+                                AnimatedPositioned(
+                                  duration: const Duration(milliseconds: 220),
+                                  curve: Curves.easeInOutCubic,
+                                  left: _isSignUp ? pillWidth : 0,
+                                  top: 0,
+                                  bottom: 0,
+                                  width: pillWidth,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: cCardBg,
+                                      borderRadius: BorderRadius.circular(18),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.06),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  // Interactive Touch Targets
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: InkWell(
-                                          onTap: () {
-                                            if (_isSignUp) {
-                                              setState(() {
-                                                _isSignUp = false;
-                                                _errorMessage = null;
-                                              });
-                                            }
-                                          },
-                                          borderRadius: BorderRadius.circular(10),
-                                          child: Center(
-                                            child: Text(
-                                              'Sign In',
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w700,
-                                                color: !_isSignUp ? Colors.white : AppColors.textMuted,
-                                              ),
+                                ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: InkWell(
+                                        onTap: () {
+                                          if (_isSignUp) {
+                                            setState(() {
+                                              _isSignUp = false;
+                                              _errorMessage = null;
+                                            });
+                                          }
+                                        },
+                                        borderRadius: BorderRadius.circular(18),
+                                        child: Center(
+                                          child: Text(
+                                            'SIGN IN',
+                                            style: fontS.copyWith(
+                                              color: !_isSignUp ? const Color(0xFF222222) : const Color(0xFF555555),
                                             ),
                                           ),
                                         ),
                                       ),
-                                      Expanded(
-                                        child: InkWell(
-                                          onTap: () {
-                                            if (!_isSignUp) {
-                                              setState(() {
-                                                _isSignUp = true;
-                                                _errorMessage = null;
-                                              });
-                                            }
-                                          },
-                                          borderRadius: BorderRadius.circular(10),
-                                          child: Center(
-                                            child: Text(
-                                              'Create Account',
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w700,
-                                                color: _isSignUp ? Colors.white : AppColors.textMuted,
-                                              ),
+                                    ),
+                                    Expanded(
+                                      child: InkWell(
+                                        onTap: () {
+                                          if (!_isSignUp) {
+                                            setState(() {
+                                              _isSignUp = true;
+                                              _errorMessage = null;
+                                            });
+                                          }
+                                        },
+                                        borderRadius: BorderRadius.circular(18),
+                                        child: Center(
+                                          child: Text(
+                                            'CREATE ACCOUNT',
+                                            style: fontS.copyWith(
+                                              color: _isSignUp ? const Color(0xFF222222) : const Color(0xFF555555),
                                             ),
                                           ),
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Error Banner
-                        if (_errorMessage != null) ...[
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppColors.errorRedBg,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.error_outline, color: AppColors.errorRed, size: 16),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _errorMessage!,
-                                    style: const TextStyle(color: AppColors.errorRed, fontSize: 12),
-                                  ),
+                                    ),
+                                  ],
                                 ),
                               ],
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                        ],
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 20),
 
-                        // Dynamic Form: Sign In vs Create Account
-                        if (!_isSignUp) ...[
-                          // Sign In Form
-                          const Text('Username', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 6),
-                          TextField(
+                      // Error Banner
+                      if (_errorMessage != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEE2E2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 16),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _errorMessage!,
+                                  style: fontM.copyWith(color: const Color(0xFFDC2626)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+
+                      // Form Content
+                      if (!_isSignUp) ...[
+                        // USERNAME FIELD
+                        Text(
+                          'USERNAME',
+                          style: fontS.copyWith(color: const Color(0xFF222222)),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: cInputBg,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          child: TextField(
                             controller: _usernameController,
-                            decoration: InputDecoration(
-                              hintText: 'e.g. accounts_user_01',
-                              prefixIcon: const Icon(Icons.person_outline, size: 20),
-                              filled: true,
-                              fillColor: AppColors.blushIvory,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.borderSubtle),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.borderSubtle),
-                              ),
+                            style: fontM.copyWith(
+                              color: const Color(0xFF2D1600),
+                              fontWeight: FontWeight.w600,
+                            ),
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.zero,
                             ),
                           ),
-                          const SizedBox(height: 14),
+                        ),
+                        const SizedBox(height: 16),
 
-                          const Text('Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 6),
-                          TextField(
-                            controller: _passwordController,
-                            obscureText: _obscurePassword,
-                            decoration: InputDecoration(
-                              hintText: '••••••••',
-                              prefixIcon: const Icon(Icons.lock_outline, size: 20),
-                              suffixIcon: IconButton(
-                                icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 18),
-                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                              ),
-                              filled: true,
-                              fillColor: AppColors.blushIvory,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.borderSubtle),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.borderSubtle),
-                              ),
-                            ),
+                        // PASSWORD FIELD
+                        Text(
+                          'PASSWORD',
+                          style: fontS.copyWith(color: const Color(0xFF222222)),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: cInputBg,
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          const SizedBox(height: 22),
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _passwordController,
+                                  obscureText: _obscurePassword,
+                                  style: fontM.copyWith(
+                                    color: const Color(0xFF2D1600),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => setState(() => _obscurePassword = !_obscurePassword),
+                                child: Icon(
+                                  _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                  color: const Color(0xFF6B4800),
+                                  size: 18,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 22),
 
-                          // SIGN IN CTA
-                          ElevatedButton(
+                        // SIGN IN CTA BUTTON (F25F3D)
+                        SizedBox(
+                          height: 48,
+                          child: ElevatedButton(
                             onPressed: _handleSignIn,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.plumSlate,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              backgroundColor: cPrimaryOrange,
+                              foregroundColor: cCardBg,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(24),
+                              ),
                             ),
-                            child: const Text(
+                            child: Text(
                               'SIGN IN',
-                              style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.8),
+                              style: fontL.copyWith(color: cCardBg),
                             ),
                           ),
-                        ] else ...[
-                          // Create Account Form
-                          const Text('Full Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 6),
-                          TextField(
+                        ),
+                      ] else ...[
+                        // FULL NAME FIELD
+                        Text(
+                          'FULL NAME',
+                          style: fontS.copyWith(color: const Color(0xFF222222)),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: cInputBg,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          child: TextField(
                             controller: _fullNameController,
-                            decoration: InputDecoration(
-                              hintText: 'e.g. John Doe',
-                              prefixIcon: const Icon(Icons.badge_outlined, size: 20),
-                              filled: true,
-                              fillColor: AppColors.blushIvory,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.borderSubtle),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.borderSubtle),
-                              ),
+                            style: fontM.copyWith(color: const Color(0xFF2D1600)),
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.zero,
                             ),
                           ),
-                          const SizedBox(height: 14),
+                        ),
+                        const SizedBox(height: 14),
 
-                          const Text('Username', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 6),
-                          TextField(
+                        // USERNAME FIELD
+                        Text(
+                          'USERNAME',
+                          style: fontS.copyWith(color: const Color(0xFF222222)),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: cInputBg,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          child: TextField(
                             controller: _regUsernameController,
-                            decoration: InputDecoration(
-                              hintText: 'e.g. jdoe_admin',
-                              prefixIcon: const Icon(Icons.alternate_email_rounded, size: 20),
-                              filled: true,
-                              fillColor: AppColors.blushIvory,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.borderSubtle),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.borderSubtle),
-                              ),
+                            style: fontM.copyWith(color: const Color(0xFF2D1600)),
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.zero,
                             ),
                           ),
-                          const SizedBox(height: 14),
+                        ),
+                        const SizedBox(height: 14),
 
-                          const Text('Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 6),
-                          TextField(
-                            controller: _regPasswordController,
-                            obscureText: _obscureRegPassword,
-                            decoration: InputDecoration(
-                              hintText: 'At least 6 characters',
-                              prefixIcon: const Icon(Icons.lock_outline, size: 20),
-                              suffixIcon: IconButton(
-                                icon: Icon(_obscureRegPassword ? Icons.visibility_off : Icons.visibility, size: 18),
-                                onPressed: () => setState(() => _obscureRegPassword = !_obscureRegPassword),
-                              ),
-                              filled: true,
-                              fillColor: AppColors.blushIvory,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.borderSubtle),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.borderSubtle),
-                              ),
-                            ),
+                        // PASSWORD FIELD
+                        Text(
+                          'PASSWORD',
+                          style: fontS.copyWith(color: const Color(0xFF222222)),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: cInputBg,
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          const SizedBox(height: 14),
-
-                          const Text('Confirm Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 6),
-                          TextField(
-                            controller: _confirmPasswordController,
-                            obscureText: _obscureConfirmPassword,
-                            decoration: InputDecoration(
-                              hintText: 'Re-enter password',
-                              prefixIcon: const Icon(Icons.lock_reset_rounded, size: 20),
-                              suffixIcon: IconButton(
-                                icon: Icon(_obscureConfirmPassword ? Icons.visibility_off : Icons.visibility, size: 18),
-                                onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _regPasswordController,
+                                  obscureText: _obscureRegPassword,
+                                  style: fontM.copyWith(color: const Color(0xFF2D1600)),
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                ),
                               ),
-                              filled: true,
-                              fillColor: AppColors.blushIvory,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                              GestureDetector(
+                                onTap: () => setState(() => _obscureRegPassword = !_obscureRegPassword),
+                                child: Icon(
+                                  _obscureRegPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                  color: const Color(0xFF6B4800),
+                                  size: 18,
+                                ),
                               ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.borderSubtle),
-                              ),
-                            ),
+                            ],
                           ),
-                          const SizedBox(height: 22),
+                        ),
+                        const SizedBox(height: 14),
 
-                          // CREATE ACCOUNT CTA
-                          ElevatedButton(
+                        // CONFIRM PASSWORD FIELD
+                        Text(
+                          'CONFIRM PASSWORD',
+                          style: fontS.copyWith(color: const Color(0xFF222222)),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: cInputBg,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _confirmPasswordController,
+                                  obscureText: _obscureConfirmPassword,
+                                  style: fontM.copyWith(color: const Color(0xFF2D1600)),
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                                child: Icon(
+                                  _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                  color: const Color(0xFF6B4800),
+                                  size: 18,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+
+                        // CREATE ACCOUNT CTA BUTTON
+                        SizedBox(
+                          height: 48,
+                          child: ElevatedButton(
                             onPressed: _handleCreateAccount,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.plumSlate,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              backgroundColor: cPrimaryOrange,
+                              foregroundColor: cCardBg,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(24),
+                              ),
                             ),
-                            child: const Text(
+                            child: Text(
                               'CREATE ACCOUNT',
-                              style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.8),
+                              style: fontL.copyWith(color: cCardBg),
                             ),
                           ),
-                        ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // 3. Subtle horizontal separator line
+                Container(
+                  width: double.infinity,
+                  height: 1,
+                  color: const Color(0xFF9E9E9E).withOpacity(0.4),
+                ),
+                const SizedBox(height: 24),
+
+                // 4. CONTINUE WITH GOOGLE Button
+                InkWell(
+                  onTap: _handleGoogleSignIn,
+                  borderRadius: BorderRadius.circular(24),
+                  child: Container(
+                    height: 50,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: cCardBg,
+                      borderRadius: BorderRadius.circular(25),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Google "G" logo
+                        Image.asset(
+                          'assets/images/google_logo.png',
+                          width: 22,
+                          height: 22,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(
+                              Icons.g_mobiledata_rounded,
+                              size: 26,
+                              color: Color(0xFF4285F4),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'CONTINUE WITH GOOGLE',
+                          style: fontS.copyWith(
+                            color: const Color(0xFF1F1F1F),
+                            letterSpacing: 0.8,
+                          ),
+                        ),
                       ],
                     ),
                   ),

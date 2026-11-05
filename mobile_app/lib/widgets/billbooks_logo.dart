@@ -17,14 +17,14 @@ class BillbooksLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // When iconSize is provided (e.g. 110 or 84), width scales proportionally
-    final effectiveWidth = width ?? (iconSize != null ? iconSize! * 1.85 : 180.0);
+    // Proportional width for the horizontal logo banner
+    final effectiveWidth = width ?? (iconSize != null ? iconSize! * 2.4 : 220.0);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // 1. Original master logo: Thermal Printer Icon + exact original "Billbooks" graphic
+        // 1. BillBooks horizontal logo banner (document icon with curved arrow + BillBooks text)
         Image.asset(
           'assets/images/billbooks_logo.png',
           width: effectiveWidth,
@@ -43,16 +43,16 @@ class BillbooksLogo extends StatelessWidget {
         ),
 
         if (showWordmark) ...[
-          const SizedBox(height: 5),
+          const SizedBox(height: 6),
 
-          // 2. Extracted subtitle text (rendered as real selectable/scalable text)
+          // 2. Subtitle / Tagline: "PURCHASE VOUCHER AUTOMATION" in DM Sans, color #7C2946
           Text(
             'PURCHASE VOUCHER AUTOMATION',
             textAlign: TextAlign.center,
-            style: GoogleFonts.montserrat(
-              fontSize: 9.5,
+            style: GoogleFonts.dmSans(
+              fontSize: 10,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF707175),
+              color: const Color(0xFF7C2946),
               letterSpacing: 2.2,
             ),
           ),
