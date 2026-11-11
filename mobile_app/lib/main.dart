@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'core/supabase_config.dart';
 import 'models/user_session.dart';
 import 'services/api_service.dart';
 import 'services/storage_service.dart';
@@ -9,6 +11,17 @@ import 'widgets/laptop_mobile_frame.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Supabase
+  try {
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      anonKey: SupabaseConfig.anonKey,
+    );
+  } catch (e) {
+    debugPrint('Supabase initialization failed: $e');
+  }
+
   final storage = await StorageService.init();
   final api = ApiService(storage);
 
@@ -61,6 +74,7 @@ class _BillToTallyAppState extends State<BillToTallyApp> {
       home: _currentUser == null
           ? LoginScreen(
               storage: widget.storage,
+              api: widget.api,
               onLoginSuccess: _handleLoginSuccess,
             )
           : HomeShell(

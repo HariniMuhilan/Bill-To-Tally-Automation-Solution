@@ -1,10 +1,14 @@
+import 'dart:io' show File;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/invoice.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
+import '../services/mlkit_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/liquid_glass.dart';
 import '../widgets/invoice_card.dart';
 
 class InboxScreen extends StatefulWidget {
@@ -34,57 +38,117 @@ class InboxScreenState extends State<InboxScreen> {
 
   Future<void> handleCaptureCamera() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
-        withData: true,
+      final picker = ImagePicker();
+      final photo = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 2048,
+        maxHeight: 2048,
+        imageQuality: 90,
       );
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        if (file.bytes != null) {
-          await _processBillUpload(file.bytes!, file.name, 'image/jpeg');
-        }
+      if (photo != null) {
+        final bytes = await photo.readAsBytes();
+        await _processBillUpload(bytes, photo.name, 'image/jpeg', localPath: photo.path);
       }
     } catch (e) {
-      _showSnackbar('Image picker error: $e', isError: true);
+      _showSnackbar('Camera error: $e', isError: true);
     }
   }
 
   Future<void> _handlePickFile() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
-        withData: true,
+      final picker = ImagePicker();
+      final photo = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 2048,
+        maxHeight: 2048,
+        imageQuality: 90,
       );
-
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        if (file.bytes != null) {
-          await _processBillUpload(file.bytes!, file.name, 'image/jpeg');
-        }
+      if (photo != null) {
+        final bytes = await photo.readAsBytes();
+        await _processBillUpload(bytes, photo.name, 'image/jpeg', localPath: photo.path);
       }
     } catch (e) {
-      _showSnackbar('Photo picker error: $e', isError: true);
+      // Fallback to FilePicker if gallery picker encounters an issue
+      try {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+          withData: true,
+        );
+        if (result != null && result.files.isNotEmpty) {
+          final file = result.files.first;
+          Uint8List? bytes = file.bytes;
+          if (bytes == null && file.path != null) {
+            bytes = await File(file.path!).readAsBytes();
+          }
+          if (bytes != null) {
+            await _processBillUpload(bytes, file.name, 'image/jpeg', localPath: file.path);
+          }
+        }
+      } catch (err) {
+        _showSnackbar('Gallery error: $err', isError: true);
+      }
     }
   }
 
-  Future<void> _processBillUpload(Uint8List bytes, String filename, String? mimeType) async {
+  Future<void> _processBillUpload(
+    Uint8List bytes,
+    String filename,
+    String? mimeType, {
+    String? localPath,
+  }) async {
     setState(() {
       _isUploading = true;
       _uploadStatusText = 'Reading bill details...';
     });
 
-    final res = await widget.api.uploadInvoiceBytes(
-      bytes: bytes,
-      filename: filename,
-      mimeType: mimeType,
-    );
+    ApiResult<Invoice>? res;
+
+    // 1. Primary: If running on device and local file is available, run Google ML Kit locally
+    if (MLKitService.isSupported && localPath != null && localPath.isNotEmpty) {
+      try {
+        setState(() {
+          _uploadStatusText = 'Scanning bill with Google ML Kit (on-device)...';
+        });
+
+        final ocrResult = await MLKitService.recognizeTextFromFile(localPath);
+
+        setState(() {
+          _uploadStatusText = 'Structuring voucher with AI...';
+        });
+
+        res = await widget.api.extractFromRawOcr(
+          ocrResult: ocrResult,
+          filename: filename,
+          localPath: localPath,
+        );
+      } catch (e) {
+        // Fallback to backend OCR if ML Kit fails
+        res = null;
+      }
+    }
+
+    // 2. Fallback: Backend OCR endpoint
+    if (res == null || !res.success) {
+      setState(() {
+        _uploadStatusText = 'Uploading bill to backend...';
+      });
+
+      res = await widget.api.uploadInvoiceBytes(
+        bytes: bytes,
+        filename: filename,
+        mimeType: mimeType,
+      );
+    }
 
     setState(() => _isUploading = false);
 
     if (res.success && res.data != null) {
       final newInvoice = res.data!;
+      // Ensure localPath is attached if available
+      if (localPath != null && (newInvoice.localPath == null || newInvoice.localPath!.isEmpty)) {
+        newInvoice.localPath = localPath;
+      }
       final updatedList = [newInvoice, ...widget.invoices];
       widget.onInvoicesChanged(updatedList);
       widget.storage.saveInvoices(updatedList);
@@ -92,15 +156,18 @@ class InboxScreenState extends State<InboxScreen> {
       _showSnackbar('Scanned ${newInvoice.id}: ${newInvoice.supplierRaw}');
       widget.onSelectInvoice(newInvoice);
     } else {
-      _showSnackbar(res.error ?? 'Upload failed. Check backend connection.', isError: true);
+      _showSnackbar(res.error ?? 'Processing failed. Check backend connection.', isError: true);
     }
   }
 
   void _showSnackbar(String msg, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
-        backgroundColor: isError ? AppColors.errorRed : AppColors.softSage,
+        content: Text(
+          msg,
+          style: AppTypography.fontM(color: Colors.white),
+        ),
+        backgroundColor: isError ? AppColors.errorRed : AppColors.successGreen,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -124,218 +191,351 @@ class InboxScreenState extends State<InboxScreen> {
 
     return Stack(
       children: [
-        Scaffold(
-          backgroundColor: const Color(0xFFF8F6F8),
-          body: RefreshIndicator(
-            onRefresh: () async {
-              setState(() {});
-            },
-            child: ListView(
-              padding: const EdgeInsets.only(bottom: 36),
-              children: [
-                // Top Fast Invoice Scanner Banner with brighter rich plum gradient
-                Container(
-                  margin: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF5B2B52), Color(0xFF28232D)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+        RefreshIndicator(
+          onRefresh: () async {
+            setState(() {});
+          },
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 110),
+            children: [
+              // 1. "Fast Invoice Scanner" Card (Radius 28px, Dark Maroon Glass)
+              LiquidGlass(
+                isDarkMaroon: true,
+                borderRadius: 28,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Top row: Scan icon, Title + Subtitle, Document outline icon
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Rounded-square scan icon on the left
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              width: 1,
+                            ),
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              Icons.crop_free_rounded,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Title + Subtitle in DM Sans
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Fast Invoice Scanner',
+                                style: AppTypography.fontL(
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                'Capture a bill or choose a file to begin',
+                                style: AppTypography.fontS(
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Sleek frosted receipt/bill badge top right
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              width: 1,
+                            ),
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              Icons.receipt_long_rounded,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF5B2B52).withOpacity(0.28),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Stack(
-                    children: [
-                      // Watermark Graphic on the Right
-                      Positioned(
-                        right: -10,
-                        top: -5,
-                        child: Opacity(
-                          opacity: 0.08,
-                          child: const Icon(
-                            Icons.receipt_long_rounded,
-                            size: 90,
-                            color: Colors.white,
+                    const SizedBox(height: 16),
+
+                    // Two pill buttons across the bottom
+                    Row(
+                      children: [
+                        // Orange "Take Photo" button
+                        Expanded(
+                          child: LiquidGlass(
+                            isOrangeGloss: true,
+                            borderRadius: 22,
+                            height: 44,
+                            onTap: _isUploading ? null : handleCaptureCamera,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.camera_alt_outlined,
+                                  color: Colors.white,
+                                  size: 17,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Take Photo',
+                                  style: AppTypography.fontM(
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-
-                      Column(
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.10),
-                                  borderRadius: BorderRadius.circular(12),
+                        const SizedBox(width: 10),
+                        // Frosted "Upload Photo" button
+                        Expanded(
+                          child: LiquidGlass(
+                            isDarkMaroon: false,
+                            borderRadius: 22,
+                            height: 44,
+                            onTap: _isUploading ? null : _handlePickFile,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.upload_rounded,
+                                  color: Colors.white.withValues(alpha: 0.95),
+                                  size: 17,
                                 ),
-                                child: const Center(
-                                  child: Icon(Icons.crop_free_rounded, color: Colors.white, size: 24),
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: const [
-                                    Text(
-                                      'Fast Invoice Scanner',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    SizedBox(height: 3),
-                                    Text(
-                                      'Take a photo of your bill or pick from gallery',
-                                      style: TextStyle(color: Colors.white70, fontSize: 11),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: _isUploading ? null : handleCaptureCamera,
-                                  icon: const Icon(Icons.camera_alt_outlined, size: 18),
-                                  label: const Text('Take Photo'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFFC06C84),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Upload Photo',
+                                  style: AppTypography.fontM(
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white.withValues(alpha: 0.95),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: _isUploading ? null : _handlePickFile,
-                                  icon: const Icon(Icons.upload_file_rounded, size: 18, color: Colors.white),
-                                  label: const Text('Upload Photo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
-                                  style: OutlinedButton.styleFrom(
-                                    backgroundColor: Colors.white.withOpacity(0.08),
-                                    side: BorderSide(color: Colors.white.withOpacity(0.24)),
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(height: 16),
 
-                // 3 Filter Cards Row matching reference mockup
+              // 2. Three Equal Stat Tiles in a Row (Radius ~22px)
+              Row(
+                children: [
+                  // All Bills (Maroon, white text - active state)
+                  Expanded(
+                    child: LiquidGlass(
+                      isDarkMaroon: _activeFilter == 'ALL',
+                      borderRadius: 22,
+                      height: 74,
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                      onTap: () => setState(() => _activeFilter = 'ALL'),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              '$allCount',
+                              textAlign: TextAlign.center,
+                              style: AppTypography.fontNumber(
+                                fontWeight: FontWeight.w800,
+                                color: _activeFilter == 'ALL' ? Colors.white : AppColors.brandInk,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'All Bills',
+                              textAlign: TextAlign.center,
+                              style: AppTypography.fontS(
+                                fontWeight: FontWeight.w600,
+                                color: _activeFilter == 'ALL'
+                                    ? Colors.white.withValues(alpha: 0.9)
+                                    : AppColors.mutedText,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+
+                  // Needs Review (Glass, orange number)
+                  Expanded(
+                    child: LiquidGlass(
+                      isDarkMaroon: _activeFilter == 'NEEDS_REVIEW',
+                      borderRadius: 22,
+                      height: 74,
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                      onTap: () => setState(() => _activeFilter = 'NEEDS_REVIEW'),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              '$needsReviewCount',
+                              textAlign: TextAlign.center,
+                              style: AppTypography.fontNumber(
+                                fontWeight: FontWeight.w800,
+                                color: _activeFilter == 'NEEDS_REVIEW' ? Colors.white : AppColors.orange,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Needs Review',
+                              textAlign: TextAlign.center,
+                              style: AppTypography.fontS(
+                                fontWeight: FontWeight.w600,
+                                color: _activeFilter == 'NEEDS_REVIEW'
+                                    ? Colors.white.withValues(alpha: 0.9)
+                                    : AppColors.mutedText,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+
+                  // Approved (Glass, green number)
+                  Expanded(
+                    child: LiquidGlass(
+                      isDarkMaroon: _activeFilter == 'APPROVED',
+                      borderRadius: 22,
+                      height: 74,
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                      onTap: () => setState(() => _activeFilter = 'APPROVED'),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              '$approvedCount',
+                              textAlign: TextAlign.center,
+                              style: AppTypography.fontNumber(
+                                fontWeight: FontWeight.w800,
+                                color: _activeFilter == 'APPROVED' ? Colors.white : AppColors.successGreen,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Approved',
+                              textAlign: TextAlign.center,
+                              style: AppTypography.fontS(
+                                fontWeight: FontWeight.w600,
+                                color: _activeFilter == 'APPROVED'
+                                    ? Colors.white.withValues(alpha: 0.9)
+                                    : AppColors.mutedText,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // 3. Invoices List or Liquid Empty State Bubble
+              if (filtered.isEmpty) ...[
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _buildFilterCard(
-                          value: 'ALL',
-                          label: 'All Bills',
-                          count: allCount,
-                          dotColor: null,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _buildFilterCard(
-                          value: 'NEEDS_REVIEW',
-                          label: 'Needs Review',
-                          count: needsReviewCount,
-                          dotColor: const Color(0xFFF59E0B), // Warm amber dot
-                          countColor: const Color(0xFFD94868), // Rose red accent count
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _buildFilterCard(
-                          value: 'APPROVED',
-                          label: 'Approved',
-                          count: approvedCount,
-                          dotColor: AppColors.softSage, // Matching fresh jade dot
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // Invoices List or Empty State
-                if (filtered.isEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 50, horizontal: 24),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(22),
-                            decoration: const BoxDecoration(
-                              color: AppColors.mauveBg,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.inbox_outlined, size: 48, color: AppColors.mutedMauve),
-                          ),
-                          const SizedBox(height: 18),
-                          const Text(
-                            'No Invoices Found',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.textPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Centered frosted glass circle (~97px) with maroon receipt icon
+                        LiquidGlass(
+                          borderRadius: 50,
+                          width: 96,
+                          height: 96,
+                          child: Center(
+                            child: Icon(
+                              Icons.receipt_long_rounded,
+                              size: 40,
+                              color: AppColors.maroonDark.withValues(alpha: 0.85),
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          const Text(
+                        ),
+                        const SizedBox(height: 18),
+                        // Title in DM Sans
+                        Text(
+                          'No Invoices Found',
+                          style: AppTypography.fontL(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.brandInk,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // Subtext in DM Sans
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 280),
+                          child: Text(
                             'Tap "Take Photo" or "Upload Photo" above to process your first invoice.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                            style: AppTypography.fontS(
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.mutedText,
+                            ).copyWith(height: 1.4),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                ] else ...[
-                  ...filtered.map((inv) {
-                    return InvoiceCard(
-                      invoice: inv,
-                      onReview: () => widget.onSelectInvoice(inv),
-                    );
-                  }),
-                ],
+                ),
+              ] else ...[
+                // Real invoice items
+                ...filtered.map((inv) {
+                  return InvoiceCard(
+                    invoice: inv,
+                    onReview: () => widget.onSelectInvoice(inv),
+                  );
+                }),
               ],
-            ),
+            ],
           ),
         ),
 
-        // Simple Loading Overlay
+        // Simple Loading Overlay (Previous design - clean white card, not purple)
         if (_isUploading)
           Container(
-            color: Colors.black.withOpacity(0.55),
+            color: Colors.black.withValues(alpha: 0.55),
             child: Center(
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 32),
@@ -345,7 +545,7 @@ class InboxScreenState extends State<InboxScreen> {
                   borderRadius: BorderRadius.circular(18),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
+                      color: Colors.black.withValues(alpha: 0.15),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -354,13 +554,9 @@ class InboxScreenState extends State<InboxScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const SizedBox(
-                      width: 44,
-                      height: 44,
-                      child: CircularProgressIndicator(
-                        color: AppColors.plumSlate,
-                        strokeWidth: 3.5,
-                      ),
+                    const CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.plumSlate),
+                      strokeWidth: 3,
                     ),
                     const SizedBox(height: 18),
                     Text(
@@ -384,87 +580,6 @@ class InboxScreenState extends State<InboxScreen> {
             ),
           ),
       ],
-    );
-  }
-
-  Widget _buildFilterCard({
-    required String value,
-    required String label,
-    required int count,
-    Color? dotColor,
-    Color? countColor,
-  }) {
-    final isSelected = _activeFilter == value;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => setState(() => _activeFilter = value),
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.plumSlate : AppColors.surfaceWhite,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: isSelected ? AppColors.plumSlate : AppColors.borderSubtle,
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: isSelected
-                    ? AppColors.plumSlate.withOpacity(0.28)
-                    : Colors.black.withOpacity(0.02),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '$count',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: isSelected
-                          ? Colors.white
-                          : (countColor ?? AppColors.inkNavy),
-                    ),
-                  ),
-                  if (dotColor != null) ...[
-                    const SizedBox(width: 5),
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: dotColor,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                  color: isSelected ? Colors.white70 : AppColors.textMuted,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

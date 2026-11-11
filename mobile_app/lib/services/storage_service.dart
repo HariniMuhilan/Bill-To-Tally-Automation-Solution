@@ -39,7 +39,7 @@ class StorageService {
   }
 
   // --- Configuration ---
-  String get apiBaseUrl => _prefs.getString(_keyApiBase) ?? 'http://127.0.0.1:8000';
+  String get apiBaseUrl => _prefs.getString(_keyApiBase) ?? const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://192.168.29.57:8000');
   Future<void> setApiBaseUrl(String url) => _prefs.setString(_keyApiBase, url);
 
   String get tallyHost => _prefs.getString(_keyTallyHost) ?? '127.0.0.1';
@@ -57,11 +57,11 @@ class StorageService {
   // --- User Session ---
   UserSession? getUser() {
     final raw = _prefs.getString(_keyUser);
-    if (raw == null) return UserSession.defaultUser;
+    if (raw == null) return null;
     try {
       return UserSession.fromJson(jsonDecode(raw));
     } catch (_) {
-      return UserSession.defaultUser;
+      return null;
     }
   }
 
@@ -194,3 +194,4 @@ class StorageService {
     await _prefs.setString(_keyAudit, jsonEncode(list));
   }
 }
+
