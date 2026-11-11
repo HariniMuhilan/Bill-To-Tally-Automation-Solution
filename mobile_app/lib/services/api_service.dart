@@ -18,7 +18,7 @@ class ApiService {
 
   ApiService(this.storage);
 
-  String get _baseUrl => storage.apiBaseUrl;
+  String get _baseUrl => storage.apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
 
   Future<Map<String, dynamic>> checkSystemHealth() async {
     try {

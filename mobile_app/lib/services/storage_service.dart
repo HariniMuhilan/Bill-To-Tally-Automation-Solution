@@ -42,18 +42,18 @@ class StorageService {
 
   // --- Configuration ---
   String get apiBaseUrl {
-    final saved = _prefs.getString(_keyApiBase);
+    final saved = _prefs.getString(_keyApiBase)?.trim();
     if (saved != null &&
         saved.isNotEmpty &&
         !saved.contains('192.168.') &&
         !saved.contains('10.0.2.2') &&
         !saved.contains('localhost') &&
         !saved.contains('127.0.0.1')) {
-      return saved;
+      return saved.replaceAll(RegExp(r'/+$'), '');
     }
     return defaultApiUrl;
   }
-  Future<void> setApiBaseUrl(String url) => _prefs.setString(_keyApiBase, url);
+  Future<void> setApiBaseUrl(String url) => _prefs.setString(_keyApiBase, url.trim().replaceAll(RegExp(r'/+$'), ''));
 
   String get tallyHost => _prefs.getString(_keyTallyHost) ?? '127.0.0.1';
   Future<void> setTallyHost(String host) => _prefs.setString(_keyTallyHost, host);

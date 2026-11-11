@@ -99,7 +99,7 @@ class InboxScreenState extends State<InboxScreen> {
   }) async {
     setState(() {
       _isUploading = true;
-      _uploadStatusText = 'Reading bill details...';
+      _uploadStatusText = 'Reading invoice...';
     });
 
     ApiResult<Invoice>? res;
@@ -108,13 +108,13 @@ class InboxScreenState extends State<InboxScreen> {
     if (MLKitService.isSupported && localPath != null && localPath.isNotEmpty) {
       try {
         setState(() {
-          _uploadStatusText = 'Scanning bill with Google ML Kit (on-device)...';
+          _uploadStatusText = 'Scanning bill details...';
         });
 
         final ocrResult = await MLKitService.recognizeTextFromFile(localPath);
 
         setState(() {
-          _uploadStatusText = 'Structuring voucher with AI...';
+          _uploadStatusText = 'Processing voucher...';
         });
 
         res = await widget.api.extractFromRawOcr(
@@ -123,7 +123,7 @@ class InboxScreenState extends State<InboxScreen> {
           localPath: localPath,
         );
       } catch (e) {
-        // Fallback to backend OCR if ML Kit fails
+        // Fallback to backend OCR if local extraction encounters an issue
         res = null;
       }
     }
@@ -131,7 +131,7 @@ class InboxScreenState extends State<InboxScreen> {
     // 2. Fallback: Backend OCR endpoint
     if (res == null || !res.success) {
       setState(() {
-        _uploadStatusText = 'Uploading bill to backend...';
+        _uploadStatusText = 'Processing bill...';
       });
 
       res = await widget.api.uploadInvoiceBytes(

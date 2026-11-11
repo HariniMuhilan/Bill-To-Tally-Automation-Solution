@@ -1,7 +1,8 @@
 """FastAPI Application Entry Point for Bill-to-Tally Automation Solution."""
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+import re
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 import sys
@@ -49,6 +50,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def normalize_slashes_middleware(request: Request, call_next):
+    """Normalize consecutive slashes in request paths (e.g. //api/... -> /api/...)."""
+    raw_path = request.scope.get("path", "")
+    if "//" in raw_path:
+        request.scope["path"] = re.sub(r"/+", "/", raw_path)
+    return await call_next(request)
 
 # Mount routes
 app.include_router(invoices_router)
