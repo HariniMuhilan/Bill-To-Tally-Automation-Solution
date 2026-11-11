@@ -11,7 +11,6 @@ import 'inbox_screen.dart';
 import 'review_screen.dart';
 import 'tally_connector_screen.dart';
 import 'audit_trail_screen.dart';
-import '../widgets/server_settings_dialog.dart';
 
 class HomeShell extends StatefulWidget {
   final StorageService storage;
@@ -269,9 +268,7 @@ class _HomeShellState extends State<HomeShell> {
               borderRadius: BorderRadius.circular(16),
             ),
             onSelected: (val) {
-              if (val == 'server') {
-                ServerSettingsDialog.show(context, storage: widget.storage, api: widget.api);
-              } else if (val == 'logout') {
+              if (val == 'logout') {
                 widget.onLogout();
               }
             },
@@ -282,16 +279,6 @@ class _HomeShellState extends State<HomeShell> {
                 child: Text(widget.user.fullName, style: AppTypography.fontM()),
               ),
               const PopupMenuDivider(),
-              PopupMenuItem(
-                value: 'server',
-                child: Row(
-                  children: [
-                    const Icon(Icons.dns_rounded, color: AppColors.maroonDark, size: 18),
-                    const SizedBox(width: 8),
-                    Text('Backend URL', style: AppTypography.fontM(color: AppColors.maroonDark)),
-                  ],
-                ),
-              ),
               PopupMenuItem(
                 value: 'logout',
                 child: Row(

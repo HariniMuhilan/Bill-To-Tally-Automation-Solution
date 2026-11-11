@@ -5,7 +5,6 @@ import '../services/api_service.dart';
 import '../services/supabase_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/liquid_glass.dart';
-import '../widgets/server_settings_dialog.dart';
 
 class WarningBannerData {
   final IconData icon;
@@ -433,19 +432,6 @@ class _LoginScreenState extends State<LoginScreen> {
             child: RepaintBoundary(
               child: CustomPaint(
                 painter: LiquidBackgroundPainter(),
-              ),
-            ),
-          ),
-
-          // Backend URL Settings Button
-          Positioned(
-            top: 10,
-            right: 14,
-            child: SafeArea(
-              child: IconButton(
-                tooltip: 'Backend Server URL',
-                icon: const Icon(Icons.settings_ethernet_rounded, color: AppColors.maroonDark, size: 24),
-                onPressed: () => ServerSettingsDialog.show(context, storage: widget.storage, api: widget.api),
               ),
             ),
           ),

@@ -38,8 +38,21 @@ class StorageService {
     }
   }
 
+  static const String defaultApiUrl = 'https://bill-to-tally-automation-solution.onrender.com';
+
   // --- Configuration ---
-  String get apiBaseUrl => _prefs.getString(_keyApiBase) ?? const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://192.168.29.57:8000');
+  String get apiBaseUrl {
+    final saved = _prefs.getString(_keyApiBase);
+    if (saved != null &&
+        saved.isNotEmpty &&
+        !saved.contains('192.168.') &&
+        !saved.contains('10.0.2.2') &&
+        !saved.contains('localhost') &&
+        !saved.contains('127.0.0.1')) {
+      return saved;
+    }
+    return defaultApiUrl;
+  }
   Future<void> setApiBaseUrl(String url) => _prefs.setString(_keyApiBase, url);
 
   String get tallyHost => _prefs.getString(_keyTallyHost) ?? '127.0.0.1';
