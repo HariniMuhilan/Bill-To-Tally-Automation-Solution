@@ -10,7 +10,11 @@ import logging
 from pathlib import Path
 from typing import List, Optional, Union
 import sys
-import numpy as np
+
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore
 from PIL import Image, ImageOps
 
 # Ensure project root and backend directory are in sys.path for direct execution or IDE tools
@@ -40,8 +44,10 @@ logger = logging.getLogger(__name__)
 
 def load_image_as_numpy(
     image_input: Union[str, Path, bytes, io.BytesIO, Image.Image]
-) -> np.ndarray:
+) -> object:
     """Load image from path, bytes, or PIL Image, normalize EXIF orientation, and return RGB NumPy array."""
+    if np is None:
+        raise RuntimeError("NumPy is required for image processing but is not installed.")
     if isinstance(image_input, (str, Path)):
         img = Image.open(str(image_input))
     elif isinstance(image_input, bytes):
