@@ -162,7 +162,7 @@ class ApiService {
           final errJson = jsonDecode(response.body);
           if (errJson['detail'] != null) errMsg = errJson['detail'];
         } catch (_) {}
-        return ApiResult(success: false, error: errMsg);
+        return ApiResult(success: false, error: '$errMsg [${uri.path}]');
       }
     } catch (e) {
       return ApiResult(success: false, error: 'Cannot connect to backend: $e');
@@ -258,7 +258,7 @@ class ApiService {
           final errJson = jsonDecode(response.body);
           if (errJson['detail'] != null) errMsg = errJson['detail'];
         } catch (_) {}
-        return ApiResult(success: false, error: errMsg);
+        return ApiResult(success: false, error: '$errMsg [${uri.path}]');
       }
     } catch (e) {
       return ApiResult(success: false, error: 'Cannot connect to backend: $e');
