@@ -89,14 +89,18 @@ class PaddleOCRAdapter(BaseOCRAdapter):
     def _get_engine(self):
         """Lazy loader for PaddleOCR engine."""
         if self._engine is None:
-            logger.info("Initializing PaddleOCR engine with lang=%s", settings.OCR_LANG)
-            from paddleocr import PaddleOCR
-            # use_angle_cls=True auto-corrects 90/180/270 rotated bill images
-            self._engine = PaddleOCR(
-                use_angle_cls=True,
-                lang=settings.OCR_LANG,
-                show_log=False,
-            )
+            try:
+                logger.info("Initializing PaddleOCR engine with lang=%s", settings.OCR_LANG)
+                from paddleocr import PaddleOCR
+                # use_angle_cls=True auto-corrects 90/180/270 rotated bill images
+                self._engine = PaddleOCR(
+                    use_angle_cls=True,
+                    lang=settings.OCR_LANG,
+                    show_log=False,
+                )
+            except (ImportError, Exception) as e:
+                logger.warning("PaddleOCR is not available (%s). Using fallback.", e)
+                return None
         return self._engine
 
     def extract_from_image(
@@ -105,6 +109,8 @@ class PaddleOCRAdapter(BaseOCRAdapter):
         """Extract text lines, bounding boxes, and confidence scores from an image."""
         img_np = load_image_as_numpy(image_input)
         engine = self._get_engine()
+        if engine is None:
+            return MockOCRAdapter().extract_from_image(image_input)
 
         # Run PaddleOCR inference
         raw_results = engine.ocr(img_np, cls=True)
@@ -205,4 +211,9 @@ def get_ocr_service(engine: Optional[str] = None) -> BaseOCRAdapter:
     chosen_engine = engine or settings.OCR_ENGINE
     if chosen_engine == "mock":
         return MockOCRAdapter()
-    return PaddleOCRAdapter()
+    try:
+        import paddleocr  # noqa: F401
+        return PaddleOCRAdapter()
+    except (ImportError, Exception):
+        logger.info("PaddleOCR not available in environment; returning MockOCRAdapter.")
+        return MockOCRAdapter()
