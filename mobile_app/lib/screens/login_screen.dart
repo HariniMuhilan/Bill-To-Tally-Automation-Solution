@@ -264,15 +264,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _handleGoogleSignIn() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Google Sign-In is temporarily disabled. Please use your email and password.'),
-        backgroundColor: Color(0xFFC86E46),
-      ),
-    );
-  }
-
   void _openForgotPasswordDialog() {
     showDialog(
       context: context,
@@ -294,7 +285,6 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-
   Future<void> _handleCreateAccount() async {
     final email = _regEmailController.text.trim();
     final password = _regPasswordController.text.trim();
@@ -762,57 +752,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
 
-                    // Subtle horizontal separator line
-                    Container(
-                      width: double.infinity,
-                      height: 1.2,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.transparent,
-                            AppColors.brandInk.withValues(alpha: 0.18),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // CONTINUE WITH GOOGLE Button
-                    LiquidGlass(
-                      borderRadius: 25,
-                      height: 50,
-                      onTap: _handleGoogleSignIn,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Image.asset(
-                            'assets/images/google_logo.png',
-                            width: 22,
-                            height: 22,
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Icon(
-                                Icons.g_mobiledata_rounded,
-                                size: 26,
-                                color: Color(0xFF4285F4),
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'CONTINUE WITH GOOGLE',
-                            style: AppTypography.fontS(
-                              color: AppColors.brandInk,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
               ),
