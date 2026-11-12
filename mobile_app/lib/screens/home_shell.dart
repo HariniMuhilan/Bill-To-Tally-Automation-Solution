@@ -11,6 +11,7 @@ import 'inbox_screen.dart';
 import 'review_screen.dart';
 import 'tally_connector_screen.dart';
 import 'audit_trail_screen.dart';
+import 'upgrade_screen.dart';
 
 class HomeShell extends StatefulWidget {
   final StorageService storage;
@@ -168,7 +169,7 @@ class _HomeShellState extends State<HomeShell> {
         );
         break;
       case 3:
-        body = AuditTrailScreen(storage: widget.storage);
+        body = UpgradeScreen(storage: widget.storage);
         break;
       default:
         body = const SizedBox();
@@ -358,11 +359,11 @@ class _HomeShellState extends State<HomeShell> {
             icon: Icons.sync_rounded,
             label: 'Tally',
           ),
-          // 3: Audit
+          // 3: Upgrade (Future Payment Gateway)
           _buildNavItem(
             index: 3,
-            icon: Icons.access_time_rounded,
-            label: 'Audit',
+            icon: Icons.workspace_premium_rounded,
+            label: 'Upgrade',
           ),
         ],
       ),
