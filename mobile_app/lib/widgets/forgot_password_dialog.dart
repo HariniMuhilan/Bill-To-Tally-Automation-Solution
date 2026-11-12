@@ -77,6 +77,12 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
     } catch (e) {
       if (mounted) {
         String msg = e.toString().replaceAll('Exception: ', '').replaceAll('AuthException: ', '');
+        final lower = msg.toLowerCase();
+        if (lower.contains('rate limit') || lower.contains('429') || lower.contains('over_email_send_rate_limit')) {
+          msg = 'Email rate limit reached. Supabase limits email delivery frequency. Please wait a few minutes before trying again.';
+        } else if (lower.contains('user not found')) {
+          msg = 'No account found with this email address.';
+        }
         setState(() {
           _dialogError = msg;
           _isLoading = false;
@@ -440,3 +446,4 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
     );
   }
 }
+
