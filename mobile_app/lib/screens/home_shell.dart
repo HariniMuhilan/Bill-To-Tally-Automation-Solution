@@ -12,6 +12,7 @@ import 'review_screen.dart';
 import 'tally_connector_screen.dart';
 import 'audit_trail_screen.dart';
 import 'upgrade_screen.dart';
+import '../widgets/upgrade_paywall_dialog.dart';
 
 class HomeShell extends StatefulWidget {
   final StorageService storage;
@@ -62,6 +63,13 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   void _handleQuickCameraCapture() {
+    if (!widget.storage.canUserScan(widget.user.username)) {
+      UpgradePaywallDialog.show(
+        context,
+        onUpgrade: () => setState(() => _currentIndex = 3),
+      );
+      return;
+    }
     if (_currentIndex != 0) {
       setState(() => _currentIndex = 0);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -86,6 +94,7 @@ class _HomeShellState extends State<HomeShell> {
           invoices: _invoices,
           onInvoicesChanged: (updated) => setState(() => _invoices = updated),
           onSelectInvoice: _selectInvoiceForReview,
+          onNavigateToUpgrade: () => setState(() => _currentIndex = 3),
         );
         break;
       case 1:

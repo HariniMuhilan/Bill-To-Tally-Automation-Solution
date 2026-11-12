@@ -196,5 +196,52 @@ class StorageService {
     final list = logs.map((a) => a.toJson()).toList();
     await _prefs.setString(_keyAudit, jsonEncode(list));
   }
+
+  // --- Free Bill Quota & Pro Membership ---
+  static const String _keyFreeScansPrefix = 'bill_to_tally_free_scans_';
+  static const String _keyProPrefix = 'bill_to_tally_pro_user_';
+
+  // Built-in accounts exempt from limits
+  static const Set<String> _exemptAccounts = {
+    'admin',
+    'accounts_user_01',
+    'operator',
+  };
+
+  bool isUserExempt(String? username) {
+    if (username == null || username.isEmpty) return false;
+    return _exemptAccounts.contains(username.trim().toLowerCase());
+  }
+
+  bool isUserPro(String? username) {
+    if (username == null || username.isEmpty) return false;
+    final normalized = username.trim().toLowerCase();
+    if (_exemptAccounts.contains(normalized)) return true;
+    return _prefs.getBool('$_keyProPrefix$normalized') ?? false;
+  }
+
+  Future<void> setUserPro(String? username, bool isPro) async {
+    if (username == null || username.isEmpty) return;
+    final normalized = username.trim().toLowerCase();
+    await _prefs.setBool('$_keyProPrefix$normalized', isPro);
+  }
+
+  int getFreeScansUsed(String? username) {
+    if (username == null || username.isEmpty) return 0;
+    final normalized = username.trim().toLowerCase();
+    return _prefs.getInt('$_keyFreeScansPrefix$normalized') ?? 0;
+  }
+
+  Future<void> incrementFreeScansUsed(String? username) async {
+    if (username == null || username.isEmpty) return;
+    final normalized = username.trim().toLowerCase();
+    final current = getFreeScansUsed(normalized);
+    await _prefs.setInt('$_keyFreeScansPrefix$normalized', current + 1);
+  }
+
+  bool canUserScan(String? username) {
+    if (isUserPro(username)) return true;
+    return getFreeScansUsed(username) < 2;
+  }
 }
 

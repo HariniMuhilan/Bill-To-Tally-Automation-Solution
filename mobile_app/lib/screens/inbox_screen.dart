@@ -10,6 +10,7 @@ import '../services/mlkit_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/liquid_glass.dart';
 import '../widgets/invoice_card.dart';
+import '../widgets/upgrade_paywall_dialog.dart';
 
 class InboxScreen extends StatefulWidget {
   final StorageService storage;
@@ -17,6 +18,7 @@ class InboxScreen extends StatefulWidget {
   final List<Invoice> invoices;
   final ValueChanged<List<Invoice>> onInvoicesChanged;
   final ValueChanged<Invoice> onSelectInvoice;
+  final VoidCallback? onNavigateToUpgrade;
 
   const InboxScreen({
     super.key,
@@ -25,6 +27,7 @@ class InboxScreen extends StatefulWidget {
     required this.invoices,
     required this.onInvoicesChanged,
     required this.onSelectInvoice,
+    this.onNavigateToUpgrade,
   });
 
   @override
@@ -37,6 +40,14 @@ class InboxScreenState extends State<InboxScreen> {
   String _uploadStatusText = '';
 
   Future<void> handleCaptureCamera() async {
+    final user = widget.storage.getUser();
+    if (!widget.storage.canUserScan(user?.username)) {
+      UpgradePaywallDialog.show(
+        context,
+        onUpgrade: widget.onNavigateToUpgrade,
+      );
+      return;
+    }
     try {
       final picker = ImagePicker();
       final photo = await picker.pickImage(
@@ -55,6 +66,14 @@ class InboxScreenState extends State<InboxScreen> {
   }
 
   Future<void> _handlePickFile() async {
+    final user = widget.storage.getUser();
+    if (!widget.storage.canUserScan(user?.username)) {
+      UpgradePaywallDialog.show(
+        context,
+        onUpgrade: widget.onNavigateToUpgrade,
+      );
+      return;
+    }
     try {
       final picker = ImagePicker();
       final photo = await picker.pickImage(
@@ -153,6 +172,11 @@ class InboxScreenState extends State<InboxScreen> {
       widget.onInvoicesChanged(updatedList);
       widget.storage.saveInvoices(updatedList);
 
+      // Increment quota for new users on free tier
+      final user = widget.storage.getUser();
+      await widget.storage.incrementFreeScansUsed(user?.username);
+      if (mounted) setState(() {});
+
       _showSnackbar('Scanned ${newInvoice.id}: ${newInvoice.supplierRaw}');
       widget.onSelectInvoice(newInvoice);
     } else {
@@ -244,12 +268,23 @@ class InboxScreenState extends State<InboxScreen> {
                                 ),
                               ),
                               const SizedBox(height: 3),
-                              Text(
-                                'Capture a bill or choose a file to begin',
-                                style: AppTypography.fontS(
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white.withValues(alpha: 0.85),
-                                ),
+                              Builder(
+                                builder: (context) {
+                                  final user = widget.storage.getUser();
+                                  final isPro = widget.storage.isUserPro(user?.username);
+                                  final used = widget.storage.getFreeScansUsed(user?.username);
+                                  final remaining = (2 - used).clamp(0, 2);
+                                  final subtitle = isPro
+                                      ? 'Pro Plan • Unlimited Scans'
+                                      : 'Free Tier • $remaining/2 free bills remaining';
+                                  return Text(
+                                    subtitle,
+                                    style: AppTypography.fontS(
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.white.withValues(alpha: 0.85),
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),
