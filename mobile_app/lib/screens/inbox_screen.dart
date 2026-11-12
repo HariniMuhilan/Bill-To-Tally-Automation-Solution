@@ -8,6 +8,7 @@ import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../services/mlkit_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/invoice_validator.dart';
 import '../widgets/liquid_glass.dart';
 import '../widgets/invoice_card.dart';
 import '../widgets/upgrade_paywall_dialog.dart';
@@ -131,6 +132,16 @@ class InboxScreenState extends State<InboxScreen> {
         });
 
         final ocrResult = await MLKitService.recognizeTextFromFile(localPath);
+        final rawText = ocrResult['raw_text'] as String? ?? '';
+
+        // Pre-AI Gate: Check if the photo contains invoice signals before calling Gemini API
+        if (!InvoiceValidator.isLikelyInvoice(rawText)) {
+          setState(() => _isUploading = false);
+          if (mounted) {
+            _showInvalidBillDialog();
+          }
+          return;
+        }
 
         setState(() {
           _uploadStatusText = 'Processing voucher...';
@@ -182,6 +193,40 @@ class InboxScreenState extends State<InboxScreen> {
     } else {
       _showSnackbar(res.error ?? 'Processing failed. Check backend connection.', isError: true);
     }
+  }
+
+  void _showInvalidBillDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppColors.orange, size: 26),
+            SizedBox(width: 8),
+            Text(
+              'No Bill Detected',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.maroonDark),
+            ),
+          ],
+        ),
+        content: const Text(
+          'The captured image does not appear to be an invoice or receipt.\n\nPlease capture a clear, well-lit photo of a bill with visible line items and tax details.',
+          style: TextStyle(fontSize: 14, color: AppColors.textMuted, height: 1.4),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.orange,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Try Again', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSnackbar(String msg, {bool isError = false}) {

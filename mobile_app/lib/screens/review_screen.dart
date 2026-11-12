@@ -7,8 +7,8 @@ import '../models/invoice.dart';
 import '../models/draft_sheet.dart';
 import '../models/mapping.dart';
 import '../models/audit_log.dart';
+import '../services/excel_service.dart';
 import '../services/storage_service.dart';
-import '../services/supabase_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/approve_dialog.dart';
 import '../widgets/status_badge.dart';
@@ -402,28 +402,70 @@ class _ReviewScreenState extends State<ReviewScreen> {
     widget.onDraftSheetsUpdated(newDraftList);
     widget.storage.saveDraftSheets(newDraftList);
 
-    // Persist to Supabase Cloud
-    SupabaseService.saveInvoice(updatedInvoice);
+    final user = widget.storage.getUser();
+
+    // Persist to local Excel workbook (Local Storage of Truth - Zero Supabase DB storage)
+    await ExcelService.appendInvoiceToWorkbook(
+      username: user?.username,
+      invoice: updatedInvoice,
+    );
 
     // Save Audit Log
-    final user = widget.storage.getUser();
     final newAudit = AuditLog(
       time: DateTime.now().toString().substring(0, 19),
       actor: user?.username ?? 'accounts_user_01',
       action: 'VOUCHER_APPROVED_AND_STORED',
-      summary: 'Approved voucher for ${updatedInvoice.supplierRaw} (Ref: $voucherRef) and saved into Tally Connector Excel sheet',
+      summary: 'Approved voucher for ${updatedInvoice.supplierRaw} (Ref: $voucherRef) and appended into Excel workbook',
     );
     final auditLogs = [newAudit, ...widget.storage.getAuditLogs()];
     widget.storage.saveAuditLogs(auditLogs);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Voucher ${updatedInvoice.id} Approved! Saved to Tally Connector.'),
-          backgroundColor: const Color(0xFF2E7D32),
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: Color(0xFF2E7D32), size: 28),
+              SizedBox(width: 8),
+              Text(
+                'Voucher Approved!',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.maroonDark),
+              ),
+            ],
+          ),
+          content: Text(
+            'Voucher ${updatedInvoice.id} has been saved directly to your local Excel sheet:\n${ExcelService.getWorkbookFileName(user?.username)}\n\nZero data is stored in the cloud. You are ready to scan your next bill!',
+            style: const TextStyle(fontSize: 14, color: AppColors.textMuted, height: 1.4),
+          ),
+          actions: [
+            TextButton.icon(
+              icon: const Icon(Icons.table_view_rounded, color: AppColors.maroonDark, size: 20),
+              label: const Text('View Excel', style: TextStyle(color: AppColors.maroonDark, fontWeight: FontWeight.bold)),
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                ExcelService.openUserExcel(user?.username);
+                widget.onBack();
+              },
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.orange,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              icon: const Icon(Icons.document_scanner_rounded, color: Colors.white, size: 18),
+              label: const Text('Scan Next Bill', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                widget.onBack();
+              },
+            ),
+          ],
         ),
       );
-      widget.onBack();
     }
   }
 

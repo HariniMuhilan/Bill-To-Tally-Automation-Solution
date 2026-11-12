@@ -44,6 +44,35 @@ router = APIRouter(prefix="/api/invoices", tags=["Invoices"])
 # Allowed photo image extensions
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 
+STRONG_BILL_KEYWORDS = {
+    'gstin', 'invoice', 'tax invoice', 'bill of supply', 'cgst', 'sgst', 'igst',
+    'hsn', 'hsn/sac', 'sac code', 'grand total', 'subtotal', 'sub total',
+    'cash memo', 'delivery challan', 'taxable value', 'taxable amount'
+}
+
+SECONDARY_BILL_KEYWORDS = {
+    'total', 'bill', 'tax', 'amount', 'qty', 'quantity', 'rate', 'date',
+    'item', 'particulars', 'mrp', 'balance', 'rs.', 'inr', '₹', 'payable',
+    'discount', 'vendor', 'supplier', 'customer', 'payment', 'voucher', 'charges', 'round off'
+}
+
+
+def is_likely_invoice(raw_text: Optional[str]) -> bool:
+    """Pre-AI filter to reject non-bill photos (faces, objects, rooms) before invoking Gemini."""
+    if not raw_text:
+        return False
+    cleaned = raw_text.strip()
+    if len(cleaned) < 20:
+        return False
+    lines = [l for l in cleaned.splitlines() if l.strip()]
+    if len(lines) < 3:
+        return False
+    lower = cleaned.lower()
+    if any(kw in lower for kw in STRONG_BILL_KEYWORDS):
+        return True
+    secondary_count = sum(1 for kw in SECONDARY_BILL_KEYWORDS if kw in lower)
+    return secondary_count >= 2
+
 
 class OCRExtractionResponse(BaseModel):
     """Response returned upon photo image upload and OCR scanning."""
@@ -94,6 +123,13 @@ async def upload_and_extract_ocr(file: UploadFile = File(...)):
             detail=f"OCR engine extraction failed: {str(e)}",
         )
 
+    # Pre-AI Gate: Reject photos that lack invoice indicators before calling Gemini
+    if not is_likely_invoice(ocr_result.raw_text):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="The scanned photo does not appear to be an invoice or receipt. Please capture a clear bill image.",
+        )
+
     # Determine media type for multimodal extraction
     media_type = "image/jpeg"
     if ext == ".png":
@@ -123,6 +159,11 @@ async def upload_and_extract_ocr(file: UploadFile = File(...)):
 @router.post("/extract-text", response_model=InvoiceExtractedData)
 async def extract_from_raw_ocr(ocr_result: OCRResult):
     """Directly run Gemini structured bill extraction on an existing OCR result payload."""
+    if not is_likely_invoice(ocr_result.raw_text):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="The scanned photo does not appear to be an invoice or receipt. Please capture a clear bill image.",
+        )
     extractor = get_extraction_service()
     return extractor.extract(ocr_result)
 
