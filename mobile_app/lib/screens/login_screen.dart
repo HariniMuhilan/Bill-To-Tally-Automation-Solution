@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/supabase_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/liquid_glass.dart';
+import '../widgets/forgot_password_dialog.dart';
 
 class WarningBannerData {
   final IconData icon;
@@ -272,6 +273,28 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  void _openForgotPasswordDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => ForgotPasswordDialog(
+        initialEmail: _emailController.text.trim(),
+        onPasswordResetSuccess: (email) {
+          setState(() {
+            _emailController.text = email;
+            _passwordController.clear();
+            _warningBanner = const WarningBannerData(
+              icon: Icons.check_circle_outline_rounded,
+              title: 'Password Updated Successfully',
+              message: 'Your password has been reset. You can now sign in with your new password.',
+              color: AppColors.successGreen,
+            );
+          });
+        },
+      ),
+    );
+  }
+
   Future<void> _handleCreateAccount() async {
     final email = _regEmailController.text.trim();
     final password = _regPasswordController.text.trim();
@@ -332,14 +355,30 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       if (SupabaseService.isReady) {
-        final session = await SupabaseService.signUp(
+        final signUpResult = await SupabaseService.signUp(
           emailOrUsername: email,
           password: password,
           fullName: fullName,
         );
-        if (session != null) {
-          widget.storage.saveUser(session);
-          widget.onLoginSuccess(session);
+
+        if (signUpResult.requiresEmailConfirmation) {
+          setState(() {
+            _isSignUp = false;
+            _emailController.text = email;
+            _passwordController.clear();
+            _warningBanner = WarningBannerData(
+              icon: Icons.mark_email_unread_rounded,
+              title: 'Verification Link Sent',
+              message: 'Account created! Please check your email ($email) and click the verification link before signing in.',
+              color: AppColors.successGreen,
+            );
+          });
+          return;
+        }
+
+        if (signUpResult.session != null) {
+          widget.storage.saveUser(signUpResult.session!);
+          widget.onLoginSuccess(signUpResult.session!);
           return;
         }
       } else {
@@ -616,7 +655,25 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             if (_signInPasswordError != null)
                               _buildInlineErrorText(_signInPasswordError!),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 8),
+
+                            // FORGOT PASSWORD LINK
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: GestureDetector(
+                                onTap: _openForgotPasswordDialog,
+                                child: Text(
+                                  'Forgot Password?',
+                                  style: TextStyle(
+                                    fontFamily: 'DM Sans',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.maroonDark.withValues(alpha: 0.85),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
 
                             // SIGN IN CTA BUTTON (Orange Gloss)
                             LiquidGlass(
