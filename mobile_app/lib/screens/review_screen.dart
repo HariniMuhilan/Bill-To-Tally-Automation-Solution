@@ -1,4 +1,6 @@
+import 'dart:io' show File;
 import 'dart:math';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/invoice.dart';
@@ -6,6 +8,7 @@ import '../models/draft_sheet.dart';
 import '../models/mapping.dart';
 import '../models/audit_log.dart';
 import '../services/storage_service.dart';
+import '../services/supabase_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/approve_dialog.dart';
 import '../widgets/status_badge.dart';
@@ -192,6 +195,39 @@ class _ReviewScreenState extends State<ReviewScreen> {
     _onItemsChanged();
   }
 
+  Widget _buildInvoiceImage(Invoice inv) {
+    if (!kIsWeb && inv.localPath != null && inv.localPath!.isNotEmpty) {
+      final file = File(inv.localPath!);
+      if (file.existsSync()) {
+        return Image.file(
+          file,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => const Center(
+            child: Text('Image not accessible', style: TextStyle(color: Colors.white70)),
+          ),
+        );
+      }
+    }
+    if (inv.imageUrl != null && inv.imageUrl!.isNotEmpty) {
+      return Image.network(
+        inv.imageUrl!,
+        fit: BoxFit.contain,
+        loadingBuilder: (_, child, progress) {
+          if (progress == null) return child;
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.softSage),
+          );
+        },
+        errorBuilder: (_, __, ___) => const Center(
+          child: Text('Image not accessible', style: TextStyle(color: Colors.white70)),
+        ),
+      );
+    }
+    return const Center(
+      child: Text('No image available', style: TextStyle(color: Colors.white70)),
+    );
+  }
+
   void _showFullScreenZoomModal(BuildContext context) {
     final inv = widget.invoice;
     showDialog(
@@ -251,23 +287,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                     minScale: 0.8,
                     maxScale: 6.0,
                     child: Center(
-                      child: inv.imageUrl != null && inv.imageUrl!.isNotEmpty
-                          ? Image.network(
-                              inv.imageUrl!,
-                              fit: BoxFit.contain,
-                              loadingBuilder: (_, child, progress) {
-                                if (progress == null) return child;
-                                return const Center(
-                                  child: CircularProgressIndicator(color: AppColors.softSage),
-                                );
-                              },
-                              errorBuilder: (_, __, ___) => const Center(
-                                child: Text('Image not accessible', style: TextStyle(color: Colors.white70)),
-                              ),
-                            )
-                          : const Center(
-                              child: Text('No image available', style: TextStyle(color: Colors.white70)),
-                            ),
+                      child: _buildInvoiceImage(inv),
                     ),
                   ),
                 ),
@@ -335,10 +355,17 @@ class _ReviewScreenState extends State<ReviewScreen> {
     List<DraftSheet> newDraftList = List.from(widget.draftSheets);
 
     if (result.option == ApproveExcelOption.newSheet) {
-      final sanitized = updatedInvoice.supplierRaw.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+      String resolvedFileName;
+      final custom = result.customFileName?.trim();
+      if (custom != null && custom.isNotEmpty) {
+        resolvedFileName = custom.toLowerCase().endsWith('.xlsx') ? custom : '${custom}.xlsx';
+      } else {
+        final sanitized = updatedInvoice.supplierRaw.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+        resolvedFileName = 'Tally_Draft_${sanitized}_${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}.xlsx';
+      }
       final newSheet = DraftSheet(
         id: 'DRAFT-${DateTime.now().millisecondsSinceEpoch}',
-        fileName: 'Tally_Draft_${sanitized}_${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}.xlsx',
+        fileName: resolvedFileName,
         createdAt: DateTime.now().toString().substring(0, 19),
         updatedAt: DateTime.now().toString().substring(0, 19),
         totalAmount: updatedInvoice.grandTotal,
@@ -374,6 +401,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
     widget.onInvoiceUpdated(updatedInvoice);
     widget.onDraftSheetsUpdated(newDraftList);
     widget.storage.saveDraftSheets(newDraftList);
+
+    // Persist to Supabase Cloud
+    SupabaseService.saveInvoice(updatedInvoice);
 
     // Save Audit Log
     final user = widget.storage.getUser();
@@ -445,7 +475,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
           // Main Scrollable Content
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 120),
+              padding: const EdgeInsets.only(bottom: 180),
               children: [
                 // 1. Fixed Bill Document Preview Card (No gesture scroll capture, tap to zoom)
                 Card(
@@ -499,31 +529,8 @@ class _ReviewScreenState extends State<ReviewScreen> {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              // Fixed image preview (non-interactive to allow smooth page scrolling)
-                              inv.imageUrl != null && inv.imageUrl!.isNotEmpty
-                                  ? Image.network(
-                                      inv.imageUrl!,
-                                      fit: BoxFit.contain,
-                                      loadingBuilder: (_, child, progress) {
-                                        if (progress == null) return child;
-                                        return const Center(
-                                          child: CircularProgressIndicator(color: AppColors.softSage),
-                                        );
-                                      },
-                                      errorBuilder: (_, __, ___) => const Center(
-                                        child: Text('Image not accessible', style: TextStyle(color: Colors.white70)),
-                                      ),
-                                    )
-                                  : const Center(
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.description_outlined, color: Colors.white60, size: 44),
-                                          SizedBox(height: 8),
-                                          Text('Document Preview', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                                        ],
-                                      ),
-                                    ),
+                              // Image preview (local or remote)
+                              _buildInvoiceImage(inv),
 
                               // Bottom Tap to Enlarge & Zoom Badge
                               Positioned(
@@ -1151,7 +1158,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
       // Sticky Bottom Approval Action Bar
       // Lifted with 34px bottom clearance so it NEVER collides with the 20px popped-out center camera button
       bottomSheet: Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 34),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 98),
         decoration: BoxDecoration(
           color: AppColors.surfaceWhite,
           border: const Border(top: BorderSide(color: AppColors.borderSubtle)),

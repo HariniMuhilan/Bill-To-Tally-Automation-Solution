@@ -32,15 +32,18 @@ class StorageService {
   }
 
   void _purgeOldDemoData() {
+    _prefs.remove(_keyApiBase); // Clear any legacy manual IP or trailing-slash URLs
     if (!_prefs.containsKey(_keyCleanedOldData)) {
       _prefs.remove(_keyInvoices);
       _prefs.setBool(_keyCleanedOldData, true);
     }
   }
 
-  // --- Configuration ---
-  String get apiBaseUrl => _prefs.getString(_keyApiBase) ?? 'http://127.0.0.1:8000';
-  Future<void> setApiBaseUrl(String url) => _prefs.setString(_keyApiBase, url);
+  static const String defaultApiUrl = 'https://bill-to-tally-automation-solution.onrender.com';
+
+  // Always use the hardcoded production Render cloud URL
+  String get apiBaseUrl => defaultApiUrl;
+  Future<void> setApiBaseUrl(String url) async {}
 
   String get tallyHost => _prefs.getString(_keyTallyHost) ?? '127.0.0.1';
   Future<void> setTallyHost(String host) => _prefs.setString(_keyTallyHost, host);
@@ -57,11 +60,11 @@ class StorageService {
   // --- User Session ---
   UserSession? getUser() {
     final raw = _prefs.getString(_keyUser);
-    if (raw == null) return UserSession.defaultUser;
+    if (raw == null) return null;
     try {
       return UserSession.fromJson(jsonDecode(raw));
     } catch (_) {
-      return UserSession.defaultUser;
+      return null;
     }
   }
 
@@ -194,3 +197,4 @@ class StorageService {
     await _prefs.setString(_keyAudit, jsonEncode(list));
   }
 }
+

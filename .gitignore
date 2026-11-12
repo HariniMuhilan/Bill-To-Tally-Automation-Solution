@@ -48,6 +48,8 @@ ENV/
 # Databases & Local Storage
 *.db
 *.sqlite3
+backend/data/
+data/
 /data/
 /uploads/
 

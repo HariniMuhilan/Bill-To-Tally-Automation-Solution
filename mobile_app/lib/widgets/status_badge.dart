@@ -18,28 +18,28 @@ class StatusBadge extends StatelessWidget {
       case 'APPROVED':
         bg = const Color(0xFFE8F5E9);
         text = const Color(0xFF1B5E20);
-        border = const Color(0xFF81C784).withOpacity(0.4);
+        border = const Color(0xFF81C784).withValues(alpha: 0.4);
         icon = Icons.check_circle_rounded;
         label = 'Approved';
         break;
       case 'POSTED':
         bg = const Color(0xFFE0F2F1);
         text = const Color(0xFF004D40);
-        border = const Color(0xFF4DB6AC).withOpacity(0.4);
+        border = const Color(0xFF4DB6AC).withValues(alpha: 0.4);
         icon = Icons.verified_rounded;
         label = 'Posted';
         break;
       case 'POST_FAILED':
         bg = AppColors.errorRedBg;
         text = AppColors.errorRed;
-        border = AppColors.errorRed.withOpacity(0.3);
+        border = AppColors.errorRed.withValues(alpha: 0.3);
         icon = Icons.error_outline_rounded;
         label = 'Post Failed';
         break;
       case 'NEEDS_CORRECTION':
         bg = const Color(0xFFFFF3E0);
         text = const Color(0xFFE65100);
-        border = const Color(0xFFFFB74D).withOpacity(0.4);
+        border = const Color(0xFFFFB74D).withValues(alpha: 0.4);
         icon = Icons.edit_note_rounded;
         label = 'Needs Correction';
         break;
@@ -47,14 +47,14 @@ class StatusBadge extends StatelessWidget {
       default:
         bg = const Color(0xFFFEF3EB);
         text = const Color(0xFFB45309);
-        border = const Color(0xFFF59E0B).withOpacity(0.35);
+        border = const Color(0xFFF59E0B).withValues(alpha: 0.35);
         icon = Icons.error_rounded;
         label = 'Needs Review';
         break;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(20),
@@ -63,15 +63,15 @@ class StatusBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: text),
-          const SizedBox(width: 5),
+          Icon(icon, size: 12, color: text),
+          const SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
               color: text,
-              fontSize: 11,
+              fontSize: 10.5,
               fontWeight: FontWeight.w700,
-              letterSpacing: 0.2,
+              letterSpacing: 0.1,
             ),
           ),
         ],

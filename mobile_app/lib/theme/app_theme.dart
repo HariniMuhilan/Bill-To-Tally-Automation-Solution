@@ -1,147 +1,159 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+/// Central Design System tokens for BillBooks
 class AppColors {
-  // User's Curated Palette (Slightly brighter rich plum & matching fresh eucalyptus jade)
-  static const Color inkNavy = Color(0xFF111522);         // #111522 INK NAVY
-  static const Color forestCharcoal = Color(0xFF202A27);  // #202A27 FOREST CHARCOAL
-  static const Color plumSlate = Color(0xFF65395E);       // #65395E BRIGHTER RICH PLUM
-  static const Color mutedMauve = Color(0xFF8F5D7E);      // #8F5D7E MUTED MAUVE
-  static const Color softSage = Color(0xFF68A484);        // #68A484 FRESH EUCALYPTUS JADE
-  static const Color blushIvory = Color(0xFFF7F2F4);      // #F7F2F4 BLUSH IVORY
+  // Brand Maroon Palette (Liquid Glass & Redesign)
+  static const Color maroonDark = Color(0xFF5E1233);
+  static const Color maroonMid = Color(0xFF7A2347);
+  static const Color maroonLight = Color(0xFF9C3D62);
+  static const Color brandInk = Color(0xFF4A1530);
 
-  // Accents & Surfaces
-  static const Color accentOrange = softSage;             // Mapped to Eucalyptus Jade
-  static const Color surfaceWhite = Color(0xFFFFFFFF);    // Cards, sheets
-  static const Color textPrimary = Color(0xFF111522);     // Ink Navy text
-  static const Color textMuted = Color(0xFF7E757D);       // Muted mauve-tinted grey
-  static const Color borderSubtle = Color(0xFFE8E0E5);    // Subtle hairline divider
-  static const Color successBg = Color(0x2868A484);       // Jade tint
-  static const Color mauveBg = Color(0x1E8F5D7E);         // Mauve tint
+  // Brand Accents
+  static const Color orange = Color(0xFFF26A21);
+  static const Color orangeStart = Color(0xFFFF8A3D);
+  static const Color orangeEnd = Color(0xFFF0580E);
+  static const Color successGreen = Color(0xFF2F9A58);
+  static const Color mutedText = Color(0xFF85727A);
+
+  // Background Gradient Anchors
+  static const Color bg1 = Color(0xFFFBD9C9);
+  static const Color bg2 = Color(0xFFFDE6D6);
+  static const Color bg3 = Color(0xFFFCD9B8);
+  static const Color bg4 = Color(0xFFFBC590);
+  static const Color radialOrange = Color(0xFFFDB86A);
+  static const Color radialPink = Color(0xFFFFE3EC);
+
+  // Existing Palette Constants for full app screen compatibility
+  static const Color inkNavy = Color(0xFF111522);
+  static const Color forestCharcoal = Color(0xFF202A27);
+  static const Color plumSlate = Color(0xFF65395E);
+  static const Color mutedMauve = Color(0xFF8F5D7E);
+  static const Color softSage = Color(0xFF68A484);
+  static const Color blushIvory = Color(0xFFF7F2F4);
+  static const Color accentOrange = softSage;
+  static const Color surfaceWhite = Color(0xFFFFFFFF);
+  static const Color textPrimary = Color(0xFF111522);
+  static const Color textMuted = Color(0xFF7E757D);
+  static const Color borderSubtle = Color(0xFFE8E0E5);
+  static const Color successBg = Color(0x2868A484);
+  static const Color mauveBg = Color(0x1E8F5D7E);
   static const Color errorRed = Color(0xFFDC2626);
   static const Color errorRedBg = Color(0x1FDC2626);
 
-  // Backward compatibility aliases mapped to user's new palette
+  // Backward compatibility aliases
   static const Color appleBg = blushIvory;
   static const Color appleGrey = mutedMauve;
   static const Color amazonNavy = inkNavy;
   static const Color amazonOrange = softSage;
-  static const Color successGreen = softSage;
   static const Color successGreenBg = successBg;
 }
 
+/// 3 Standard DM Sans Typography Sizes:
+/// - 26px: Stat Numbers
+/// - 16px: Card titles / Headers
+/// - 13px: Subtitles, Button text, Body
+/// - 11px: Stat labels, Nav labels, Badges
+class AppTypography {
+  static TextStyle fontNumber({
+    FontWeight fontWeight = FontWeight.w800,
+    Color color = Colors.white,
+  }) =>
+      GoogleFonts.dmSans(
+        fontSize: 26,
+        fontWeight: fontWeight,
+        color: color,
+        letterSpacing: -0.5,
+      );
+
+  static TextStyle fontL({
+    FontWeight fontWeight = FontWeight.w700,
+    Color color = AppColors.brandInk,
+    double letterSpacing = -0.3,
+  }) =>
+      GoogleFonts.dmSans(
+        fontSize: 16,
+        fontWeight: fontWeight,
+        color: color,
+        letterSpacing: letterSpacing,
+      );
+
+  static TextStyle fontM({
+    FontWeight fontWeight = FontWeight.w600,
+    Color color = AppColors.brandInk,
+    double letterSpacing = 0.0,
+  }) =>
+      GoogleFonts.dmSans(
+        fontSize: 13,
+        fontWeight: fontWeight,
+        color: color,
+        letterSpacing: letterSpacing,
+      );
+
+  static TextStyle fontS({
+    FontWeight fontWeight = FontWeight.w600,
+    Color color = AppColors.mutedText,
+    double letterSpacing = 0.2,
+  }) =>
+      GoogleFonts.dmSans(
+        fontSize: 11,
+        fontWeight: fontWeight,
+        color: color,
+        letterSpacing: letterSpacing,
+      );
+
+  // Helpers
+  static TextStyle brandWordmark({required Color color}) => fontL(
+        fontWeight: FontWeight.w700,
+        color: color,
+        letterSpacing: -0.6,
+      );
+
+  static TextStyle cardTitle({Color color = Colors.white}) => fontL(
+        fontWeight: FontWeight.w700,
+        color: color,
+      );
+
+  static TextStyle statNumber({Color color = Colors.white}) => fontNumber(
+        color: color,
+      );
+
+  static TextStyle statLabel({Color color = Colors.white}) => fontS(
+        fontWeight: FontWeight.w600,
+        color: color,
+      );
+
+  static TextStyle bodyMedium({Color color = AppColors.brandInk}) => fontM(
+        fontWeight: FontWeight.w500,
+        color: color,
+      );
+
+  static TextStyle bodySmall({Color color = AppColors.mutedText}) => fontS(
+        fontWeight: FontWeight.w500,
+        color: color,
+      );
+
+  static TextStyle buttonText({Color color = Colors.white}) => fontM(
+        fontWeight: FontWeight.w700,
+        color: color,
+      );
+}
+
 class AppTheme {
-  static const String _fontFamily = 'Plus Jakarta Sans';
-  static const List<String> _fontFallbacks = ['Inter', 'Segoe UI', 'Roboto', 'sans-serif'];
-
-  static TextStyle _style({
-    required double fontSize,
-    required FontWeight fontWeight,
-    required Color color,
-    double? letterSpacing,
-  }) {
-    return TextStyle(
-      fontFamily: _fontFamily,
-      fontFamilyFallback: _fontFallbacks,
-      fontSize: fontSize,
-      fontWeight: fontWeight,
-      color: color,
-      letterSpacing: letterSpacing,
-    );
-  }
-
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
-      scaffoldBackgroundColor: AppColors.blushIvory,
-      primaryColor: AppColors.plumSlate,
+      scaffoldBackgroundColor: AppColors.bg2,
+      primaryColor: AppColors.maroonMid,
       colorScheme: const ColorScheme.light(
-        primary: AppColors.plumSlate,
-        secondary: AppColors.softSage,
+        primary: AppColors.maroonMid,
+        secondary: AppColors.orange,
         surface: AppColors.surfaceWhite,
-        background: AppColors.blushIvory,
         error: AppColors.errorRed,
       ),
-      appBarTheme: AppBarTheme(
-        backgroundColor: const Color(0xFF5B2B52),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: false,
-        titleTextStyle: _style(
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          color: Colors.white,
-        ),
-      ),
-      cardTheme: const CardThemeData(
-        color: AppColors.surfaceWhite,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(16)),
-          side: BorderSide(color: AppColors.borderSubtle, width: 1),
-        ),
-        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      ),
       textTheme: TextTheme(
-        headlineMedium: _style(
-          fontSize: 22,
-          fontWeight: FontWeight.w800,
-          color: AppColors.textPrimary,
-        ),
-        titleLarge: _style(
-          fontSize: 17,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
-        ),
-        titleMedium: _style(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-        ),
-        bodyMedium: _style(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          color: AppColors.textPrimary,
-        ),
-        bodySmall: _style(
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-          color: AppColors.textMuted,
-        ),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.plumSlate,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          textStyle: _style(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
-        ),
-      ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.plumSlate,
-          side: const BorderSide(color: AppColors.borderSubtle, width: 1.2),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: AppColors.surfaceWhite,
-        selectedItemColor: AppColors.plumSlate,
-        unselectedItemColor: AppColors.textMuted,
-        selectedLabelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
-        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
-        type: BottomNavigationBarType.fixed,
-        elevation: 8,
+        bodyMedium: AppTypography.fontM(),
+        bodySmall: AppTypography.fontS(),
       ),
     );
   }

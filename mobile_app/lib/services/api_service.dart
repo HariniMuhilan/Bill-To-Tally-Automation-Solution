@@ -18,7 +18,7 @@ class ApiService {
 
   ApiService(this.storage);
 
-  String get _baseUrl => storage.apiBaseUrl;
+  String get _baseUrl => storage.apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
 
   Future<Map<String, dynamic>> checkSystemHealth() async {
     try {
@@ -162,7 +162,103 @@ class ApiService {
           final errJson = jsonDecode(response.body);
           if (errJson['detail'] != null) errMsg = errJson['detail'];
         } catch (_) {}
-        return ApiResult(success: false, error: errMsg);
+        return ApiResult(success: false, error: '$errMsg [${uri.path}]');
+      }
+    } catch (e) {
+      return ApiResult(success: false, error: 'Cannot connect to backend: $e');
+    }
+  }
+
+  /// Send on-device extracted OCR JSON to FastAPI /api/invoices/extract-text
+  Future<ApiResult<Invoice>> extractFromRawOcr({
+    required Map<String, dynamic> ocrResult,
+    required String filename,
+    String? localPath,
+  }) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/api/invoices/extract-text');
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(ocrResult),
+          )
+          .timeout(const Duration(seconds: 45));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final Map<String, dynamic> ext = jsonDecode(response.body);
+
+        final rawLines = (ext['line_items'] as List?) ?? [];
+        final lineItems = rawLines.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final l = entry.value as Map<String, dynamic>;
+          final parsed = LineItem.fromJson(l);
+          return LineItem(
+            lineNo: idx + 1,
+            descRaw: parsed.descRaw,
+            hsn: parsed.hsn,
+            stockItem: parsed.stockItem,
+            qty: parsed.qty,
+            unit: parsed.unit,
+            rate: parsed.rate,
+            taxable: parsed.taxable,
+            taxRate: parsed.taxRate,
+            taxAmount: parsed.taxAmount,
+            total: parsed.total,
+            confidence: parsed.confidence,
+          );
+        }).toList();
+
+        final subtotal = toDoubleSafe(
+          ext['subtotal_amount'],
+          lineItems.fold<double>(0.0, (acc, l) => acc + l.taxable),
+        );
+        final discount = toDoubleSafe(ext['discount_amount'] ?? ext['discount']);
+        final cgst = toDoubleSafe(ext['cgst_amount']);
+        final sgst = toDoubleSafe(ext['sgst_amount']);
+        final igst = toDoubleSafe(ext['igst_amount']);
+        final grandTotal = toDoubleSafe(
+          ext['total_amount'],
+          subtotal - discount + cgst + sgst + igst,
+        );
+
+        final invoice = Invoice(
+          id: 'INV-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+          sourceFilename: filename,
+          imageUrl: null,
+          localPath: localPath,
+          sha256: null,
+          supplierRaw: ext['supplier_name'] ?? 'Unidentified Supplier',
+          supplierMapped: '',
+          invoiceNo: ext['invoice_number'] ?? '—',
+          invoiceDate: ext['invoice_date'] ?? DateTime.now().toString().substring(0, 10),
+          tallyDate: (ext['invoice_date'] ?? '').toString().replaceAll('-', ''),
+          gstin: ext['supplier_gstin'] ?? '',
+          type: ext['invoice_mode'] == 'inventory' ? 'Inventory Purchase' : 'Accounting Purchase',
+          subtotal: subtotal,
+          discount: discount,
+          cgst: cgst,
+          sgst: sgst,
+          igst: igst,
+          grandTotal: grandTotal,
+          status: 'NEEDS_REVIEW',
+          tallyRef: '—',
+          confidence: ext['overall_confidence'] != null
+              ? '${((ext['overall_confidence'] as num) * 100).toStringAsFixed(1)}%'
+              : '98.0%',
+          rawOcrText: ocrResult['raw_text'] ?? ext['raw_ocr_text'] ?? '',
+          warnings: ((ext['warnings'] as List?) ?? []).map((e) => e.toString()).toList(),
+          lines: lineItems,
+        );
+
+        return ApiResult(success: true, data: invoice);
+      } else {
+        String errMsg = 'Server error (${response.statusCode})';
+        try {
+          final errJson = jsonDecode(response.body);
+          if (errJson['detail'] != null) errMsg = errJson['detail'];
+        } catch (_) {}
+        return ApiResult(success: false, error: '$errMsg [${uri.path}]');
       }
     } catch (e) {
       return ApiResult(success: false, error: 'Cannot connect to backend: $e');

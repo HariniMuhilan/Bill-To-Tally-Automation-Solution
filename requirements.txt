@@ -1,0 +1,2 @@
+# Root requirements redirecting to backend
+-r backend/requirements.txt

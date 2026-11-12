@@ -42,9 +42,16 @@ dependencies:
   path_provider: ^2.1.1
   open_filex: ^4.3.2
   excel: ^4.0.2
+  image_picker: ^1.0.8
+  url_launcher: '>=6.3.0 <6.3.3'
+  google_mlkit_text_recognition: ^0.15.0
+  supabase_flutter: ^2.8.4
 
 dev_dependencies:
   flutter_lints: ^3.0.0
+
+dependency_overrides:
+  url_launcher_android: 6.3.14
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -59,6 +66,10 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/billbooks_full_logo.png
+    - assets/images/billbooks_header_logo.png
+    - assets/images/billbooks_logo.png
+    - assets/images/google_logo.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

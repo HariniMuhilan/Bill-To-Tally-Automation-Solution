@@ -7,13 +7,11 @@ python-multipart>=0.0.9
 pydantic>=2.6.0
 pydantic-settings>=2.2.0
 
-# Database & ORM
-greenlet<3.1
-SQLAlchemy>=2.0.28
-
-# OCR & Document Processing
-paddlepaddle==2.6.2
-paddleocr>=2.7.3,<3.0.0
+# Document Processing (ML Kit handles on-device OCR on mobile)
+# Uncomment for heavy local server-side OCR; leave commented for Render/Cloud Run free tier (45MB RAM)
+# paddlepaddle==2.6.2
+# paddleocr>=2.7.3,<3.0.0
+numpy>=1.26.0
 Pillow>=10.2.0
 pypdf>=4.1.0
 pdf2image>=1.17.0
@@ -25,7 +23,7 @@ httpx>=0.27.0
 
 # Environment & Utilities
 python-dotenv>=1.0.1
-cryptography==41.0.3
+cryptography>=41.0.3
 
 # Testing
 pytest>=8.1.0
