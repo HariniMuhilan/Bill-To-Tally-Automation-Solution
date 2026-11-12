@@ -80,3 +80,4 @@ class InvoiceValidator {
     return false;
   }
 }
+

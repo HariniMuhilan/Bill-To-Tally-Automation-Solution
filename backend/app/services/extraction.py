@@ -331,6 +331,7 @@ class GeminiExtractionService:
 Extract structured invoice fields from the bill photo and/or raw OCR text.
 
 CRITICAL RULES (NEVER VIOLATE):
+0. DOCUMENT VALIDITY: If the image or text is NOT a commercial invoice, bill, receipt, or cash memo (e.g. it is a photograph of people, selfies, nature, animals, random objects, or non-billing text), you MUST return null for all fields and empty line_items []. NEVER invent or force invoice details from non-bill images.
 1. NO FABRICATIONS / NO HALLUCINATIONS: If a field is missing, unreadable, or blurry, leave it as null. NEVER invent invoice numbers, GSTINs, or totals.
 2. DATES: Format as YYYY-MM-DD. If year is 2 digits (e.g., 25 or 24), map to 2025 or 2024.
 3. AMOUNTS: Return exact numeric strings (e.g., "1250.00"). Do NOT round, estimate, or omit decimals.

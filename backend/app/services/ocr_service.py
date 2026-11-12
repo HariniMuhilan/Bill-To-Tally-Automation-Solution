@@ -190,6 +190,15 @@ class MockOCRAdapter(BaseOCRAdapter):
         if self.mock_result:
             return self.mock_result
 
+        # Only return synthetic test lines in automated unit test environment (APP_ENV == 'test')
+        if settings.APP_ENV != "test":
+            return OCRResult(
+                raw_text="",
+                lines=[],
+                page_count=1,
+                average_confidence=0.0,
+            )
+
         # Default synthetic invoice lines for testing
         lines = [
             OCRLine(text="TAX INVOICE", confidence=0.99, bbox=[[10, 10], [100, 10], [100, 25], [10, 25]]),

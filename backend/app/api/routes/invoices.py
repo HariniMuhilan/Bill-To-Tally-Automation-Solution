@@ -143,6 +143,12 @@ async def upload_and_extract_ocr(file: UploadFile = File(...)):
     extractor = get_extraction_service()
     extracted_data = extractor.extract(ocr_result, image_bytes=content, mime_type=media_type)
 
+    if not extracted_data.supplier_name and not extracted_data.total_amount:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Could not detect invoice details or vendor in the image. Please upload a clear photo of a bill.",
+        )
+
     invoice_id = f"INV-{int(time.time() * 1000) % 1000000:06d}"
 
     return OCRExtractionResponse(
