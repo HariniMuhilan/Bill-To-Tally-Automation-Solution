@@ -158,8 +158,8 @@ class InboxScreenState extends State<InboxScreen> {
       }
     }
 
-    // 2. Fallback: Backend OCR endpoint
-    if (res == null || !res.success) {
+    // 2. Fallback: Backend OCR endpoint (only when on-device ML Kit was unavailable or failed locally)
+    if (res == null) {
       setState(() {
         _uploadStatusText = 'Processing bill...';
       });
