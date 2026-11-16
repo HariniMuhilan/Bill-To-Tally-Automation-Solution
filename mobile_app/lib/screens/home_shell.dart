@@ -10,9 +10,7 @@ import '../widgets/liquid_glass.dart';
 import 'inbox_screen.dart';
 import 'review_screen.dart';
 import 'tally_connector_screen.dart';
-import 'audit_trail_screen.dart';
-import 'upgrade_screen.dart';
-import '../widgets/upgrade_paywall_dialog.dart';
+import 'account_screen.dart';
 
 class HomeShell extends StatefulWidget {
   final StorageService storage;
@@ -63,13 +61,6 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   void _handleQuickCameraCapture() {
-    if (!widget.storage.canUserScan(widget.user.username)) {
-      UpgradePaywallDialog.show(
-        context,
-        onUpgrade: () => setState(() => _currentIndex = 3),
-      );
-      return;
-    }
     if (_currentIndex != 0) {
       setState(() => _currentIndex = 0);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -94,7 +85,6 @@ class _HomeShellState extends State<HomeShell> {
           invoices: _invoices,
           onInvoicesChanged: (updated) => setState(() => _invoices = updated),
           onSelectInvoice: _selectInvoiceForReview,
-          onNavigateToUpgrade: () => setState(() => _currentIndex = 3),
         );
         break;
       case 1:
@@ -178,7 +168,11 @@ class _HomeShellState extends State<HomeShell> {
         );
         break;
       case 3:
-        body = UpgradeScreen(storage: widget.storage);
+        body = AccountScreen(
+          user: widget.user,
+          storage: widget.storage,
+          onLogout: widget.onLogout,
+        );
         break;
       default:
         body = const SizedBox();
@@ -378,12 +372,12 @@ class _HomeShellState extends State<HomeShell> {
                 label: 'Tally',
               ),
             ),
-            // 3: Upgrade (Future Payment Gateway)
+            // 3: Account & Subscription Status
             Expanded(
               child: _buildNavItem(
                 index: 3,
-                icon: Icons.workspace_premium_rounded,
-                label: 'Upgrade',
+                icon: Icons.person_outline_rounded,
+                label: 'Account',
               ),
             ),
           ],

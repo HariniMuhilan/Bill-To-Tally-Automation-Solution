@@ -226,6 +226,43 @@ class ApiService {
     }
   }
 
+  /// Submit organization onboarding / access request to backend.
+  Future<ApiResult<void>> submitAccessRequest({
+    required String fullName,
+    required String businessName,
+    required String email,
+    required String phone,
+  }) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/api/access-requests');
+      final response = await _httpClient
+          .post(
+            uri,
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'full_name': fullName.trim(),
+              'business_name': businessName.trim(),
+              'email': email.trim(),
+              'phone': phone.trim(),
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return ApiResult(success: true);
+      }
+      if (response.statusCode == 404) {
+        return ApiResult(
+          success: false,
+          error: 'ACCESS_REQUEST_ENDPOINT_UNAVAILABLE',
+        );
+      }
+      return ApiResult(success: false, error: _parseErrorMessage(response));
+    } catch (e) {
+      return ApiResult(success: false, error: 'Cannot connect to backend: $e');
+    }
+  }
+
   MediaType _resolveMediaType(String filename, String? mimeType) {
     if (mimeType != null && mimeType.contains('/')) {
       final parts = mimeType.split('/');

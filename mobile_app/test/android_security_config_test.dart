@@ -54,7 +54,7 @@ void main() {
 
       final template = projectFile('android/key.properties.example');
       expect(template.existsSync(), isTrue);
-      final templateText = template.readAsStringSync();
+      final templateText = template.readAsStringSync().replaceAll('\r\n', '\n');
       expect(templateText, contains('storePassword=\n'));
       expect(templateText, contains('keyPassword=\n'));
     });

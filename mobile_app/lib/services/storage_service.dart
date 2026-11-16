@@ -20,18 +20,10 @@ class StorageService {
   static const String _keyPostingEnabled = 'bill_to_tally_mobile_posting_enabled';
 
   static const String _keyCleanedOldData = 'bill_to_tally_mobile_cleaned_v5';
-  static const String _keyFreeScansPrefix = 'bill_to_tally_free_scans_';
-  static const String _keyProPrefix = 'bill_to_tally_pro_user_';
 
   static final RegExp _scopeSanitizer = RegExp(r'[^a-z0-9_@.-]');
 
-  static const Set<String> _exemptAccounts = {
-    'admin',
-    'accounts_user_01',
-    'operator',
-  };
-
-  static const String defaultApiUrl = 'https://bill-to-tally-automation-solution.onrender.com';
+  static const String defaultApiUrl = 'https://bill-to-tally-automation-solution-l68w.onrender.com';
 
   final SharedPreferences _prefs;
   UserSession? _cachedUser;
@@ -231,41 +223,12 @@ class StorageService {
     await _writeScopedList(_keyAudit, logs, (a) => a.toJson());
   }
 
-  // --- Free Bill Quota & Pro Membership ---
-
-  bool isUserExempt(String? username) {
-    final normalized = _normalizeUsername(username);
-    return normalized.isNotEmpty && _exemptAccounts.contains(normalized);
-  }
-
-  bool isUserPro(String? username) {
-    final normalized = _normalizeUsername(username);
-    if (normalized.isEmpty) return false;
-    if (_exemptAccounts.contains(normalized)) return true;
-    return _prefs.getBool('$_keyProPrefix$normalized') ?? false;
-  }
-
-  Future<void> setUserPro(String? username, bool isPro) async {
-    final normalized = _normalizeUsername(username);
-    if (normalized.isEmpty) return;
-    await _prefs.setBool('$_keyProPrefix$normalized', isPro);
-  }
-
-  int getFreeScansUsed(String? username) {
-    final normalized = _normalizeUsername(username);
-    if (normalized.isEmpty) return 0;
-    return _prefs.getInt('$_keyFreeScansPrefix$normalized') ?? 0;
-  }
-
-  Future<void> incrementFreeScansUsed(String? username) async {
-    final normalized = _normalizeUsername(username);
-    if (normalized.isEmpty) return;
-    final current = getFreeScansUsed(normalized);
-    await _prefs.setInt('$_keyFreeScansPrefix$normalized', current + 1);
-  }
-
-  bool canUserScan(String? username) {
-    if (isUserPro(username)) return true;
-    return getFreeScansUsed(username) < 2;
+  /// Clear all locally stored data for the active user and sign out locally.
+  Future<void> clearActiveUserData() async {
+    await _prefs.remove(_scopedKey(_keyInvoices));
+    await _prefs.remove(_scopedKey(_keyDrafts));
+    await _prefs.remove(_scopedKey(_keyMappings));
+    await _prefs.remove(_scopedKey(_keyAudit));
+    await saveUser(null);
   }
 }

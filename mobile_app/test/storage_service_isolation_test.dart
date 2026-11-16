@@ -217,24 +217,22 @@ void main() {
       expect(storage.getInvoices().map((e) => e.id), ['INV-REAL']);
     });
 
-    test('enforces 2 free scan limit per user and respects Pro/exempt accounts', () async {
+    test('clearActiveUserData removes only active user data and signs user out locally', () async {
       final storage = await StorageService.init();
 
-      expect(storage.isUserExempt('Admin '), isTrue);
-      expect(storage.canUserScan('admin'), isTrue);
+      await storage.saveUser(_makeUser('alice@example.com', fullName: 'Alice'));
+      await storage.saveInvoices([_makeInvoice('INV-A1', 'Alice Supply')]);
+      await storage.saveUser(_makeUser('bob@example.com', fullName: 'Bob'));
+      await storage.saveInvoices([_makeInvoice('INV-B1', 'Bob Supply')]);
 
-      const user = 'TrialUser@Example.com';
-      expect(storage.canUserScan(user), isTrue);
-      await storage.incrementFreeScansUsed(user);
-      expect(storage.getFreeScansUsed('trialuser@example.com'), 1);
-      expect(storage.canUserScan(user), isTrue);
+      await storage.clearActiveUserData();
 
-      await storage.incrementFreeScansUsed(user);
-      expect(storage.getFreeScansUsed(user), 2);
-      expect(storage.canUserScan(user), isFalse);
+      expect(storage.getUser(), isNull);
+      await storage.saveUser(_makeUser('bob@example.com', fullName: 'Bob'));
+      expect(storage.getInvoices(), isEmpty);
 
-      await storage.setUserPro(user, true);
-      expect(storage.canUserScan(user), isTrue);
+      await storage.saveUser(_makeUser('alice@example.com', fullName: 'Alice'));
+      expect(storage.getInvoices().map((e) => e.id), ['INV-A1']);
     });
   });
 }
