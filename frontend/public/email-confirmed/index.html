@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Confirmed | BillBooks</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #F7F2F4 0%, #EFE8EC 100%);
+      color: #111522;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      background: #FFFFFF;
+      border-radius: 18px;
+      padding: 40px 32px;
+      max-width: 460px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(17, 21, 34, 0.08);
+      border: 1px solid #E8E0E5;
+    }
+    .icon-wrap {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: #E6F4EA;
+      color: #16794B;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      margin: 0 auto 20px auto;
+      box-shadow: 0 0 0 8px rgba(22, 121, 75, 0.1);
+    }
+    h1 {
+      font-size: 1.55rem;
+      font-weight: 800;
+      color: #111522;
+      margin-bottom: 8px;
+    }
+    p {
+      font-size: 0.92rem;
+      color: #80536F;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+    .btn {
+      display: inline-block;
+      width: 100%;
+      background: #493044;
+      color: #FFFFFF;
+      padding: 14px 20px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    .btn:hover {
+      background: #362232;
+    }
+    .footer-note {
+      font-size: 0.78rem;
+      color: #80536F;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon-wrap">
+      <i class="fa-solid fa-check"></i>
+    </div>
+    <h1>Email Confirmed!</h1>
+    <p>Your email address has been verified successfully. Your account is ready for sign-in.</p>
+    <a href="billbooks://login" class="btn" id="open-app-btn">
+      <i class="fa-solid fa-mobile-screen" style="margin-right: 8px;"></i> Open BillBooks App
+    </a>
+    <div class="footer-note">
+      You can also open the BillBooks app directly on your Android device and sign in.
+    </div>
+  </div>
+  <script>
+    // Fallback: If custom scheme isn't handled, direct user
+    document.getElementById('open-app-btn').addEventListener('click', function(e) {
+      setTimeout(function() {
+        // App prompt fallback
+      }, 500);
+    });
+  </script>
+</body>
+</html>

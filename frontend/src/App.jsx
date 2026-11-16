@@ -1,12 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import AdminLogin from './components/admin/AdminLogin';
-import AdminDashboard from './components/admin/AdminDashboard';
+import AdminDashboardView from './components/AdminDashboardView';
 import Toast from './components/Toast';
-import { getAdminSession, saveAdminSession, clearAdminSession, DEFAULT_ADMIN } from './data/adminMockData';
+import { getAdminSession, saveAdminSession, clearAdminSession } from './data/adminMockData';
+import { clearAdminToken } from './services/adminApi';
 
 export default function App() {
   const [admin, setAdmin] = useState(() => getAdminSession());
   const [toasts, setToasts] = useState([]);
+
+  // Handle static compliance URL fallbacks
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path === '/email-confirmed') {
+      window.location.replace('/email-confirmed/index.html');
+    } else if (path === '/delete-account') {
+      window.location.replace('/delete-account/index.html');
+    }
+  }, []);
 
   function showToast(message, type = 'success') {
     const id = Date.now() + Math.random();
@@ -20,11 +31,12 @@ export default function App() {
   function handleLoginSuccess(authenticatedAdmin, remember) {
     setAdmin(authenticatedAdmin);
     saveAdminSession(authenticatedAdmin, remember);
-    showToast(`Welcome back, ${authenticatedAdmin.fullName}! Admin session started.`, 'success');
+    showToast(`Welcome back, ${authenticatedAdmin.fullName}! Admin session active.`, 'success');
   }
 
   function handleLogout() {
     clearAdminSession();
+    clearAdminToken();
     setAdmin(null);
     showToast('Administrator logged out successfully.', 'info');
   }
@@ -37,7 +49,7 @@ export default function App() {
           onShowToast={showToast}
         />
       ) : (
-        <AdminDashboard
+        <AdminDashboardView
           admin={admin}
           onLogout={handleLogout}
           onShowToast={showToast}
@@ -58,3 +70,4 @@ export default function App() {
     </div>
   );
 }
+

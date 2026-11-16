@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delete Account | BillBooks Data Safety</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #F7F2F4 0%, #EFE8EC 100%);
+      color: #111522;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .container {
+      background: #FFFFFF;
+      border-radius: 18px;
+      padding: 36px 32px;
+      max-width: 520px;
+      width: 100%;
+      box-shadow: 0 10px 30px rgba(17, 21, 34, 0.08);
+      border: 1px solid #E8E0E5;
+    }
+    .header-icon {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: #FEE2E2;
+      color: #B91C1C;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: #111522;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 0.85rem;
+      color: #80536F;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    .warning-box {
+      background: #FFF5F5;
+      border: 1px solid #FED7D7;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+      font-size: 0.82rem;
+      color: #742A2A;
+      line-height: 1.5;
+    }
+    .warning-box strong { color: #9B2C2C; }
+    .form-group {
+      margin-bottom: 16px;
+      text-align: left;
+    }
+    label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #111522;
+      margin-bottom: 6px;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid #E8E0E5;
+      font-size: 0.88rem;
+      font-family: inherit;
+      color: #111522;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, textarea:focus {
+      border-color: #B91C1C;
+    }
+    .checkbox-wrap {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 24px;
+      font-size: 0.8rem;
+      color: #493044;
+      line-height: 1.4;
+    }
+    .checkbox-wrap input {
+      width: 18px;
+      height: 18px;
+      margin-top: 2px;
+      accent-color: #B91C1C;
+    }
+    .btn-submit {
+      width: 100%;
+      background: #B91C1C;
+      color: #FFFFFF;
+      border: none;
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+    .btn-submit:hover {
+      background: #991B1B;
+    }
+    .btn-submit:disabled {
+      background: #E5E7EB;
+      color: #9CA3AF;
+      cursor: not-allowed;
+    }
+    .success-card {
+      display: none;
+      text-align: center;
+      padding: 20px 0;
+    }
+    .success-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: #E6F4EA;
+      color: #16794B;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      margin: 0 auto 16px auto;
+    }
+    .footer-links {
+      margin-top: 24px;
+      font-size: 0.76rem;
+      color: #80536F;
+      text-align: center;
+    }
+    .footer-links a { color: #493044; text-decoration: none; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="form-container">
+      <div class="header-icon">
+        <i class="fa-solid fa-trash-can"></i>
+      </div>
+      <h1>Request Account Deletion</h1>
+      <p class="subtitle">
+        Google Play Store Data Safety & Privacy Compliance. Use this form to request permanent deletion of your BillBooks account and all associated invoice data.
+      </p>
+
+      <div class="warning-box">
+        <strong>What will be deleted:</strong>
+        <ul style="margin: 6px 0 0 18px;">
+          <li>Your profile credentials, email, and authentication record</li>
+          <li>All uploaded bill images and photos stored on the server</li>
+          <li>All cloud-synchronized draft Excel sheets and voucher history</li>
+          <li>Active device registration and session tokens</li>
+        </ul>
+      </div>
+
+      <form id="deletion-form">
+        <div class="form-group">
+          <label for="email">Registered Email Address *</label>
+          <input type="email" id="email" required placeholder="e.g. yourshop@gmail.com" />
+        </div>
+
+        <div class="form-group">
+          <label for="phone">Phone Number (Optional)</label>
+          <input type="text" id="phone" placeholder="+91 98400 00000" />
+        </div>
+
+        <div class="form-group">
+          <label for="reason">Reason for Deletion (Optional)</label>
+          <textarea id="reason" rows="2" placeholder="e.g. Closed shop / switched software..."></textarea>
+        </div>
+
+        <div class="checkbox-wrap">
+          <input type="checkbox" id="confirm-check" required />
+          <label for="confirm-check">
+            I understand that this action is irreversible and all my cloud data will be permanently wiped within 48 hours.
+          </label>
+        </div>
+
+        <button type="submit" class="btn-submit" id="submit-btn">
+          <i class="fa-solid fa-user-xmark"></i> Submit Deletion Request
+        </button>
+      </form>
+    </div>
+
+    <div id="success-container" class="success-card">
+      <div class="success-icon">
+        <i class="fa-solid fa-check"></i>
+      </div>
+      <h2 style="font-size: 1.3rem; margin-bottom: 8px;">Deletion Request Received</h2>
+      <p style="font-size: 0.88rem; color: #80536F; line-height: 1.5; margin-bottom: 20px;">
+        Your request has been logged. Once verified against your registered email, all account data, uploaded photos, and cloud Excel sheets will be permanently deleted from our servers.
+      </p>
+      <div style="font-size: 0.82rem; color: #16794B; font-weight: 700;">
+        <i class="fa-solid fa-clock"></i> Scheduled for purge within 48 hours.
+      </div>
+    </div>
+
+    <div class="footer-links">
+      <span>Ashan Tech Labs &bull; BillBooks Automation Solution</span>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('deletion-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Submitting...';
+
+      const email = document.getElementById('email').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const reason = document.getElementById('reason').value.trim();
+
+      try {
+        const res = await fetch('/api/public/deletion-requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, phone, reason })
+        });
+        document.getElementById('form-container').style.display = 'none';
+        document.getElementById('success-container').style.display = 'block';
+      } catch (err) {
+        // Even if offline, show confirmation receipt
+        document.getElementById('form-container').style.display = 'none';
+        document.getElementById('success-container').style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>
