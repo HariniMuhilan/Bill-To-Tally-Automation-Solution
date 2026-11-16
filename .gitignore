@@ -51,6 +51,7 @@ ENV/
 backend/data/
 data/
 /data/
+!frontend/src/data/
 /uploads/
 
 # Testing & Coverage

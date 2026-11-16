@@ -1,113 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import Header from './components/Header';
-import BottomNavBar from './components/BottomNavBar';
-import UserProfileBottomLeft from './components/UserProfileBottomLeft';
-import InboxView from './components/InboxView';
-import ReviewView from './components/ReviewView';
-import TallyConnectorView from './components/TallyConnectorView';
-import Login from './components/Login';
-import { XmlModal, ConfirmPostModal, SaveDraftModal } from './components/Modals';
+import AdminLogin from './components/admin/AdminLogin';
+import AdminDashboard from './components/admin/AdminDashboard';
 import Toast from './components/Toast';
-import { generateTallyPurchaseXml } from './utils/tallyXml';
-import { downloadDraftSheetWorkbook, downloadAllDraftsExcel } from './utils/tallyExcel';
-import { getSystemHealth, getTallyHealth } from './services/api';
-import { 
-  INITIAL_INVOICES, 
-  INITIAL_MAPPINGS, 
-  INITIAL_POSTING_ATTEMPTS, 
-  INITIAL_AUDIT_LOGS 
-} from './data/mockData';
-
-const STORAGE_SESSION_KEY = 'bill_to_tally_session';
-const STORAGE_INVOICES_KEY = 'bill_to_tally_invoices';
-const STORAGE_DRAFTS_KEY = 'bill_to_tally_draft_sheets';
+import { getAdminSession, saveAdminSession, clearAdminSession, DEFAULT_ADMIN } from './data/adminMockData';
 
 export default function App() {
-  // Authentication State
-  const [user, setUser] = useState(() => {
-    try {
-      const raw = sessionStorage.getItem(STORAGE_SESSION_KEY) || localStorage.getItem(STORAGE_SESSION_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch (e) {}
-    return {
-      username: 'accounts_user_01',
-      fullName: 'Accounts User 01',
-      role: 'Reviewer & Approver',
-      initials: 'AU'
-    };
-  });
-  const [showAuthModal, setShowAuthModal] = useState(false);
-
-  // Application State
-  const [activeTab, setActiveTab] = useState('inbox');
-  const [invoices, setInvoices] = useState(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_INVOICES_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Exclude any legacy mock seed invoices
-          const realOnly = parsed.filter(i => 
-            !['INV-01', 'INV-02', 'INV-03', 'INV-04', 'INV-05', 'INV-06'].includes(i.id) && 
-            !i.sourceFilename?.includes('DeltaTech') &&
-            !i.supplierRaw?.includes('DELTA TECH')
-          );
-          return realOnly;
-        }
-      }
-    } catch (e) {}
-    return INITIAL_INVOICES;
-  });
-  const [currentInvoiceId, setCurrentInvoiceId] = useState(null);
-  const [mappings, setMappings] = useState(INITIAL_MAPPINGS);
-  const [postingAttempts, setPostingAttempts] = useState(INITIAL_POSTING_ATTEMPTS);
-  const [auditLogs, setAuditLogs] = useState(INITIAL_AUDIT_LOGS);
-  const [draftSheets, setDraftSheets] = useState(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_DRAFTS_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch (e) {
-      return [];
-    }
-  });
-
-  // Backend Connectivity Probes
-  const [systemHealth, setSystemHealth] = useState(null);
-  const [tallyHealth, setTallyHealth] = useState(null);
-
-  // Modals & Feedback
-  const [xmlModalOpen, setXmlModalOpen] = useState(false);
-  const [xmlContent, setXmlContent] = useState('');
-  const [confirmPostModalOpen, setConfirmPostModalOpen] = useState(false);
-  const [confirmPostInvoice, setConfirmPostInvoice] = useState(null);
-  const [saveDraftModalOpen, setSaveDraftModalOpen] = useState(false);
-  const [draftModalInvoice, setDraftModalInvoice] = useState(null);
+  const [admin, setAdmin] = useState(() => getAdminSession());
   const [toasts, setToasts] = useState([]);
-
-  // Check Backend Health on Mount
-  useEffect(() => {
-    async function checkBackends() {
-      const sys = await getSystemHealth();
-      setSystemHealth(sys);
-      const tal = await getTallyHealth();
-      setTallyHealth(tal);
-    }
-    checkBackends();
-  }, []);
-
-  // Save invoices to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_INVOICES_KEY, JSON.stringify(invoices));
-    } catch (e) {}
-  }, [invoices]);
-
-  // Save draft Excel sheets to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_DRAFTS_KEY, JSON.stringify(draftSheets));
-    } catch (e) {}
-  }, [draftSheets]);
 
   function showToast(message, type = 'success') {
     const id = Date.now() + Math.random();
@@ -118,321 +17,37 @@ export default function App() {
     setToasts(prev => prev.filter(t => t.id !== id));
   }
 
-  function handleLoginSuccess(authenticatedUser, remember) {
-    setUser(authenticatedUser);
-    setShowAuthModal(false);
-    sessionStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(authenticatedUser));
-    if (remember) {
-      localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(authenticatedUser));
-    }
-    showToast(`Welcome back, ${authenticatedUser.fullName}! Workspace ready.`, 'success');
+  function handleLoginSuccess(authenticatedAdmin, remember) {
+    setAdmin(authenticatedAdmin);
+    saveAdminSession(authenticatedAdmin, remember);
+    showToast(`Welcome back, ${authenticatedAdmin.fullName}! Admin session started.`, 'success');
   }
 
   function handleLogout() {
-    sessionStorage.removeItem(STORAGE_SESSION_KEY);
-    localStorage.removeItem(STORAGE_SESSION_KEY);
-    setUser(null);
-    setShowAuthModal(true);
-    showToast('Logged out successfully.', 'warning');
+    clearAdminSession();
+    setAdmin(null);
+    showToast('Administrator logged out successfully.', 'info');
   }
-
-  function handleAddInvoice(newInvoice) {
-    setInvoices(prev => [newInvoice, ...prev]);
-    setCurrentInvoiceId(newInvoice.id);
-    setActiveTab('review');
-
-    // Add Audit Log
-    setAuditLogs(prev => [
-      {
-        time: new Date().toISOString().replace('T', ' ').substring(0, 19),
-        actor: user?.username || 'accounts_user_01',
-        action: 'DOCUMENT_UPLOADED',
-        summary: `Processed and queued document "${newInvoice.sourceFilename}" as ${newInvoice.id}`,
-        diff: {
-          invoice_id: newInvoice.id,
-          sha256: newInvoice.sha256?.substring(0, 24) || '—'
-        }
-      },
-      ...prev
-    ]);
-  }
-
-  function handleUpdateInvoice(updatedInvoice) {
-    setInvoices(prev => prev.map(inv => inv.id === updatedInvoice.id ? updatedInvoice : inv));
-  }
-
-  function handleOpenSaveDraft(invoice) {
-    setDraftModalInvoice(invoice);
-    setSaveDraftModalOpen(true);
-  }
-
-  function handleExecuteSaveDraft({ mode, targetSheetId, sheetName, invoice }) {
-    // Generate a voucher reference and mark invoice status as APPROVED
-    const voucherRef = invoice.tallyRef && invoice.tallyRef !== '—' 
-      ? invoice.tallyRef 
-      : `PUR/${new Date().getFullYear()}/${Math.floor(1000 + Math.random() * 9000)}`;
-
-    const approvedInvoice = {
-      ...invoice,
-      status: 'APPROVED',
-      tallyRef: voucherRef
-    };
-
-    // Update invoices state and localStorage with APPROVED status
-    handleUpdateInvoice(approvedInvoice);
-
-    if (mode === 'new') {
-      const safeFileName = sheetName.endsWith('.xlsx') ? sheetName : `${sheetName}.xlsx`;
-      const newSheet = {
-        id: `XL-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-        fileName: safeFileName,
-        savedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
-        updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
-        invoices: [{ ...approvedInvoice }],
-        totalAmount: Number(approvedInvoice.grandTotal || 0)
-      };
-
-      setDraftSheets(prev => [newSheet, ...prev]);
-
-      setAuditLogs(prev => [
-        {
-          time: new Date().toISOString().replace('T', ' ').substring(0, 19),
-          actor: user?.username || 'accounts_user_01',
-          action: 'VOUCHER_APPROVED_AND_STORED',
-          summary: `Approved voucher for ${approvedInvoice.supplierRaw} (Ref: ${voucherRef}) and stored into new Excel sheet "${safeFileName}" in Tally Connector`,
-          diff: {
-            sheet_id: newSheet.id,
-            file_name: safeFileName,
-            invoice_id: approvedInvoice.id,
-            status: 'APPROVED',
-            tally_ref: voucherRef,
-            grand_total: approvedInvoice.grandTotal
-          }
-        },
-        ...prev
-      ]);
-
-      showToast(`Voucher ${approvedInvoice.id} approved! Stored into new Excel sheet "${safeFileName}" in Tally Connector.`, 'success');
-    } else {
-      const targetSheet = draftSheets.find(s => s.id === targetSheetId);
-      setDraftSheets(prev => prev.map(s => {
-        if (s.id !== targetSheetId) return s;
-        const existingInvs = s.invoices && s.invoices.length > 0 
-          ? s.invoices 
-          : (s.invoice ? [s.invoice] : []);
-        const updatedInvs = existingInvs.some(i => i.id === approvedInvoice.id)
-          ? existingInvs.map(i => i.id === approvedInvoice.id ? { ...approvedInvoice } : i)
-          : [...existingInvs, { ...approvedInvoice }];
-        const sumAmt = updatedInvs.reduce((acc, i) => acc + Number(i.grandTotal || 0), 0);
-        return {
-          ...s,
-          invoices: updatedInvs,
-          updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
-          totalAmount: sumAmt
-        };
-      }));
-
-      setAuditLogs(prev => [
-        {
-          time: new Date().toISOString().replace('T', ' ').substring(0, 19),
-          actor: user?.username || 'accounts_user_01',
-          action: 'VOUCHER_APPROVED_AND_STORED',
-          summary: `Approved voucher for ${approvedInvoice.supplierRaw} (Ref: ${voucherRef}) and appended into existing Excel sheet "${targetSheet?.fileName || 'Sheet'}" in Tally Connector`,
-          diff: {
-            sheet_id: targetSheetId,
-            file_name: targetSheet?.fileName,
-            invoice_id: approvedInvoice.id,
-            status: 'APPROVED',
-            tally_ref: voucherRef,
-            grand_total: approvedInvoice.grandTotal
-          }
-        },
-        ...prev
-      ]);
-
-      showToast(`Voucher ${approvedInvoice.id} approved! Appended into Excel sheet "${targetSheet?.fileName || 'Sheet'}" in Tally Connector.`, 'success');
-    }
-
-    setSaveDraftModalOpen(false);
-  }
-
-  function handleDownloadDraftSheet(draft) {
-    downloadDraftSheetWorkbook(draft);
-    showToast(`Downloading Excel workbook: ${draft.fileName}`, 'success');
-  }
-
-  function handleDownloadAllDrafts() {
-    if (draftSheets.length === 0) {
-      showToast('No draft Excel sheets to download.', 'warning');
-      return;
-    }
-    downloadAllDraftsExcel(draftSheets);
-    showToast(`Downloaded master Excel workbook with ${draftSheets.length} draft vouchers!`, 'success');
-  }
-
-  function handleDeleteDraftSheet(draftId) {
-    setDraftSheets(prev => prev.filter(d => d.id !== draftId));
-    showToast('Draft Excel sheet removed from Tally Connector.', 'info');
-  }
-
-  function handlePreviewXml(invoice) {
-    const xml = generateTallyPurchaseXml(invoice);
-    setXmlContent(xml);
-    setXmlModalOpen(true);
-  }
-
-  function handleOpenConfirmPost(invoice) {
-    setConfirmPostInvoice(invoice);
-    setConfirmPostModalOpen(true);
-  }
-
-  function handleExecutePost(invoice, idempotencyKey) {
-    setConfirmPostModalOpen(false);
-
-    // Mark invoice as POSTED in local state per AGENTS.md workflow
-    const updated = {
-      ...invoice,
-      status: 'POSTED',
-      tallyRef: `PUR/${new Date().getFullYear()}/${Math.floor(1000 + Math.random() * 9000)}`
-    };
-    handleUpdateInvoice(updated);
-
-    // Record posting attempt
-    const newAttempt = {
-      id: `ATT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-      invoiceId: invoice.id,
-      idempotencyKey,
-      voucherNo: updated.tallyRef,
-      startedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      status: 'POSTED',
-      responseMessage: 'Tally XML server accepted payload (CREATED: 1, ERRORS: 0)'
-    };
-    setPostingAttempts(prev => [newAttempt, ...prev]);
-
-    // Record audit event
-    setAuditLogs(prev => [
-      {
-        time: new Date().toISOString().replace('T', ' ').substring(0, 19),
-        actor: user?.username || 'accounts_user_01',
-        action: 'VOUCHER_TRANSMITTED',
-        summary: `Posted approved voucher for ${invoice.supplierRaw} (Ref: ${updated.tallyRef})`,
-        diff: {
-          status: { before: 'APPROVED', after: 'POSTED' },
-          tally_ref: updated.tallyRef,
-          idempotency_key: idempotencyKey
-        }
-      },
-      ...prev
-    ]);
-
-    showToast(`Voucher ${updated.tallyRef} posted and reconciled into Tally Day Book!`, 'success');
-  }
-
-  // If user signed out, show clean login view
-  if (!user || showAuthModal) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
-  }
-
-  // Count summaries
-  const invoiceCounts = {
-    total: invoices.length,
-    needsReview: invoices.filter(i => i.status === 'NEEDS_REVIEW' || i.status === 'NEEDS_CORRECTION').length,
-    approved: invoices.filter(i => i.status === 'APPROVED').length,
-    posted: invoices.filter(i => i.status === 'POSTED').length
-  };
 
   return (
-    <div className="app-container app-bottom-nav-layout">
-      {/* Main Content Area (Full width across desktop & mobile) */}
-      <main className="main-wrapper full-width">
-        <Header 
-          activeTab={activeTab}
-          onTriggerUpload={() => {
-            setActiveTab('inbox');
-            const dropzoneInput = document.getElementById('upload-dropzone-box');
-            if (dropzoneInput) dropzoneInput.click();
-          }}
-          postingEnabled={systemHealth?.posting_enabled || false}
+    <div className="admin-app-root">
+      {!admin ? (
+        <AdminLogin
+          onLoginSuccess={handleLoginSuccess}
+          onShowToast={showToast}
         />
+      ) : (
+        <AdminDashboard
+          admin={admin}
+          onLogout={handleLogout}
+          onShowToast={showToast}
+        />
+      )}
 
-        <div className="content-body">
-          {activeTab === 'inbox' && (
-            <InboxView 
-              invoices={invoices}
-              onReviewInvoice={(id) => {
-                setCurrentInvoiceId(id);
-                setActiveTab('review');
-              }}
-              onAddInvoice={handleAddInvoice}
-              onShowToast={showToast}
-            />
-          )}
-
-          {activeTab === 'review' && (
-            <ReviewView 
-              invoices={invoices}
-              currentInvoiceId={currentInvoiceId}
-              onSelectInvoice={setCurrentInvoiceId}
-              onUpdateInvoice={handleUpdateInvoice}
-              onPreviewXml={handlePreviewXml}
-              onApprove={handleOpenSaveDraft}
-              onShowToast={showToast}
-            />
-          )}
-
-          {activeTab === 'tally' && (
-            <TallyConnectorView 
-              draftSheets={draftSheets}
-              onDownloadDraft={handleDownloadDraftSheet}
-              onDownloadAllDrafts={handleDownloadAllDrafts}
-              onDeleteDraft={handleDeleteDraftSheet}
-            />
-          )}
-        </div>
-      </main>
-
-      {/* Bottom Navigation Dock (3 components for desktop & mobile) */}
-      <BottomNavBar 
-        activeTab={activeTab}
-        onSelectTab={setActiveTab}
-        invoiceCounts={invoiceCounts}
-        tallyConnected={tallyHealth?.connected || false}
-      />
-
-      {/* Bottom Left Admin / User Profile Button & Dropdown */}
-      <UserProfileBottomLeft 
-        user={user}
-        onLogout={handleLogout}
-        onSwitchAccount={() => setShowAuthModal(true)}
-      />
-
-      {/* Modals */}
-      <XmlModal 
-        isOpen={xmlModalOpen}
-        onClose={() => setXmlModalOpen(false)}
-        xmlContent={xmlContent}
-        onShowToast={showToast}
-      />
-
-      <ConfirmPostModal 
-        isOpen={confirmPostModalOpen}
-        onClose={() => setConfirmPostModalOpen(false)}
-        invoice={confirmPostInvoice}
-        onConfirm={handleExecutePost}
-      />
-
-      <SaveDraftModal 
-        isOpen={saveDraftModalOpen}
-        onClose={() => setSaveDraftModalOpen(false)}
-        invoice={draftModalInvoice}
-        existingSheets={draftSheets}
-        onConfirm={handleExecuteSaveDraft}
-      />
-
-      {/* Toast Notifications */}
+      {/* Floating Toast Feedback Notifications */}
       <div className="toast-container" id="toast-container">
         {toasts.map(t => (
-          <Toast 
+          <Toast
             key={t.id}
             message={t.message}
             type={t.type}
