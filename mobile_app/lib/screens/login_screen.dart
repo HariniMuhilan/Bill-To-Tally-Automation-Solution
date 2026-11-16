@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/supabase_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/liquid_glass.dart';
+import '../widgets/forgot_password_dialog.dart';
 
 class WarningBannerData {
   final IconData icon;
@@ -152,7 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
           icon: Icons.warning_amber_rounded,
           title: 'Missing Required Fields',
           message: 'Please fill in all fields with valid information before signing in.',
-          color: Color(0xFFE65100),
+          color: AppColors.orange,
         );
       });
       return;
@@ -196,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
             icon: Icons.person_search_rounded,
             title: 'Account Not Found or Incorrect Password',
             message: 'We could not sign you in with "$email". If you have not created an account yet, create one now.',
-            color: const Color(0xFFD97706),
+            color: AppColors.warningAmber,
             actionLabel: 'CREATE AN ACCOUNT',
             onAction: () {
               setState(() {
@@ -217,7 +218,7 @@ class _LoginScreenState extends State<LoginScreen> {
             icon: Icons.mark_email_unread_rounded,
             title: 'Email Confirmation Required',
             message: 'Supabase sent a confirmation email to $email. Please check your inbox and verify before signing in, or disable "Confirm email" in Supabase Auth settings.',
-            color: const Color(0xFFD97706),
+            color: AppColors.warningAmber,
           );
         });
       }
@@ -242,7 +243,7 @@ class _LoginScreenState extends State<LoginScreen> {
             icon: Icons.timer_outlined,
             title: 'Rate Limit Reached',
             message: 'Too many attempts. Please wait a minute and try again.',
-            color: Color(0xFFD97706),
+            color: AppColors.warningAmber,
           );
         });
       }
@@ -263,15 +264,27 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _handleGoogleSignIn() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Google Sign-In is temporarily disabled. Please use your email and password.'),
-        backgroundColor: Color(0xFFC86E46),
+  void _openForgotPasswordDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => ForgotPasswordDialog(
+        initialEmail: _emailController.text.trim(),
+        onPasswordResetSuccess: (email) {
+          setState(() {
+            _emailController.text = email;
+            _passwordController.clear();
+            _warningBanner = const WarningBannerData(
+              icon: Icons.check_circle_outline_rounded,
+              title: 'Password Updated Successfully',
+              message: 'Your password has been reset. You can now sign in with your new password.',
+              color: AppColors.successGreen,
+            );
+          });
+        },
       ),
     );
   }
-
   Future<void> _handleCreateAccount() async {
     final email = _regEmailController.text.trim();
     final password = _regPasswordController.text.trim();
@@ -316,7 +329,7 @@ class _LoginScreenState extends State<LoginScreen> {
           icon: Icons.warning_amber_rounded,
           title: 'Check Registration Details',
           message: 'Please review the warnings highlighted below before submitting.',
-          color: Color(0xFFE65100),
+          color: AppColors.orange,
         );
       });
       return;
@@ -332,14 +345,30 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       if (SupabaseService.isReady) {
-        final session = await SupabaseService.signUp(
+        final signUpResult = await SupabaseService.signUp(
           emailOrUsername: email,
           password: password,
           fullName: fullName,
         );
-        if (session != null) {
-          widget.storage.saveUser(session);
-          widget.onLoginSuccess(session);
+
+        if (signUpResult.requiresEmailConfirmation) {
+          setState(() {
+            _isSignUp = false;
+            _emailController.text = email;
+            _passwordController.clear();
+            _warningBanner = WarningBannerData(
+              icon: Icons.mark_email_unread_rounded,
+              title: 'Verification Link Sent',
+              message: 'Account created! Please check your email ($email) and click the verification link before signing in.',
+              color: AppColors.successGreen,
+            );
+          });
+          return;
+        }
+
+        if (signUpResult.session != null) {
+          widget.storage.saveUser(signUpResult.session!);
+          widget.onLoginSuccess(signUpResult.session!);
           return;
         }
       } else {
@@ -364,7 +393,7 @@ class _LoginScreenState extends State<LoginScreen> {
             icon: Icons.account_circle_rounded,
             title: 'Account Already Exists',
             message: 'An account is already registered with "$email". Please sign in instead.',
-            color: const Color(0xFF2563EB),
+            color: AppColors.infoBlue,
             actionLabel: 'SIGN IN INSTEAD',
             onAction: () {
               setState(() {
@@ -462,14 +491,17 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 5),
-                          const Text(
-                            'PURCHASE VOUCHER AUTOMATION',
-                            style: TextStyle(
-                              fontFamily: 'DM Sans',
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 2.2,
-                              color: Color(0xFF966069),
+                          const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'PURCHASE VOUCHER AUTOMATION',
+                              style: TextStyle(
+                                fontFamily: 'DM Sans',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.4,
+                                color: AppColors.mutedText,
+                              ),
                             ),
                           ),
                         ],
@@ -486,7 +518,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           // Pill Toggle: SIGN IN / CREATE ACCOUNT
                           Container(
-                            height: 44,
+                            height: 46,
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
                               color: Colors.black.withValues(alpha: 0.05),
@@ -502,7 +534,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 return Stack(
                                   children: [
                                     AnimatedPositioned(
-                                      duration: const Duration(milliseconds: 220),
+                                      duration: MediaQuery.disableAnimationsOf(context)
+                                          ? Duration.zero
+                                          : const Duration(milliseconds: 220),
                                       curve: Curves.easeInOutCubic,
                                       left: _isSignUp ? pillWidth : 0,
                                       top: 0,
@@ -529,44 +563,68 @@ class _LoginScreenState extends State<LoginScreen> {
                                     Row(
                                       children: [
                                         Expanded(
-                                          child: InkWell(
-                                            onTap: () {
-                                              if (_isSignUp) {
-                                                setState(() {
-                                                  _isSignUp = false;
-                                                  _warningBanner = null;
-                                                });
-                                              }
-                                            },
-                                            borderRadius: BorderRadius.circular(18),
-                                            child: Center(
-                                              child: Text(
-                                                'SIGN IN',
-                                                style: AppTypography.fontS(
-                                                  color: !_isSignUp ? Colors.white : AppColors.brandInk.withValues(alpha: 0.65),
-                                                  fontWeight: FontWeight.w700,
+                                          child: Semantics(
+                                            button: true,
+                                            selected: !_isSignUp,
+                                            label: 'Sign In tab',
+                                            child: InkWell(
+                                              onTap: () {
+                                                if (_isSignUp) {
+                                                  setState(() {
+                                                    _isSignUp = false;
+                                                    _warningBanner = null;
+                                                  });
+                                                }
+                                              },
+                                              borderRadius: BorderRadius.circular(18),
+                                              child: Center(
+                                                child: Padding(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                                                  child: FittedBox(
+                                                    fit: BoxFit.scaleDown,
+                                                    child: Text(
+                                                      'SIGN IN',
+                                                      maxLines: 1,
+                                                      style: AppTypography.fontS(
+                                                        color: !_isSignUp ? Colors.white : AppColors.brandInk.withValues(alpha: 0.70),
+                                                        fontWeight: FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
                                             ),
                                           ),
                                         ),
                                         Expanded(
-                                          child: InkWell(
-                                            onTap: () {
-                                              if (!_isSignUp) {
-                                                setState(() {
-                                                  _isSignUp = true;
-                                                  _warningBanner = null;
-                                                });
-                                              }
-                                            },
-                                            borderRadius: BorderRadius.circular(18),
-                                            child: Center(
-                                              child: Text(
-                                                'CREATE ACCOUNT',
-                                                style: AppTypography.fontS(
-                                                  color: _isSignUp ? Colors.white : AppColors.brandInk.withValues(alpha: 0.65),
-                                                  fontWeight: FontWeight.w700,
+                                          child: Semantics(
+                                            button: true,
+                                            selected: _isSignUp,
+                                            label: 'Create Account tab',
+                                            child: InkWell(
+                                              onTap: () {
+                                                if (!_isSignUp) {
+                                                  setState(() {
+                                                    _isSignUp = true;
+                                                    _warningBanner = null;
+                                                  });
+                                                }
+                                              },
+                                              borderRadius: BorderRadius.circular(18),
+                                              child: Center(
+                                                child: Padding(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                                                  child: FittedBox(
+                                                    fit: BoxFit.scaleDown,
+                                                    child: Text(
+                                                      'CREATE ACCOUNT',
+                                                      maxLines: 1,
+                                                      style: AppTypography.fontS(
+                                                        color: _isSignUp ? Colors.white : AppColors.brandInk.withValues(alpha: 0.70),
+                                                        fontWeight: FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
                                             ),
@@ -592,10 +650,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             // EMAIL FIELD
                             _buildFieldHeader('EMAIL ADDRESS', error: _signInEmailError),
                             const SizedBox(height: 5),
-                            _buildFrostedInputField(
+                            FrostedInputField(
                               controller: _emailController,
                               icon: Icons.mail_outline_rounded,
                               hintText: 'name@company.com',
+                              semanticLabel: 'Email address',
                               keyboardType: TextInputType.emailAddress,
                               hasError: _signInEmailError != null,
                             ),
@@ -606,23 +665,48 @@ class _LoginScreenState extends State<LoginScreen> {
                             // PASSWORD FIELD
                             _buildFieldHeader('PASSWORD', error: _signInPasswordError),
                             const SizedBox(height: 5),
-                            _buildFrostedInputField(
+                            FrostedInputField(
                               controller: _passwordController,
                               icon: Icons.lock_outline_rounded,
                               hintText: 'Enter password',
+                              semanticLabel: 'Password',
                               obscureText: _obscurePassword,
                               hasError: _signInPasswordError != null,
                               onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
                             ),
                             if (_signInPasswordError != null)
                               _buildInlineErrorText(_signInPasswordError!),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 4),
+
+                            // FORGOT PASSWORD LINK
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: _openForgotPasswordDialog,
+                                style: TextButton.styleFrom(
+                                  minimumSize: const Size(48, 44),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                                  tapTargetSize: MaterialTapTargetSize.padded,
+                                ),
+                                child: Text(
+                                  'Forgot Password?',
+                                  style: TextStyle(
+                                    fontFamily: 'DM Sans',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.maroonDark.withValues(alpha: 0.90),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
 
                             // SIGN IN CTA BUTTON (Orange Gloss)
                             LiquidGlass(
                               isOrangeGloss: true,
                               borderRadius: 24,
                               height: 48,
+                              semanticLabel: _isLoading ? 'Signing in' : 'Sign In',
                               onTap: _isLoading ? null : _handleSignIn,
                               child: Center(
                                 child: _isLoading
@@ -641,10 +725,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             // EMAIL FIELD
                             _buildFieldHeader('EMAIL ADDRESS', error: _signUpEmailError),
                             const SizedBox(height: 5),
-                            _buildFrostedInputField(
+                            FrostedInputField(
                               controller: _regEmailController,
                               icon: Icons.mail_outline_rounded,
                               hintText: 'name@company.com',
+                              semanticLabel: 'Registration email address',
                               keyboardType: TextInputType.emailAddress,
                               hasError: _signUpEmailError != null,
                             ),
@@ -655,10 +740,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             // PASSWORD FIELD
                             _buildFieldHeader('PASSWORD', error: _signUpPasswordError),
                             const SizedBox(height: 5),
-                            _buildFrostedInputField(
+                            FrostedInputField(
                               controller: _regPasswordController,
                               icon: Icons.lock_outline_rounded,
                               hintText: 'At least 6 characters',
+                              semanticLabel: 'Create password',
                               obscureText: _obscureRegPassword,
                               hasError: _signUpPasswordError != null,
                               onToggleObscure: () => setState(() => _obscureRegPassword = !_obscureRegPassword),
@@ -670,10 +756,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             // CONFIRM PASSWORD FIELD
                             _buildFieldHeader('CONFIRM PASSWORD', error: _signUpConfirmError),
                             const SizedBox(height: 5),
-                            _buildFrostedInputField(
+                            FrostedInputField(
                               controller: _confirmPasswordController,
                               icon: Icons.lock_outline_rounded,
                               hintText: 'Repeat password',
+                              semanticLabel: 'Confirm password',
                               obscureText: _obscureConfirmPassword,
                               hasError: _signUpConfirmError != null,
                               onToggleObscure: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
@@ -687,6 +774,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               isOrangeGloss: true,
                               borderRadius: 24,
                               height: 48,
+                              semanticLabel: _isLoading ? 'Creating account' : 'Create Account',
                               onTap: _isLoading ? null : _handleCreateAccount,
                               child: Center(
                                 child: _isLoading
@@ -705,57 +793,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
 
-                    // Subtle horizontal separator line
-                    Container(
-                      width: double.infinity,
-                      height: 1.2,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.transparent,
-                            AppColors.brandInk.withValues(alpha: 0.18),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // CONTINUE WITH GOOGLE Button
-                    LiquidGlass(
-                      borderRadius: 25,
-                      height: 50,
-                      onTap: _handleGoogleSignIn,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Image.asset(
-                            'assets/images/google_logo.png',
-                            width: 22,
-                            height: 22,
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Icon(
-                                Icons.g_mobiledata_rounded,
-                                size: 26,
-                                color: Color(0xFF4285F4),
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'CONTINUE WITH GOOGLE',
-                            style: AppTypography.fontS(
-                              color: AppColors.brandInk,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -790,7 +828,7 @@ class _LoginScreenState extends State<LoginScreen> {
         text,
         style: const TextStyle(
           color: AppColors.errorRed,
-          fontSize: 11.5,
+          fontSize: 12,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -840,7 +878,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       data.message,
                       style: TextStyle(
                         color: data.color.withValues(alpha: 0.90),
-                        fontSize: 11.5,
+                        fontSize: 12,
                         height: 1.35,
                       ),
                     ),
@@ -853,12 +891,17 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 10),
             Align(
               alignment: Alignment.centerRight,
-              child: InkWell(
-                onTap: data.onAction,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
+              child: Semantics(
+                button: true,
+                label: data.actionLabel,
+                child: InkWell(
+                  onTap: data.onAction,
+                  borderRadius: BorderRadius.circular(8),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
                     color: data.color,
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [
@@ -876,7 +919,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         data.actionLabel!,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 11,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,
                         ),
@@ -887,83 +930,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
+              ),
+              ),
             ),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFrostedInputField({
-    required TextEditingController controller,
-    required IconData icon,
-    String? hintText,
-    TextInputType? keyboardType,
-    bool obscureText = false,
-    bool hasError = false,
-    VoidCallback? onToggleObscure,
-  }) {
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: hasError
-              ? AppColors.errorRed.withValues(alpha: 0.8)
-              : Colors.white.withValues(alpha: 0.90),
-          width: hasError ? 1.5 : 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: hasError
-                ? AppColors.errorRed.withValues(alpha: 0.08)
-                : const Color(0xFFC86E46).withValues(alpha: 0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            size: 19,
-            color: hasError ? AppColors.errorRed : AppColors.maroonDark.withValues(alpha: 0.70),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              obscureText: obscureText,
-              keyboardType: keyboardType,
-              style: AppTypography.fontM(
-                color: AppColors.brandInk,
-                fontWeight: FontWeight.w600,
-              ),
-              decoration: InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-                hintText: hintText,
-                hintStyle: TextStyle(
-                  color: AppColors.brandInk.withValues(alpha: 0.40),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ),
-          ),
-          if (onToggleObscure != null)
-            GestureDetector(
-              onTap: onToggleObscure,
-              child: Icon(
-                obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                color: AppColors.maroonDark.withValues(alpha: 0.65),
-                size: 18,
-              ),
-            ),
         ],
       ),
     );

@@ -209,12 +209,12 @@ class _MappingsScreenState extends State<MappingsScreen> {
                                     ),
                                     child: Text(
                                       m.category,
-                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.plumSlate),
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.plumSlate),
                                     ),
                                   ),
                                   Text(
                                     m.id,
-                                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600),
                                   ),
                                 ],
                               ),
@@ -228,7 +228,7 @@ class _MappingsScreenState extends State<MappingsScreen> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Text('Raw OCR String', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                                        const Text('Raw OCR String', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                                         Text(m.raw, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.inkNavy)),
                                       ],
                                     ),
@@ -246,7 +246,7 @@ class _MappingsScreenState extends State<MappingsScreen> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Text('Tally Master Ledger', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                                        const Text('Tally Master Ledger', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                                         Text(
                                           m.tally,
                                           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.inkNavy),
@@ -288,7 +288,7 @@ class _MappingsScreenState extends State<MappingsScreen> {
       labelStyle: TextStyle(
         color: isSelected ? Colors.white : AppColors.inkNavy,
         fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-        fontSize: 11,
+        fontSize: 12,
       ),
       side: BorderSide(
         color: isSelected ? AppColors.plumSlate : AppColors.borderSubtle,

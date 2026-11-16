@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/invoice.dart';
+import '../services/supabase_service.dart';
 import '../theme/app_theme.dart';
 import 'status_badge.dart';
 
@@ -71,6 +72,7 @@ class InvoiceCard extends StatelessWidget {
                       child: invoice.imageUrl != null && invoice.imageUrl!.isNotEmpty
                           ? Image.network(
                               invoice.imageUrl!,
+                              headers: SupabaseService.authHeaders(),
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => const Center(
                                 child: Icon(Icons.receipt_long_rounded, color: AppColors.softSage, size: 22),
@@ -96,34 +98,34 @@ class InvoiceCard extends StatelessWidget {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF3EBF0),
-                                        borderRadius: BorderRadius.circular(5),
-                                      ),
-                                      child: Text(
-                                        invoice.id,
-                                        style: const TextStyle(
-                                          color: AppColors.plumSlate,
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 10.5,
-                                        ),
-                                      ),
-                                    ),
-                                    if (invoice.confidence.isNotEmpty && invoice.confidence != '—') ...[
-                                      const SizedBox(width: 4),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFFF0EFF2),
-                                          borderRadius: BorderRadius.circular(4),
+                                          color: AppColors.pillPlumBg,
+                                          borderRadius: BorderRadius.circular(5),
                                         ),
+                                        child: Text(
+                                          invoice.id,
+                                          style: const TextStyle(
+                                            color: AppColors.plumSlate,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                      if (invoice.confidence.isNotEmpty && invoice.confidence != '—') ...[
+                                        const SizedBox(width: 4),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.pillNeutralBg,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
                                         child: Text(
                                           invoice.confidence,
                                           style: const TextStyle(
                                             color: AppColors.textMuted,
-                                            fontSize: 9.5,
+                                            fontSize: 12,
                                             fontWeight: FontWeight.w700,
                                           ),
                                         ),
@@ -163,22 +165,26 @@ class InvoiceCard extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
-                                    fontSize: 11.5,
+                                    fontSize: 12,
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.textPrimary,
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              const Text('•', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                              const Text('•', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                               const SizedBox(width: 6),
-                              const Icon(Icons.calendar_today_outlined, size: 11, color: AppColors.textMuted),
+                              const Icon(Icons.calendar_today_outlined, size: 12, color: AppColors.textMuted),
                               const SizedBox(width: 3),
-                              Text(
-                                _formatDate(invoice.invoiceDate),
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  color: AppColors.textMuted,
+                              Flexible(
+                                child: Text(
+                                  _formatDate(invoice.invoiceDate),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textMuted,
+                                  ),
                                 ),
                               ),
                             ],
@@ -205,9 +211,9 @@ class InvoiceCard extends StatelessWidget {
                         const Text(
                           'TOTAL AMOUNT',
                           style: TextStyle(
-                            fontSize: 9.5,
+                            fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            letterSpacing: 0.6,
+                            letterSpacing: 0.4,
                             color: AppColors.textMuted,
                           ),
                         ),
@@ -242,7 +248,7 @@ class InvoiceCard extends StatelessWidget {
                             isNeedsReview ? 'Review Now' : 'View Bill',
                             style: const TextStyle(
                               fontWeight: FontWeight.w700,
-                              fontSize: 11.5,
+                              fontSize: 12,
                             ),
                           ),
                           const SizedBox(width: 3),

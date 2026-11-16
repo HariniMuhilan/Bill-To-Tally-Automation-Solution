@@ -49,12 +49,12 @@ class AuditTrailScreen extends StatelessWidget {
                               ),
                               child: Text(
                                 log.action,
-                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.plumSlate),
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.plumSlate),
                               ),
                             ),
                             Text(
                               log.time,
-                              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                             ),
                           ],
                         ),
@@ -70,7 +70,7 @@ class AuditTrailScreen extends StatelessWidget {
                             const SizedBox(width: 4),
                             Text(
                               'Actor: ${log.actor}',
-                              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                             ),
                           ],
                         ),

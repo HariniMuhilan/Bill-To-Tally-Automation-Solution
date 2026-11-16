@@ -104,6 +104,104 @@ class ExcelService {
     return Uint8List.fromList(bytes ?? []);
   }
 
+  /// Returns user-scoped Excel filename
+  static String getWorkbookFileName(String? username) {
+    final clean = (username ?? 'user').trim().toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+    return 'BillBooks_${clean}_Vouchers.xlsx';
+  }
+
+  /// Appends an approved invoice and its line items directly to the user's local Excel workbook on disk.
+  static Future<String?> appendInvoiceToWorkbook({
+    required String? username,
+    required Invoice invoice,
+  }) async {
+    if (kIsWeb) return null;
+
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final fileName = getWorkbookFileName(username);
+      final file = File('${dir.path}/$fileName');
+
+      Excel excel;
+      if (await file.exists()) {
+        final existingBytes = await file.readAsBytes();
+        excel = Excel.decodeBytes(existingBytes);
+      } else {
+        final initialBytes = generateDraftWorkbook(
+          sheetTitle: fileName,
+          invoices: [invoice],
+        );
+        await file.writeAsBytes(initialBytes);
+        return file.path;
+      }
+
+      final Sheet summarySheet = excel['Vouchers_Summary'];
+      final Sheet itemsSheet = excel['Line_Items_Detail'];
+
+      // Append row to Vouchers_Summary
+      summarySheet.appendRow([
+        TextCellValue(invoice.id),
+        TextCellValue(invoice.sourceFilename),
+        TextCellValue(invoice.supplierRaw),
+        TextCellValue(invoice.supplierMapped.isNotEmpty ? invoice.supplierMapped : 'Standard Purchase'),
+        TextCellValue(invoice.invoiceNo),
+        TextCellValue(invoice.invoiceDate),
+        TextCellValue(invoice.type),
+        TextCellValue(invoice.gstin),
+        DoubleCellValue(invoice.subtotal),
+        DoubleCellValue(invoice.cgst),
+        DoubleCellValue(invoice.sgst),
+        DoubleCellValue(invoice.igst),
+        DoubleCellValue(invoice.grandTotal),
+        TextCellValue(invoice.status),
+        TextCellValue(invoice.tallyRef),
+      ]);
+
+      // Append rows to Line_Items_Detail
+      for (var line in invoice.lines) {
+        itemsSheet.appendRow([
+          TextCellValue(invoice.id),
+          IntCellValue(line.lineNo),
+          TextCellValue(line.descRaw),
+          TextCellValue(line.hsn),
+          TextCellValue(line.stockItem.isNotEmpty ? line.stockItem : line.descRaw),
+          DoubleCellValue(line.qty),
+          TextCellValue(line.unit),
+          DoubleCellValue(line.rate),
+          DoubleCellValue(line.taxable),
+          DoubleCellValue(line.taxRate),
+          DoubleCellValue(line.taxAmount),
+          DoubleCellValue(line.total),
+          DoubleCellValue(line.confidence),
+        ]);
+      }
+
+      final updatedBytes = excel.save();
+      if (updatedBytes != null) {
+        await file.writeAsBytes(updatedBytes);
+      }
+      return file.path;
+    } catch (e) {
+      debugPrint('Error appending to Excel workbook: $e');
+      return null;
+    }
+  }
+
+  /// Opens the user's Excel file in external viewer
+  static Future<void> openUserExcel(String? username) async {
+    if (kIsWeb) return;
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final fileName = getWorkbookFileName(username);
+      final file = File('${dir.path}/$fileName');
+      if (await file.exists()) {
+        await OpenFilex.open(file.path);
+      }
+    } catch (e) {
+      debugPrint('Error opening Excel file: $e');
+    }
+  }
+
   /// Saves the workbook locally and opens/shares it
   static Future<String?> saveAndOpenExcel({
     required String fileName,

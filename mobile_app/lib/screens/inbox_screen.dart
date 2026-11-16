@@ -8,8 +8,10 @@ import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../services/mlkit_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/invoice_validator.dart';
 import '../widgets/liquid_glass.dart';
 import '../widgets/invoice_card.dart';
+import '../widgets/upgrade_paywall_dialog.dart';
 
 class InboxScreen extends StatefulWidget {
   final StorageService storage;
@@ -17,6 +19,7 @@ class InboxScreen extends StatefulWidget {
   final List<Invoice> invoices;
   final ValueChanged<List<Invoice>> onInvoicesChanged;
   final ValueChanged<Invoice> onSelectInvoice;
+  final VoidCallback? onNavigateToUpgrade;
 
   const InboxScreen({
     super.key,
@@ -25,6 +28,7 @@ class InboxScreen extends StatefulWidget {
     required this.invoices,
     required this.onInvoicesChanged,
     required this.onSelectInvoice,
+    this.onNavigateToUpgrade,
   });
 
   @override
@@ -37,6 +41,14 @@ class InboxScreenState extends State<InboxScreen> {
   String _uploadStatusText = '';
 
   Future<void> handleCaptureCamera() async {
+    final user = widget.storage.getUser();
+    if (!widget.storage.canUserScan(user?.username)) {
+      UpgradePaywallDialog.show(
+        context,
+        onUpgrade: widget.onNavigateToUpgrade,
+      );
+      return;
+    }
     try {
       final picker = ImagePicker();
       final photo = await picker.pickImage(
@@ -55,6 +67,14 @@ class InboxScreenState extends State<InboxScreen> {
   }
 
   Future<void> _handlePickFile() async {
+    final user = widget.storage.getUser();
+    if (!widget.storage.canUserScan(user?.username)) {
+      UpgradePaywallDialog.show(
+        context,
+        onUpgrade: widget.onNavigateToUpgrade,
+      );
+      return;
+    }
     try {
       final picker = ImagePicker();
       final photo = await picker.pickImage(
@@ -112,6 +132,16 @@ class InboxScreenState extends State<InboxScreen> {
         });
 
         final ocrResult = await MLKitService.recognizeTextFromFile(localPath);
+        final rawText = ocrResult['raw_text'] as String? ?? '';
+
+        // Pre-AI Gate: Check if the photo contains invoice signals before calling Gemini API
+        if (!InvoiceValidator.isLikelyInvoice(rawText)) {
+          setState(() => _isUploading = false);
+          if (mounted) {
+            _showInvalidBillDialog();
+          }
+          return;
+        }
 
         setState(() {
           _uploadStatusText = 'Processing voucher...';
@@ -128,8 +158,8 @@ class InboxScreenState extends State<InboxScreen> {
       }
     }
 
-    // 2. Fallback: Backend OCR endpoint
-    if (res == null || !res.success) {
+    // 2. Fallback: Backend OCR endpoint (only when on-device ML Kit was unavailable or failed locally)
+    if (res == null) {
       setState(() {
         _uploadStatusText = 'Processing bill...';
       });
@@ -153,11 +183,50 @@ class InboxScreenState extends State<InboxScreen> {
       widget.onInvoicesChanged(updatedList);
       widget.storage.saveInvoices(updatedList);
 
+      // Increment quota for new users on free tier
+      final user = widget.storage.getUser();
+      await widget.storage.incrementFreeScansUsed(user?.username);
+      if (mounted) setState(() {});
+
       _showSnackbar('Scanned ${newInvoice.id}: ${newInvoice.supplierRaw}');
       widget.onSelectInvoice(newInvoice);
     } else {
       _showSnackbar(res.error ?? 'Processing failed. Check backend connection.', isError: true);
     }
+  }
+
+  void _showInvalidBillDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppColors.orange, size: 26),
+            SizedBox(width: 8),
+            Text(
+              'No Bill Detected',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.maroonDark),
+            ),
+          ],
+        ),
+        content: const Text(
+          'The captured image does not appear to be an invoice or receipt.\n\nPlease capture a clear, well-lit photo of a bill with visible line items and tax details.',
+          style: TextStyle(fontSize: 14, color: AppColors.textMuted, height: 1.4),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.orange,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Try Again', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSnackbar(String msg, {bool isError = false}) {
@@ -244,12 +313,23 @@ class InboxScreenState extends State<InboxScreen> {
                                 ),
                               ),
                               const SizedBox(height: 3),
-                              Text(
-                                'Capture a bill or choose a file to begin',
-                                style: AppTypography.fontS(
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white.withValues(alpha: 0.85),
-                                ),
+                              Builder(
+                                builder: (context) {
+                                  final user = widget.storage.getUser();
+                                  final isPro = widget.storage.isUserPro(user?.username);
+                                  final used = widget.storage.getFreeScansUsed(user?.username);
+                                  final remaining = (2 - used).clamp(0, 2);
+                                  final subtitle = isPro
+                                      ? 'Pro Plan • Unlimited Scans'
+                                      : 'Free Tier • $remaining/2 free bills remaining';
+                                  return Text(
+                                    subtitle,
+                                    style: AppTypography.fontS(
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.white.withValues(alpha: 0.85),
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -288,6 +368,7 @@ class InboxScreenState extends State<InboxScreen> {
                             isOrangeGloss: true,
                             borderRadius: 22,
                             height: 44,
+                            semanticLabel: 'Take invoice photo with camera',
                             onTap: _isUploading ? null : handleCaptureCamera,
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -316,6 +397,7 @@ class InboxScreenState extends State<InboxScreen> {
                             isDarkMaroon: false,
                             borderRadius: 22,
                             height: 44,
+                            semanticLabel: 'Upload invoice photo from gallery',
                             onTap: _isUploading ? null : _handlePickFile,
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -344,128 +426,36 @@ class InboxScreenState extends State<InboxScreen> {
               ),
               const SizedBox(height: 16),
 
-              // 2. Three Equal Stat Tiles in a Row (Radius ~22px)
+              // 2. Three Equal Stat Tiles in a Row (Radius ~22px, minHeight scales with OS text scale)
               Row(
                 children: [
-                  // All Bills (Maroon, white text - active state)
                   Expanded(
-                    child: LiquidGlass(
-                      isDarkMaroon: _activeFilter == 'ALL',
-                      borderRadius: 22,
-                      height: 74,
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                      onTap: () => setState(() => _activeFilter = 'ALL'),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              '$allCount',
-                              textAlign: TextAlign.center,
-                              style: AppTypography.fontNumber(
-                                fontWeight: FontWeight.w800,
-                                color: _activeFilter == 'ALL' ? Colors.white : AppColors.brandInk,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'All Bills',
-                              textAlign: TextAlign.center,
-                              style: AppTypography.fontS(
-                                fontWeight: FontWeight.w600,
-                                color: _activeFilter == 'ALL'
-                                    ? Colors.white.withValues(alpha: 0.9)
-                                    : AppColors.mutedText,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    child: _buildStatFilterTile(
+                      filterKey: 'ALL',
+                      count: allCount,
+                      label: 'All Bills',
+                      semanticLabel: 'Filter All Bills, $allCount total',
+                      countColor: AppColors.brandInk,
                     ),
                   ),
                   const SizedBox(width: 8),
-
-                  // Needs Review (Glass, orange number)
                   Expanded(
-                    child: LiquidGlass(
-                      isDarkMaroon: _activeFilter == 'NEEDS_REVIEW',
-                      borderRadius: 22,
-                      height: 74,
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                      onTap: () => setState(() => _activeFilter = 'NEEDS_REVIEW'),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              '$needsReviewCount',
-                              textAlign: TextAlign.center,
-                              style: AppTypography.fontNumber(
-                                fontWeight: FontWeight.w800,
-                                color: _activeFilter == 'NEEDS_REVIEW' ? Colors.white : AppColors.orange,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Needs Review',
-                              textAlign: TextAlign.center,
-                              style: AppTypography.fontS(
-                                fontWeight: FontWeight.w600,
-                                color: _activeFilter == 'NEEDS_REVIEW'
-                                    ? Colors.white.withValues(alpha: 0.9)
-                                    : AppColors.mutedText,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    child: _buildStatFilterTile(
+                      filterKey: 'NEEDS_REVIEW',
+                      count: needsReviewCount,
+                      label: 'Needs Review',
+                      semanticLabel: 'Filter Needs Review, $needsReviewCount bills',
+                      countColor: AppColors.orange,
                     ),
                   ),
                   const SizedBox(width: 8),
-
-                  // Approved (Glass, green number)
                   Expanded(
-                    child: LiquidGlass(
-                      isDarkMaroon: _activeFilter == 'APPROVED',
-                      borderRadius: 22,
-                      height: 74,
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                      onTap: () => setState(() => _activeFilter = 'APPROVED'),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              '$approvedCount',
-                              textAlign: TextAlign.center,
-                              style: AppTypography.fontNumber(
-                                fontWeight: FontWeight.w800,
-                                color: _activeFilter == 'APPROVED' ? Colors.white : AppColors.successGreen,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Approved',
-                              textAlign: TextAlign.center,
-                              style: AppTypography.fontS(
-                                fontWeight: FontWeight.w600,
-                                color: _activeFilter == 'APPROVED'
-                                    ? Colors.white.withValues(alpha: 0.9)
-                                    : AppColors.mutedText,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    child: _buildStatFilterTile(
+                      filterKey: 'APPROVED',
+                      count: approvedCount,
+                      label: 'Approved',
+                      semanticLabel: 'Filter Approved, $approvedCount bills',
+                      countColor: AppColors.successGreen,
                     ),
                   ),
                 ],
@@ -580,6 +570,63 @@ class InboxScreenState extends State<InboxScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildStatFilterTile({
+    required String filterKey,
+    required int count,
+    required String label,
+    required String semanticLabel,
+    required Color countColor,
+  }) {
+    final isSelected = _activeFilter == filterKey;
+    return LiquidGlass(
+      isDarkMaroon: isSelected,
+      borderRadius: 22,
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+      semanticLabel: semanticLabel,
+      semanticSelected: isSelected,
+      onTap: () => setState(() => _activeFilter = filterKey),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 58),
+        child: SizedBox(
+          width: double.infinity,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '$count',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.fontNumber(
+                    fontWeight: FontWeight.w800,
+                    color: isSelected ? Colors.white : countColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 2),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.fontS(
+                    fontWeight: FontWeight.w600,
+                    color: isSelected
+                        ? Colors.white.withValues(alpha: 0.9)
+                        : AppColors.mutedText,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

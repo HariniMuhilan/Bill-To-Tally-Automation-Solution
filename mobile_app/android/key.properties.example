@@ -1,0 +1,8 @@
+# Android Release Signing Template
+# 1. Generate a private upload keystore outside git:
+#    keytool -genkey -v -keystore android/upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+# 2. Copy this file to android/key.properties (which is gitignored) and fill in your credentials.
+storePassword=
+keyPassword=
+keyAlias=upload
+storeFile=../upload-keystore.jks
