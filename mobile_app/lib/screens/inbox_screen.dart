@@ -368,6 +368,7 @@ class InboxScreenState extends State<InboxScreen> {
                             isOrangeGloss: true,
                             borderRadius: 22,
                             height: 44,
+                            semanticLabel: 'Take invoice photo with camera',
                             onTap: _isUploading ? null : handleCaptureCamera,
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -396,6 +397,7 @@ class InboxScreenState extends State<InboxScreen> {
                             isDarkMaroon: false,
                             borderRadius: 22,
                             height: 44,
+                            semanticLabel: 'Upload invoice photo from gallery',
                             onTap: _isUploading ? null : _handlePickFile,
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -424,128 +426,36 @@ class InboxScreenState extends State<InboxScreen> {
               ),
               const SizedBox(height: 16),
 
-              // 2. Three Equal Stat Tiles in a Row (Radius ~22px)
+              // 2. Three Equal Stat Tiles in a Row (Radius ~22px, minHeight scales with OS text scale)
               Row(
                 children: [
-                  // All Bills (Maroon, white text - active state)
                   Expanded(
-                    child: LiquidGlass(
-                      isDarkMaroon: _activeFilter == 'ALL',
-                      borderRadius: 22,
-                      height: 74,
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                      onTap: () => setState(() => _activeFilter = 'ALL'),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              '$allCount',
-                              textAlign: TextAlign.center,
-                              style: AppTypography.fontNumber(
-                                fontWeight: FontWeight.w800,
-                                color: _activeFilter == 'ALL' ? Colors.white : AppColors.brandInk,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'All Bills',
-                              textAlign: TextAlign.center,
-                              style: AppTypography.fontS(
-                                fontWeight: FontWeight.w600,
-                                color: _activeFilter == 'ALL'
-                                    ? Colors.white.withValues(alpha: 0.9)
-                                    : AppColors.mutedText,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    child: _buildStatFilterTile(
+                      filterKey: 'ALL',
+                      count: allCount,
+                      label: 'All Bills',
+                      semanticLabel: 'Filter All Bills, $allCount total',
+                      countColor: AppColors.brandInk,
                     ),
                   ),
                   const SizedBox(width: 8),
-
-                  // Needs Review (Glass, orange number)
                   Expanded(
-                    child: LiquidGlass(
-                      isDarkMaroon: _activeFilter == 'NEEDS_REVIEW',
-                      borderRadius: 22,
-                      height: 74,
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                      onTap: () => setState(() => _activeFilter = 'NEEDS_REVIEW'),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              '$needsReviewCount',
-                              textAlign: TextAlign.center,
-                              style: AppTypography.fontNumber(
-                                fontWeight: FontWeight.w800,
-                                color: _activeFilter == 'NEEDS_REVIEW' ? Colors.white : AppColors.orange,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Needs Review',
-                              textAlign: TextAlign.center,
-                              style: AppTypography.fontS(
-                                fontWeight: FontWeight.w600,
-                                color: _activeFilter == 'NEEDS_REVIEW'
-                                    ? Colors.white.withValues(alpha: 0.9)
-                                    : AppColors.mutedText,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    child: _buildStatFilterTile(
+                      filterKey: 'NEEDS_REVIEW',
+                      count: needsReviewCount,
+                      label: 'Needs Review',
+                      semanticLabel: 'Filter Needs Review, $needsReviewCount bills',
+                      countColor: AppColors.orange,
                     ),
                   ),
                   const SizedBox(width: 8),
-
-                  // Approved (Glass, green number)
                   Expanded(
-                    child: LiquidGlass(
-                      isDarkMaroon: _activeFilter == 'APPROVED',
-                      borderRadius: 22,
-                      height: 74,
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                      onTap: () => setState(() => _activeFilter = 'APPROVED'),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              '$approvedCount',
-                              textAlign: TextAlign.center,
-                              style: AppTypography.fontNumber(
-                                fontWeight: FontWeight.w800,
-                                color: _activeFilter == 'APPROVED' ? Colors.white : AppColors.successGreen,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Approved',
-                              textAlign: TextAlign.center,
-                              style: AppTypography.fontS(
-                                fontWeight: FontWeight.w600,
-                                color: _activeFilter == 'APPROVED'
-                                    ? Colors.white.withValues(alpha: 0.9)
-                                    : AppColors.mutedText,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    child: _buildStatFilterTile(
+                      filterKey: 'APPROVED',
+                      count: approvedCount,
+                      label: 'Approved',
+                      semanticLabel: 'Filter Approved, $approvedCount bills',
+                      countColor: AppColors.successGreen,
                     ),
                   ),
                 ],
@@ -660,6 +570,63 @@ class InboxScreenState extends State<InboxScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildStatFilterTile({
+    required String filterKey,
+    required int count,
+    required String label,
+    required String semanticLabel,
+    required Color countColor,
+  }) {
+    final isSelected = _activeFilter == filterKey;
+    return LiquidGlass(
+      isDarkMaroon: isSelected,
+      borderRadius: 22,
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+      semanticLabel: semanticLabel,
+      semanticSelected: isSelected,
+      onTap: () => setState(() => _activeFilter = filterKey),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 58),
+        child: SizedBox(
+          width: double.infinity,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '$count',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.fontNumber(
+                    fontWeight: FontWeight.w800,
+                    color: isSelected ? Colors.white : countColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 2),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.fontS(
+                    fontWeight: FontWeight.w600,
+                    color: isSelected
+                        ? Colors.white.withValues(alpha: 0.9)
+                        : AppColors.mutedText,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

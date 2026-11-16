@@ -1,75 +1,90 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
+class _StatusStyle {
+  final Color bg;
+  final Color text;
+  final Color border;
+  final IconData icon;
+  final String label;
+
+  const _StatusStyle({
+    required this.bg,
+    required this.text,
+    required this.border,
+    required this.icon,
+    required this.label,
+  });
+}
+
 class StatusBadge extends StatelessWidget {
   final String status;
 
   const StatusBadge({super.key, required this.status});
 
+  static const _defaultStyle = _StatusStyle(
+    bg: AppColors.warningAmberBg,
+    text: AppColors.warningAmber,
+    border: AppColors.warningBorder,
+    icon: Icons.error_rounded,
+    label: 'Needs Review',
+  );
+
+  static const Map<String, _StatusStyle> _styles = {
+    'APPROVED': _StatusStyle(
+      bg: AppColors.successBadgeBg,
+      text: AppColors.successBadgeText,
+      border: AppColors.successBadgeBorder,
+      icon: Icons.check_circle_rounded,
+      label: 'Approved',
+    ),
+    'POSTED': _StatusStyle(
+      bg: AppColors.postedTealBg,
+      text: AppColors.postedTealText,
+      border: AppColors.postedTealBorder,
+      icon: Icons.verified_rounded,
+      label: 'Posted',
+    ),
+    'POST_FAILED': _StatusStyle(
+      bg: AppColors.errorRedBg,
+      text: AppColors.errorRed,
+      border: AppColors.errorRed,
+      icon: Icons.error_outline_rounded,
+      label: 'Post Failed',
+    ),
+    'NEEDS_CORRECTION': _StatusStyle(
+      bg: AppColors.warningOrangeBg,
+      text: AppColors.orange,
+      border: AppColors.warningOrangeBorder,
+      icon: Icons.edit_note_rounded,
+      label: 'Needs Correction',
+    ),
+  };
+
   @override
   Widget build(BuildContext context) {
-    Color bg;
-    Color text;
-    Color border;
-    IconData icon;
-    String label = status;
-
-    switch (status.toUpperCase()) {
-      case 'APPROVED':
-        bg = const Color(0xFFE8F5E9);
-        text = const Color(0xFF1B5E20);
-        border = const Color(0xFF81C784).withValues(alpha: 0.4);
-        icon = Icons.check_circle_rounded;
-        label = 'Approved';
-        break;
-      case 'POSTED':
-        bg = const Color(0xFFE0F2F1);
-        text = const Color(0xFF004D40);
-        border = const Color(0xFF4DB6AC).withValues(alpha: 0.4);
-        icon = Icons.verified_rounded;
-        label = 'Posted';
-        break;
-      case 'POST_FAILED':
-        bg = AppColors.errorRedBg;
-        text = AppColors.errorRed;
-        border = AppColors.errorRed.withValues(alpha: 0.3);
-        icon = Icons.error_outline_rounded;
-        label = 'Post Failed';
-        break;
-      case 'NEEDS_CORRECTION':
-        bg = const Color(0xFFFFF3E0);
-        text = const Color(0xFFE65100);
-        border = const Color(0xFFFFB74D).withValues(alpha: 0.4);
-        icon = Icons.edit_note_rounded;
-        label = 'Needs Correction';
-        break;
-      case 'NEEDS_REVIEW':
-      default:
-        bg = const Color(0xFFFEF3EB);
-        text = const Color(0xFFB45309);
-        border = const Color(0xFFF59E0B).withValues(alpha: 0.35);
-        icon = Icons.error_rounded;
-        label = 'Needs Review';
-        break;
-    }
+    final style = _styles[status.toUpperCase()] ?? _defaultStyle;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: bg,
+        color: style.bg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: border, width: 1),
+        border: Border.all(
+          color: style.border.withValues(alpha: 0.4),
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: text),
+          Icon(style.icon, size: 12, color: style.text),
           const SizedBox(width: 4),
           Text(
-            label,
+            style.label,
             style: TextStyle(
-              color: text,
-              fontSize: 10.5,
+              color: style.text,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.1,
             ),

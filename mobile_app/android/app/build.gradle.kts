@@ -1,9 +1,39 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    FileInputStream(keystorePropertiesFile).use { stream ->
+        keystoreProperties.load(stream)
+    }
+}
+
+fun signingProp(propName: String, envName: String): String? {
+    val fromFile = keystoreProperties.getProperty(propName)?.trim()
+    if (!fromFile.isNullOrEmpty()) return fromFile
+    val fromEnv = System.getenv(envName)?.trim()
+    return if (!fromEnv.isNullOrEmpty()) fromEnv else null
+}
+
+val releaseStoreFilePath = signingProp("storeFile", "KEYSTORE_FILE")
+val releaseStorePassword = signingProp("storePassword", "KEYSTORE_PASSWORD")
+val releaseKeyAlias = signingProp("keyAlias", "KEY_ALIAS")
+val releaseKeyPassword = signingProp("keyPassword", "KEY_PASSWORD")
+val releaseStoreFile = releaseStoreFilePath?.let { rootProject.file(it) }
+val hasReleaseSigning =
+    releaseStoreFile != null &&
+        releaseStoreFile.exists() &&
+        !releaseStorePassword.isNullOrEmpty() &&
+        !releaseKeyAlias.isNullOrEmpty() &&
+        !releaseKeyPassword.isNullOrEmpty()
 
 android {
     namespace = "com.origentech.billtotally.mobile_app"
@@ -30,16 +60,44 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            if (hasReleaseSigning) {
+                storeFile = releaseStoreFile
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Fail-closed: never fall back to debug signing on Play Store release builds.
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
+    }
+}
+
+gradle.taskGraph.whenReady {
+    val runningReleasePackaging = allTasks.any { task ->
+        task.path.endsWith(":assembleRelease") ||
+            task.path.endsWith(":bundleRelease") ||
+            task.path.endsWith(":packageRelease") ||
+            task.path.endsWith(":packageReleaseBundle")
+    }
+    if (runningReleasePackaging && !hasReleaseSigning) {
+        throw GradleException(
+            "Android release signing is not configured. Copy android/key.properties.example to " +
+                "android/key.properties (or set KEYSTORE_FILE, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD) " +
+                "before building a Play Store release."
+        )
     }
 }
 

@@ -24,6 +24,28 @@ class SupabaseService {
 
   static bool get isReady => client != null;
 
+  /// Current Supabase JWT access token, or null if signed out / uninitialized.
+  static String? get currentAccessToken => client?.auth.currentSession?.accessToken;
+
+  /// HTTP Authorization headers for authenticated backend requests.
+  static Map<String, String> authHeaders([String? overrideToken]) {
+    final token = overrideToken ?? currentAccessToken;
+    if (token == null || token.isEmpty) return const {};
+    return {'Authorization': 'Bearer $token'};
+  }
+
+  /// Refresh current Supabase session cleanly and return the updated JWT access token.
+  static Future<String?> refreshAccessToken() async {
+    final supa = client;
+    if (supa == null || supa.auth.currentSession == null) return null;
+    try {
+      final res = await supa.auth.refreshSession();
+      return res.session?.accessToken;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Helper to ensure valid email address
   static String formatEmail(String input) {
     final trimmed = input.trim().toLowerCase();

@@ -6,13 +6,16 @@ adherence to AGENTS.md Hard Safety Rules (Rules 7, 9, 10: no hallucinated values
 precise Decimal arithmetic, and untrusted input sanitization).
 """
 
+from collections import OrderedDict
 from decimal import Decimal, InvalidOperation
+import hashlib
 import json
 import os
 import sys
 from pathlib import Path
 import logging
 import re
+import threading
 import time
 from typing import Any, Dict, List, Optional
 
@@ -147,9 +150,11 @@ class GeminiRateLimiter:
         return len(self._minute_timestamps)
 
 
-# Global rate limiter and extraction cache singleton
+# Global rate limiter and bounded extraction cache singleton (prevents unbounded RAM growth)
 _rate_limiter = GeminiRateLimiter(max_per_minute=5, max_per_day=20)
-_extraction_cache: Dict[str, InvoiceExtractedData] = {}
+_MAX_CACHE_ENTRIES = 128
+_cache_lock = threading.Lock()
+_extraction_cache: "OrderedDict[str, InvoiceExtractedData]" = OrderedDict()
 
 
 class GeminiExtractionService:
@@ -190,7 +195,7 @@ class GeminiExtractionService:
         return ""
 
     def _get_model_name(self) -> str:
-        """Dynamically detect GEMINI_MODEL from environment or .env files, fallback to gemini-3.8-flash."""
+        """Dynamically detect GEMINI_MODEL from environment or .env files, fallback to gemini-3.1-flash-lite."""
         env_model = os.environ.get("GEMINI_MODEL", "").strip()
         if env_model:
             return env_model
@@ -210,7 +215,7 @@ class GeminiExtractionService:
                                 return val
                 except Exception:
                     pass
-        return getattr(settings, "GEMINI_MODEL", "gemini-3.8-flash") or "gemini-3.8-flash"
+        return getattr(settings, "GEMINI_MODEL", "gemini-3.1-flash-lite") or "gemini-3.1-flash-lite"
 
     def _get_client(self) -> Optional[genai.Client]:
         """Lazy loader for Google GenAI client (re-checks for live .env updates)."""
@@ -234,7 +239,10 @@ class GeminiExtractionService:
         mime_type: str = "image/jpeg",
     ) -> InvoiceExtractedData:
         """Main extraction pipeline: respects strict rate limits, checks cache, and falls back gracefully."""
-        if not ocr_result or not ocr_result.raw_text.strip():
+        raw_text = (ocr_result.raw_text if ocr_result else "") or ""
+        has_text = bool(raw_text.strip())
+        has_image = bool(image_bytes)
+        if not has_text and not has_image:
             return InvoiceExtractedData(
                 overall_confidence=0.0,
                 warnings=[
@@ -250,27 +258,43 @@ class GeminiExtractionService:
         client = self._get_client()
         is_custom_client = getattr(self, "_client", None) is not None and getattr(self, "_cached_key", None) is None
 
-        # Cache check: if identical OCR text was already extracted, return cached result without consuming quota
-        cache_key = hashlib.sha256(ocr_result.raw_text.encode("utf-8")).hexdigest()
-        if not is_custom_client and cache_key in _extraction_cache:
-            logger.info("Serving Gemini extraction from cache for key %s", cache_key[:12])
-            cached = _extraction_cache[cache_key].model_copy(deep=True)
-            cached.warnings = list(cached.warnings)
-            cached.warnings.append(
-                ExtractionWarning(
-                    field_name="gemini_cache",
-                    severity="info",
-                    message="Served from local extraction cache (no Gemini quota used).",
+        # Compute deterministic cache key from OCR text and/or image bytes so empty-OCR uploads never collide
+        hasher = hashlib.sha256()
+        if has_text:
+            hasher.update(raw_text.encode("utf-8"))
+        if image_bytes:
+            hasher.update(b"|img|")
+            hasher.update(image_bytes)
+        cache_key = hasher.hexdigest()
+
+        if not is_custom_client:
+            with _cache_lock:
+                hit = _extraction_cache.get(cache_key)
+                if hit is not None:
+                    _extraction_cache.move_to_end(cache_key)
+                    cached = hit.model_copy(deep=True)
+                else:
+                    cached = None
+            if cached is not None:
+                logger.info("Serving Gemini extraction from cache for key %s", cache_key[:12])
+                cached.warnings = list(cached.warnings)
+                cached.warnings.append(
+                    ExtractionWarning(
+                        field_name="gemini_cache",
+                        severity="info",
+                        message="Served from local extraction cache (no Gemini quota used).",
+                    )
                 )
-            )
-            return cached
+                return cached
+
+        safe_ocr = ocr_result or OCRResult(raw_text="", lines=[], page_count=1, average_confidence=0.0)
 
         if client:
             # Check rate limiter before calling Gemini
             can_call, limit_reason = self.rate_limiter.can_request()
             if not can_call:
                 logger.warning("Gemini rate limit guard triggered: %s. Using heuristic parser.", limit_reason)
-                fallback = self._heuristic_fallback(ocr_result)
+                fallback = self._heuristic_fallback(safe_ocr)
                 fallback.warnings.append(
                     ExtractionWarning(
                         field_name="gemini_rate_limit",
@@ -278,7 +302,7 @@ class GeminiExtractionService:
                         message=limit_reason or "Gemini rate limit exceeded. Used fallback parser.",
                     )
                 )
-                return self._post_process_and_validate(fallback, ocr_result)
+                return self._post_process_and_validate(fallback, safe_ocr)
 
             try:
                 # Record API call towards minute and daily limits
@@ -290,26 +314,30 @@ class GeminiExtractionService:
                     self.rate_limiter.requests_in_current_minute,
                 )
 
-                extracted = self._extract_with_gemini(client, ocr_result, image_bytes, mime_type)
-                validated = self._post_process_and_validate(extracted, ocr_result)
-                
-                # Cache successful extraction
-                _extraction_cache[cache_key] = validated.model_copy(deep=True)
+                extracted = self._extract_with_gemini(client, safe_ocr, image_bytes, mime_type)
+                validated = self._post_process_and_validate(extracted, safe_ocr)
+
+                # Cache successful extraction with LRU bound
+                with _cache_lock:
+                    _extraction_cache[cache_key] = validated.model_copy(deep=True)
+                    _extraction_cache.move_to_end(cache_key)
+                    while len(_extraction_cache) > _MAX_CACHE_ENTRIES:
+                        _extraction_cache.popitem(last=False)
                 return validated
             except Exception as e:
                 logger.warning("Gemini API extraction failed: %s. Falling back to heuristic extractor.", str(e))
-                fallback = self._heuristic_fallback(ocr_result)
+                fallback = self._heuristic_fallback(safe_ocr)
                 fallback.warnings.append(
                     ExtractionWarning(
                         field_name="gemini_api",
                         severity="warning",
-                        message=f"Gemini API call failed ({str(e)}). Used fallback rule-based parser.",
+                        message="AI extraction unavailable; used rule-based fallback parser.",
                     )
                 )
-                return self._post_process_and_validate(fallback, ocr_result)
+                return self._post_process_and_validate(fallback, safe_ocr)
         else:
             logger.info("GEMINI_API_KEY not configured. Using rule-based heuristic extractor.")
-            extracted = self._heuristic_fallback(ocr_result)
+            extracted = self._heuristic_fallback(safe_ocr)
             extracted.warnings.append(
                 ExtractionWarning(
                     field_name="gemini_api_key",
@@ -317,7 +345,7 @@ class GeminiExtractionService:
                     message="Extracted using rule-based parser (Configure GEMINI_API_KEY in .env for advanced LLM extraction).",
                 )
             )
-            return self._post_process_and_validate(extracted, ocr_result)
+            return self._post_process_and_validate(extracted, safe_ocr)
 
     def _extract_with_gemini(
         self,
@@ -387,7 +415,7 @@ Respond ONLY with a valid JSON object matching this schema:
         contents.append(prompt)
 
         primary_model = self._get_model_name()
-        preferred = [primary_model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash"]
+        preferred = [primary_model, "gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-2.5-flash-lite"]
         candidates = list(dict.fromkeys(preferred))
 
         response = None

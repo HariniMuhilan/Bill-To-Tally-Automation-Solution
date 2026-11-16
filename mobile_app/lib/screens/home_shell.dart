@@ -257,14 +257,17 @@ class _HomeShellState extends State<HomeShell> {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                'PURCHASE VOUCHER AUTOMATION',
-                style: TextStyle(
-                  fontFamily: 'DM Sans',
-                  fontSize: 7.5,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                  color: AppColors.maroonDark.withValues(alpha: 0.75),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'PURCHASE VOUCHER AUTOMATION',
+                  style: TextStyle(
+                    fontFamily: 'DM Sans',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.7,
+                    color: AppColors.maroonDark.withValues(alpha: 0.85),
+                  ),
                 ),
               ),
             ],
@@ -301,8 +304,8 @@ class _HomeShellState extends State<HomeShell> {
               ),
             ],
             child: Container(
-              width: 42,
-              height: 42,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: const LinearGradient(
@@ -342,74 +345,102 @@ class _HomeShellState extends State<HomeShell> {
     return LiquidGlass(
       useBlur: true,
       borderRadius: 40,
-      height: 70,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          // 0: Inbox
-          _buildNavItem(
-            index: 0,
-            icon: Icons.all_inbox_rounded,
-            label: 'Inbox',
-          ),
-          // 1: Review
-          _buildNavItem(
-            index: 1,
-            icon: Icons.check_box_outlined,
-            label: 'Review',
-            badgeCount: needsReviewCount,
-          ),
-          // Center Spacer for Separate Raised Camera Button
-          const SizedBox(width: 64),
-          // 2: Tally
-          _buildNavItem(
-            index: 2,
-            icon: Icons.sync_rounded,
-            label: 'Tally',
-          ),
-          // 3: Upgrade (Future Payment Gateway)
-          _buildNavItem(
-            index: 3,
-            icon: Icons.workspace_premium_rounded,
-            label: 'Upgrade',
-          ),
-        ],
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 58),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            // 0: Inbox
+            Expanded(
+              child: _buildNavItem(
+                index: 0,
+                icon: Icons.all_inbox_rounded,
+                label: 'Inbox',
+              ),
+            ),
+            // 1: Review
+            Expanded(
+              child: _buildNavItem(
+                index: 1,
+                icon: Icons.check_box_outlined,
+                label: 'Review',
+                badgeCount: needsReviewCount,
+              ),
+            ),
+            // Center Spacer for Separate Raised Camera Button
+            const SizedBox(width: 64),
+            // 2: Tally
+            Expanded(
+              child: _buildNavItem(
+                index: 2,
+                icon: Icons.sync_rounded,
+                label: 'Tally',
+              ),
+            ),
+            // 3: Upgrade (Future Payment Gateway)
+            Expanded(
+              child: _buildNavItem(
+                index: 3,
+                icon: Icons.workspace_premium_rounded,
+                label: 'Upgrade',
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildSeparateCameraButton() {
-    return GestureDetector(
-      onTap: _handleQuickCameraCapture,
-      child: Container(
-        width: 62,
-        height: 62,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.orangeStart, AppColors.orangeEnd],
+    return Tooltip(
+      message: 'Capture invoice photo',
+      child: Semantics(
+        button: true,
+        label: 'Capture invoice photo',
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.orangeEnd.withValues(alpha: 0.55),
+                blurRadius: 18,
+                spreadRadius: 2,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
-          border: Border.all(
-            color: Colors.white,
-            width: 3.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFF0580E).withValues(alpha: 0.55),
-              blurRadius: 18,
-              spreadRadius: 2,
-              offset: const Offset(0, 6),
+          child: Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(
+              side: BorderSide(color: Colors.white, width: 3.0),
             ),
-          ],
-        ),
-        child: const Center(
-          child: Icon(
-            Icons.camera_alt_rounded,
-            color: Colors.white,
-            size: 28,
+            clipBehavior: Clip.antiAlias,
+            child: Ink(
+              width: 62,
+              height: 62,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [AppColors.orangeStart, AppColors.orangeEnd],
+                ),
+              ),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _handleQuickCameraCapture,
+                child: const ExcludeSemantics(
+                  child: Center(
+                    child: Icon(
+                      Icons.camera_alt_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -423,18 +454,30 @@ class _HomeShellState extends State<HomeShell> {
     int? badgeCount,
   }) {
     final isSelected = _currentIndex == index;
+    final semanticSummary = (badgeCount != null && badgeCount > 0)
+        ? '$label, $badgeCount pending'
+        : label;
 
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _currentIndex = index;
-          if (index != 1) _selectedReviewInvoice = null;
-        });
-      },
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 52,
-        child: Column(
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: semanticSummary,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            setState(() {
+              _currentIndex = index;
+              if (index != 1) _selectedReviewInvoice = null;
+            });
+          },
+          borderRadius: BorderRadius.circular(18),
+          child: ExcludeSemantics(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -455,20 +498,20 @@ class _HomeShellState extends State<HomeShell> {
                         end: Alignment.bottomRight,
                         colors: [
                           Colors.white.withValues(alpha: 0.75),
-                          const Color(0xFFFFF0E6).withValues(alpha: 0.45),
+                          AppColors.warmPeachTint.withValues(alpha: 0.45),
                         ],
                       ),
                 border: Border.all(
                   color: isSelected
-                      ? const Color(0xFFFFBED7).withValues(alpha: 0.4)
+                      ? AppColors.pinkGlow.withValues(alpha: 0.4)
                       : Colors.white.withValues(alpha: 0.8),
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
                     color: isSelected
-                        ? const Color(0xFF6A1634).withValues(alpha: 0.35)
-                        : const Color(0xFFC86E46).withValues(alpha: 0.12),
+                        ? AppColors.maroonShadow.withValues(alpha: 0.35)
+                        : AppColors.warmOrangeShadow.withValues(alpha: 0.12),
                     blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
@@ -493,14 +536,15 @@ class _HomeShellState extends State<HomeShell> {
                           color: AppColors.orange,
                           shape: BoxShape.circle,
                         ),
-                        constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
+                        constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
                         child: Text(
                           '$badgeCount',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 8.5,
+                            fontSize: 12,
                             fontWeight: FontWeight.w700,
+                            height: 1.0,
                           ),
                         ),
                       ),
@@ -509,13 +553,17 @@ class _HomeShellState extends State<HomeShell> {
               ),
             ),
             const SizedBox(height: 2),
-            // Label in DM Sans Size 11
-            Text(
-              label,
-              style: AppTypography.fontS(
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? AppColors.brandInk : AppColors.mutedText,
-              ).copyWith(fontSize: 10.5, height: 1.1),
+            // Label in DM Sans Size 12 (scales down gracefully at extreme OS font scales)
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: AppTypography.fontS(
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? AppColors.brandInk : AppColors.mutedText,
+                ).copyWith(height: 1.1),
+              ),
             ),
             Container(
               margin: const EdgeInsets.only(top: 2),
@@ -527,6 +575,9 @@ class _HomeShellState extends State<HomeShell> {
               ),
             ),
           ],
+        ),
+          ),
+        ),
         ),
       ),
     );

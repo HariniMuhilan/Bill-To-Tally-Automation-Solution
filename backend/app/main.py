@@ -2,7 +2,7 @@
 
 from contextlib import asynccontextmanager
 import re
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pathlib import Path
@@ -17,13 +17,16 @@ _backend_dir = _project_root / "backend"
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 try:
+    from backend.app.core.auth import AuthenticatedUser, get_current_user
     from backend.app.core.config import settings
     from backend.app.api.routes.invoices import router as invoices_router
 except (ImportError, ValueError):
     try:
+        from app.core.auth import AuthenticatedUser, get_current_user
         from app.core.config import settings
         from app.api.routes.invoices import router as invoices_router
     except (ImportError, ValueError):
+        from .core.auth import AuthenticatedUser, get_current_user
         from .core.config import settings
         from .api.routes.invoices import router as invoices_router
 
@@ -36,50 +39,81 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(
-    title="Bill-to-Tally Automation API",
-    description="Backend API for OCR bill extraction, review, validation, and TallyPrime voucher automation.",
-    version="0.1.0",
-    lifespan=lifespan,
-)
+def create_app() -> FastAPI:
+    """Construct the FastAPI application with environment-aware security defaults."""
+    is_prod = settings.is_production
+    application = FastAPI(
+        title="Bill-to-Tally Automation API",
+        description="Backend API for OCR bill extraction, review, validation, and TallyPrime voucher automation.",
+        version="0.1.0",
+        lifespan=lifespan,
+        docs_url=None if is_prod else "/docs",
+        redoc_url=None if is_prod else "/redoc",
+        openapi_url=None if is_prod else "/openapi.json",
+    )
 
-# CORS configuration for local development and frontend integration
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    explicit_origins = settings.get_allowed_origins()
+    # Fail-closed in production when ALLOWED_ORIGINS is unset; allow localhost in non-prod only.
+    origin_regex = (
+        None
+        if (explicit_origins or is_prod)
+        else r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+    )
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=explicit_origins,
+        allow_origin_regex=origin_regex,
+        allow_credentials=bool(explicit_origins or origin_regex),
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
+
+    @application.middleware("http")
+    async def normalize_slashes_middleware(request: Request, call_next):
+        """Normalize consecutive slashes in request paths (e.g. //api/... -> /api/...)."""
+        raw_path = request.scope.get("path", "")
+        if "//" in raw_path:
+            request.scope["path"] = re.sub(r"/+", "/", raw_path)
+        return await call_next(request)
+
+    application.include_router(invoices_router)
+
+    @application.get("/api/health", tags=["System"])
+    async def api_health():
+        """System health check endpoint."""
+        if settings.is_production:
+            return {
+                "status": "healthy",
+                "posting_enabled": settings.POSTING_ENABLED,
+            }
+        return {
+            "status": "healthy",
+            "app_env": settings.APP_ENV,
+            "ocr_engine": settings.OCR_ENGINE,
+            "gemini_model": settings.GEMINI_MODEL,
+            "posting_enabled": settings.POSTING_ENABLED,
+        }
+
+    @application.get("/auth/confirmed", response_class=HTMLResponse, tags=["Authentication"])
+    @application.get("/email-confirmed", response_class=HTMLResponse, include_in_schema=False)
+    async def email_confirmed_page():
+        return await _render_email_confirmed_page()
+
+    @application.get("/api/tally/health", tags=["Tally"])
+    async def tally_health(current_user: AuthenticatedUser = Depends(get_current_user)):
+        """Tally connectivity probe (NEVER attempts posting, read/connectivity only)."""
+        return {
+            "tally_host": settings.TALLY_HOST,
+            "tally_port": settings.TALLY_PORT,
+            "posting_enabled": settings.POSTING_ENABLED,
+            "connected": False,  # Stubbed until connector client is invoked
+            "company": settings.TALLY_COMPANY_NAME or "Not configured",
+        }
+
+    return application
 
 
-@app.middleware("http")
-async def normalize_slashes_middleware(request: Request, call_next):
-    """Normalize consecutive slashes in request paths (e.g. //api/... -> /api/...)."""
-    raw_path = request.scope.get("path", "")
-    if "//" in raw_path:
-        request.scope["path"] = re.sub(r"/+", "/", raw_path)
-    return await call_next(request)
-
-# Mount routes
-app.include_router(invoices_router)
-
-
-@app.get("/api/health", tags=["System"])
-async def api_health():
-    """System health check endpoint."""
-    return {
-        "status": "healthy",
-        "app_env": settings.APP_ENV,
-        "ocr_engine": settings.OCR_ENGINE,
-        "gemini_model": settings.GEMINI_MODEL,
-        "posting_enabled": settings.POSTING_ENABLED,
-    }
-
-
-@app.get("/auth/confirmed", response_class=HTMLResponse, tags=["Authentication"])
-@app.get("/email-confirmed", response_class=HTMLResponse, include_in_schema=False)
-async def email_confirmed_page():
+async def _render_email_confirmed_page() -> HTMLResponse:
     """Branded confirmation landing page for Supabase email verification redirects."""
     return HTMLResponse(
         content="""<!DOCTYPE html>
@@ -203,13 +237,4 @@ async def email_confirmed_page():
     )
 
 
-@app.get("/api/tally/health", tags=["Tally"])
-async def tally_health():
-    """Tally connectivity probe (NEVER attempts posting, read/connectivity only)."""
-    return {
-        "tally_host": settings.TALLY_HOST,
-        "tally_port": settings.TALLY_PORT,
-        "posting_enabled": settings.POSTING_ENABLED,
-        "connected": False,  # Stubbed until connector client is invoked
-        "company": settings.TALLY_COMPANY_NAME or "Not configured",
-    }
+app = create_app()

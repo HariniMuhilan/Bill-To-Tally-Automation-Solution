@@ -188,7 +188,7 @@ class _TallyConnectorScreenState extends State<TallyConnectorScreen> {
                                 ),
                                 Text(
                                   '${draft.invoices.length} Voucher(s) • Created ${draft.createdAt.split('T')[0]}',
-                                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                                 ),
                               ],
                             ),
@@ -202,7 +202,7 @@ class _TallyConnectorScreenState extends State<TallyConnectorScreen> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Total Value', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                              const Text('Total Value', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                               Text(
                                 currencyFormatter.format(draft.totalAmount),
                                 style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.inkNavy),

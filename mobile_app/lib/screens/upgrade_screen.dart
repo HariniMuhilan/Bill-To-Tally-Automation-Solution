@@ -134,7 +134,7 @@ class UpgradeScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    const Divider(height: 1, color: Color(0x2285727A)),
+                    const Divider(height: 1, color: AppColors.dividerSubtle),
                     const SizedBox(height: 16),
 
                     // Feature List
@@ -166,7 +166,11 @@ class UpgradeScreen extends StatelessWidget {
                     const SizedBox(height: 22),
 
                     // Upgrade / Payment Button
-                    GestureDetector(
+                    LiquidGlass(
+                      isOrangeGloss: true,
+                      borderRadius: 14,
+                      height: 48,
+                      semanticLabel: 'Upgrade with Payment Gateway',
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -181,38 +185,19 @@ class UpgradeScreen extends StatelessWidget {
                           ),
                         );
                       },
-                      child: Container(
-                        width: double.infinity,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [AppColors.orangeStart, AppColors.orangeEnd],
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.orange.withValues(alpha: 0.35),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.lock_outline_rounded, size: 18, color: Colors.white),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Upgrade with Payment Gateway',
+                            style: AppTypography.fontM(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
                             ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.lock_outline_rounded, size: 18, color: Colors.white),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Upgrade with Payment Gateway',
-                                style: AppTypography.fontM(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ],

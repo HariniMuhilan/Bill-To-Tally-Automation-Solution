@@ -151,6 +151,8 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
       child: LiquidGlass(
         borderRadius: 28,
+        useBlur: true,
+        isModalSurface: true,
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
         child: SingleChildScrollView(
           child: Column(
@@ -200,6 +202,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.brandInk),
+                    tooltip: 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -248,10 +251,11 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                _buildFrostedInput(
+                FrostedInputField(
                   controller: _emailController,
                   icon: Icons.mail_outline_rounded,
                   hintText: 'name@company.com',
+                  semanticLabel: 'Registered email address',
                   keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 22),
@@ -260,6 +264,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                   isOrangeGloss: true,
                   borderRadius: 22,
                   height: 48,
+                  semanticLabel: _isLoading ? 'Sending verification code' : 'Send 6-digit code',
                   onTap: _isLoading ? null : _handleSendResetCode,
                   child: Center(
                     child: _isLoading
@@ -287,10 +292,11 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                _buildFrostedInput(
+                FrostedInputField(
                   controller: _otpController,
                   icon: Icons.pin_outlined,
                   hintText: 'Enter 6-digit code',
+                  semanticLabel: '6-digit verification code',
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 14),
@@ -303,10 +309,11 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                _buildFrostedInput(
+                FrostedInputField(
                   controller: _newPasswordController,
                   icon: Icons.lock_outline_rounded,
                   hintText: 'At least 6 characters',
+                  semanticLabel: 'New password',
                   obscureText: _obscureNewPass,
                   onToggleObscure: () => setState(() => _obscureNewPass = !_obscureNewPass),
                 ),
@@ -320,10 +327,11 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                _buildFrostedInput(
+                FrostedInputField(
                   controller: _confirmPasswordController,
                   icon: Icons.lock_outline_rounded,
                   hintText: 'Repeat new password',
+                  semanticLabel: 'Confirm new password',
                   obscureText: _obscureConfirmPass,
                   onToggleObscure: () => setState(() => _obscureConfirmPass = !_obscureConfirmPass),
                 ),
@@ -333,6 +341,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                   isOrangeGloss: true,
                   borderRadius: 22,
                   height: 48,
+                  semanticLabel: _isLoading ? 'Updating password' : 'Update password',
                   onTap: _isLoading ? null : _handleUpdatePassword,
                   child: Center(
                     child: _isLoading
@@ -383,65 +392,6 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildFrostedInput({
-    required TextEditingController controller,
-    required IconData icon,
-    String? hintText,
-    TextInputType? keyboardType,
-    bool obscureText = false,
-    VoidCallback? onToggleObscure,
-  }) {
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.75),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.90),
-          width: 1.2,
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: Row(
-        children: [
-          Icon(icon, size: 19, color: AppColors.maroonDark.withValues(alpha: 0.70)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              obscureText: obscureText,
-              keyboardType: keyboardType,
-              style: AppTypography.fontM(
-                color: AppColors.brandInk,
-                fontWeight: FontWeight.w600,
-              ),
-              decoration: InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-                hintText: hintText,
-                hintStyle: TextStyle(
-                  color: AppColors.brandInk.withValues(alpha: 0.40),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ),
-          ),
-          if (onToggleObscure != null)
-            GestureDetector(
-              onTap: onToggleObscure,
-              child: Icon(
-                obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                color: AppColors.maroonDark.withValues(alpha: 0.65),
-                size: 18,
-              ),
-            ),
-        ],
       ),
     );
   }

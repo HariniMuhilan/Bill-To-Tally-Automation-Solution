@@ -104,7 +104,7 @@ class _ApproveDialogState extends State<ApproveDialog> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
-            color: Color(0x334A1530),
+            color: AppColors.brandInkShadow,
             blurRadius: 30,
             offset: Offset(0, -6),
           ),
@@ -142,17 +142,17 @@ class _ApproveDialogState extends State<ApproveDialog> {
                   height: 46,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFE8F5E9), Color(0xFFC8E6C9)],
+                      colors: [AppColors.successBadgeBg, AppColors.successBadgeBgDeep],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFF81C784).withValues(alpha: 0.6)),
+                    border: Border.all(color: AppColors.successBadgeBorder.withValues(alpha: 0.6)),
                   ),
                   child: const Center(
                     child: Icon(
                       Icons.task_alt_rounded,
-                      color: Color(0xFF1B5E20),
+                      color: AppColors.successBadgeText,
                       size: 26,
                     ),
                   ),
@@ -191,12 +191,14 @@ class _ApproveDialogState extends State<ApproveDialog> {
               },
               borderRadius: BorderRadius.circular(18),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 200),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: _selectedOption == ApproveExcelOption.newSheet
-                      ? const Color(0xFFFFF7F2)
-                      : const Color(0xFFFAF7F9),
+                      ? AppColors.warmSelectionBg
+                      : AppColors.surfaceCardMuted,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
                     color: _selectedOption == ApproveExcelOption.newSheet
@@ -227,7 +229,7 @@ class _ApproveDialogState extends State<ApproveDialog> {
                             gradient: LinearGradient(
                               colors: _selectedOption == ApproveExcelOption.newSheet
                                   ? [AppColors.orangeStart, AppColors.orangeEnd]
-                                  : [const Color(0xFFEFE9EE), const Color(0xFFE2D9E0)],
+                                  : [AppColors.mutedSurfaceStart, AppColors.mutedSurfaceEnd],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
@@ -335,13 +337,13 @@ class _ApproveDialogState extends State<ApproveDialog> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFFF0E6),
+                                color: AppColors.warmPeachTint,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: const Text(
                                 '.xlsx',
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w800,
                                   color: AppColors.orange,
                                 ),
@@ -374,14 +376,16 @@ class _ApproveDialogState extends State<ApproveDialog> {
                     },
               borderRadius: BorderRadius.circular(18),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 200),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: _selectedOption == ApproveExcelOption.existingSheet
-                      ? const Color(0xFFFFF7F2)
+                      ? AppColors.warmSelectionBg
                       : hasExistingSheets
-                          ? const Color(0xFFFAF7F9)
-                          : const Color(0xFFF5F3F5),
+                          ? AppColors.surfaceCardMuted
+                          : AppColors.surfaceDisabled,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
                     color: _selectedOption == ApproveExcelOption.existingSheet
@@ -411,7 +415,7 @@ class _ApproveDialogState extends State<ApproveDialog> {
                             gradient: LinearGradient(
                               colors: _selectedOption == ApproveExcelOption.existingSheet
                                   ? [AppColors.maroonMid, AppColors.maroonDark]
-                                  : [const Color(0xFFEFE9EE), const Color(0xFFE2D9E0)],
+                                  : [AppColors.mutedSurfaceStart, AppColors.mutedSurfaceEnd],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
@@ -522,13 +526,13 @@ class _ApproveDialogState extends State<ApproveDialog> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFF3EBF0),
+                                        color: AppColors.pillPlumBg,
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(
                                         '${d.invoices.length} bills',
                                         style: const TextStyle(
-                                          fontSize: 10,
+                                          fontSize: 12,
                                           fontWeight: FontWeight.w800,
                                           color: AppColors.plumSlate,
                                         ),

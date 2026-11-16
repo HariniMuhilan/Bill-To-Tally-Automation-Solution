@@ -1,10 +1,12 @@
 """Invoice API endpoints for upload, OCR extraction, and preview."""
 
 import hashlib
+import logging
 from pathlib import Path
+import re
 import time
-from typing import List, Optional
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from typing import Optional
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import sys
@@ -19,17 +21,21 @@ if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
 try:
+    from backend.app.core.auth import AuthenticatedUser, get_current_user
     from backend.app.core.config import settings
     from backend.app.schemas.invoice import InvoiceExtractedData, OCRResult
     from backend.app.services.extraction import get_extraction_service
-    from backend.app.services.ocr_service import get_ocr_service
+    from backend.app.services.ocr_service import MockOCRAdapter, get_ocr_service
 except (ImportError, ValueError):
     try:
+        from app.core.auth import AuthenticatedUser, get_current_user
         from app.core.config import settings
         from app.schemas.invoice import InvoiceExtractedData, OCRResult
         from app.services.extraction import get_extraction_service
-        from app.services.ocr_service import get_ocr_service
+        from app.services.ocr_service import MockOCRAdapter, get_ocr_service
     except (ImportError, ValueError):
+        # pyrefly: ignore[missing-import]
+        from ...core.auth import AuthenticatedUser, get_current_user
         # pyrefly: ignore[missing-import]
         from ...core.config import settings
         # pyrefly: ignore[missing-import]
@@ -37,7 +43,11 @@ except (ImportError, ValueError):
         # pyrefly: ignore[missing-import]
         from ...services.extraction import get_extraction_service
         # pyrefly: ignore[missing-import]
-        from ...services.ocr_service import get_ocr_service
+        from ...services.ocr_service import MockOCRAdapter, get_ocr_service
+
+logger = logging.getLogger(__name__)
+_SAFE_SEGMENT_RE = re.compile(r"[^a-zA-Z0-9_.-]")
+_READ_CHUNK_SIZE = 65536
 
 router = APIRouter(prefix="/api/invoices", tags=["Invoices"])
 
@@ -85,9 +95,39 @@ class OCRExtractionResponse(BaseModel):
     line_count: int
 
 
+def _user_upload_dir(user_id: str) -> Path:
+    """Return isolated upload directory for a verified user."""
+    settings.ensure_directories()
+    safe_user = _SAFE_SEGMENT_RE.sub("_", user_id.strip())[:80] or "anonymous"
+    user_dir = settings.DOCUMENT_ROOT / "uploads" / safe_user
+    user_dir.mkdir(parents=True, exist_ok=True)
+    return user_dir
+
+
+async def _read_upload_bounded(file: UploadFile, max_bytes: int) -> bytes:
+    """Read upload in chunks while enforcing a hard memory/size ceiling."""
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(_READ_CHUNK_SIZE)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail="Uploaded file exceeds the maximum allowed size (10 MB).",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 @router.post("/ocr", response_model=OCRExtractionResponse, status_code=status.HTTP_201_CREATED)
-async def upload_and_extract_ocr(file: UploadFile = File(...)):
-    """Upload photo bill/invoice and scan with PaddleOCR."""
+async def upload_and_extract_ocr(
+    file: UploadFile = File(...),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
+    """Upload photo bill/invoice and scan with OCR + Gemini Vision."""
     filename = file.filename or "invoice_photo.jpg"
     ext = Path(filename).suffix.lower()
 
@@ -97,7 +137,7 @@ async def upload_and_extract_ocr(file: UploadFile = File(...)):
             detail=f"Unsupported file type '{ext}'. Allowed image photo formats: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
         )
 
-    content = await file.read()
+    content = await _read_upload_bounded(file, settings.MAX_UPLOAD_BYTES)
     if not content:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -107,26 +147,32 @@ async def upload_and_extract_ocr(file: UploadFile = File(...)):
     # Compute SHA-256 integrity hash per AGENTS.md Rule 80
     file_hash = hashlib.sha256(content).hexdigest()
 
-    # Save original photo in DOCUMENT_ROOT/uploads/
-    settings.ensure_directories()
-    safe_filename = f"{file_hash[:16]}_{Path(filename).name}"
-    saved_path = settings.DOCUMENT_ROOT / "uploads" / safe_filename
+    # Save original photo scoped strictly inside authenticated user's directory
+    safe_name_tail = _SAFE_SEGMENT_RE.sub("_", Path(filename).name)[:80] or f"upload{ext}"
+    safe_filename = f"{file_hash[:16]}_{safe_name_tail}"
+    saved_path = _user_upload_dir(current_user.user_id) / safe_filename
     saved_path.write_bytes(content)
 
-    # Execute PaddleOCR extraction
+    # Execute OCR extraction
     ocr_adapter = get_ocr_service()
     try:
         ocr_result = ocr_adapter.extract_from_image(content)
-    except Exception as e:
+    except Exception:
+        logger.exception("OCR engine extraction failed for user=%s", current_user.user_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"OCR engine extraction failed: {str(e)}",
+            detail="OCR processing failed. Please try again with a clearer image.",
         )
 
-    # Pre-AI Gate: Reject photos that lack invoice indicators before calling Gemini
-    if not is_likely_invoice(ocr_result.raw_text):
+    # Pre-AI Gate: Enforce text keyword filter when local OCR extracted text;
+    # if server-side OCR is unavailable (MockOCRAdapter returning "" outside tests),
+    # let Gemini Vision inspect and validate image_bytes directly.
+    has_ocr_text = bool(ocr_result.raw_text and ocr_result.raw_text.strip())
+    if (has_ocr_text or not isinstance(ocr_adapter, MockOCRAdapter)) and not is_likely_invoice(
+        ocr_result.raw_text
+    ):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="The scanned photo does not appear to be an invoice or receipt. Please capture a clear bill image.",
         )
 
@@ -145,7 +191,7 @@ async def upload_and_extract_ocr(file: UploadFile = File(...)):
 
     if not extracted_data.supplier_name and not extracted_data.total_amount:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Could not detect invoice details or vendor in the image. Please upload a clear photo of a bill.",
         )
 
@@ -163,11 +209,14 @@ async def upload_and_extract_ocr(file: UploadFile = File(...)):
 
 
 @router.post("/extract-text", response_model=InvoiceExtractedData)
-async def extract_from_raw_ocr(ocr_result: OCRResult):
+async def extract_from_raw_ocr(
+    ocr_result: OCRResult,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
     """Directly run Gemini structured bill extraction on an existing OCR result payload."""
     if not is_likely_invoice(ocr_result.raw_text):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="The scanned photo does not appear to be an invoice or receipt. Please capture a clear bill image.",
         )
     extractor = get_extraction_service()
@@ -175,12 +224,18 @@ async def extract_from_raw_ocr(ocr_result: OCRResult):
 
 
 @router.get("/file/{filename}")
-async def get_invoice_file(filename: str):
-    """Serve uploaded invoice photo image for browser preview."""
+async def get_invoice_file(
+    filename: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
+    """Serve uploaded invoice photo image owned by the authenticated user."""
+    user_dir = _user_upload_dir(current_user.user_id).resolve()
     safe_name = Path(filename).name
-    file_path = settings.DOCUMENT_ROOT / "uploads" / safe_name
+    if not safe_name or safe_name != filename:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
 
-    if not file_path.exists() or not file_path.is_file():
+    file_path = (user_dir / safe_name).resolve()
+    if not file_path.is_relative_to(user_dir) or not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
 
     ext = file_path.suffix.lower()
@@ -189,5 +244,7 @@ async def get_invoice_file(filename: str):
         media_type = "image/png"
     elif ext == ".webp":
         media_type = "image/webp"
+    elif ext == ".bmp":
+        media_type = "image/bmp"
 
     return FileResponse(file_path, media_type=media_type)

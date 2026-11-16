@@ -9,6 +9,7 @@ import '../models/mapping.dart';
 import '../models/audit_log.dart';
 import '../services/excel_service.dart';
 import '../services/storage_service.dart';
+import '../services/supabase_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/approve_dialog.dart';
 import '../widgets/status_badge.dart';
@@ -211,6 +212,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
     if (inv.imageUrl != null && inv.imageUrl!.isNotEmpty) {
       return Image.network(
         inv.imageUrl!,
+        headers: SupabaseService.authHeaders(),
         fit: BoxFit.contain,
         loadingBuilder: (_, child, progress) {
           if (progress == null) return child;
@@ -236,7 +238,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
       builder: (ctx) {
         return Dialog(
           insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 24),
-          backgroundColor: const Color(0xFF0F172A),
+          backgroundColor: AppColors.darkSlate,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Column(
             children: [
@@ -266,12 +268,13 @@ class _ReviewScreenState extends State<ReviewScreen> {
                       ),
                       child: const Text(
                         'Pinch to zoom',
-                        style: TextStyle(color: Colors.white70, fontSize: 11),
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                     ),
                     const SizedBox(width: 6),
                     IconButton(
                       icon: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
+                      tooltip: 'Close',
                       onPressed: () => Navigator.of(ctx).pop(),
                     ),
                   ],
@@ -429,7 +432,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
-              Icon(Icons.check_circle_rounded, color: Color(0xFF2E7D32), size: 28),
+              Icon(Icons.check_circle_rounded, color: AppColors.successGreen, size: 28),
               SizedBox(width: 8),
               Text(
                 'Voucher Approved!',
@@ -474,7 +477,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
     final inv = widget.invoice;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F6F8),
+      backgroundColor: AppColors.surfaceMuted,
       body: Column(
         children: [
           // Sub-header with back button and Status badge
@@ -487,21 +490,28 @@ class _ReviewScreenState extends State<ReviewScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                InkWell(
-                  onTap: widget.onBack,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.arrow_back_rounded, size: 18, color: AppColors.inkNavy),
-                        SizedBox(width: 4),
-                        Text(
-                          'Back',
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.inkNavy),
+                Semantics(
+                  button: true,
+                  label: 'Back to bills',
+                  child: InkWell(
+                    onTap: widget.onBack,
+                    borderRadius: BorderRadius.circular(8),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 48, minHeight: 44),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.arrow_back_rounded, size: 18, color: AppColors.inkNavy),
+                            SizedBox(width: 4),
+                            Text(
+                              'Back',
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.inkNavy),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -553,19 +563,22 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                 textAlign: TextAlign.end,
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,
-                                style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      InkWell(
-                        onTap: () => _showFullScreenZoomModal(context),
-                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-                        child: Container(
+                      Semantics(
+                        button: true,
+                        label: 'Enlarge invoice image preview',
+                        child: InkWell(
+                          onTap: () => _showFullScreenZoomModal(context),
+                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+                          child: Container(
                           height: 220,
                           decoration: const BoxDecoration(
-                            color: Color(0xFF0F172A),
+                            color: AppColors.darkSlate,
                             borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
                           ),
                           child: Stack(
@@ -574,10 +587,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
                               // Image preview (local or remote)
                               _buildInvoiceImage(inv),
 
-                              // Bottom Tap to Enlarge & Zoom Badge
-                              Positioned(
-                                bottom: 10,
-                                right: 12,
+                                Positioned(
+                                  bottom: 10,
+                                  right: 12,
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                   decoration: BoxDecoration(
@@ -594,7 +606,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                         'Tap to enlarge & zoom',
                                         style: TextStyle(
                                           color: Colors.white,
-                                          fontSize: 11,
+                                          fontSize: 12,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
@@ -606,9 +618,10 @@ class _ReviewScreenState extends State<ReviewScreen> {
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+              ),
 
                 // 2. Voucher Header Fields Card (Mapped Tally Ledger removed as requested)
                 Card(
@@ -634,19 +647,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                         const SizedBox(height: 6),
                         TextField(
                           controller: _supplierRawController,
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: const Color(0xFFFDFBFD),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: AppColors.borderSubtle),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: AppColors.borderSubtle),
-                            ),
-                          ),
+                          decoration: _voucherInputDecoration(),
                         ),
                         const SizedBox(height: 12),
 
@@ -661,19 +662,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                   const SizedBox(height: 6),
                                   TextField(
                                     controller: _invoiceNoController,
-                                    decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: const Color(0xFFFDFBFD),
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        borderSide: const BorderSide(color: AppColors.borderSubtle),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        borderSide: const BorderSide(color: AppColors.borderSubtle),
-                                      ),
-                                    ),
+                                    decoration: _voucherInputDecoration(),
                                   ),
                                 ],
                               ),
@@ -687,19 +676,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                   const SizedBox(height: 6),
                                   TextField(
                                     controller: _invoiceDateController,
-                                    decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: const Color(0xFFFDFBFD),
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        borderSide: const BorderSide(color: AppColors.borderSubtle),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        borderSide: const BorderSide(color: AppColors.borderSubtle),
-                                      ),
-                                    ),
+                                    decoration: _voucherInputDecoration(),
                                   ),
                                 ],
                               ),
@@ -713,18 +690,8 @@ class _ReviewScreenState extends State<ReviewScreen> {
                         const SizedBox(height: 6),
                         DropdownButtonFormField<String>(
                           value: _voucherType,
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: const Color(0xFFFDFBFD),
+                          decoration: _voucherInputDecoration(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: AppColors.borderSubtle),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: AppColors.borderSubtle),
-                            ),
                           ),
                           items: const [
                             DropdownMenuItem(value: 'Accounting Purchase', child: Text('Accounting Purchase')),
@@ -768,7 +735,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                   ),
                                   child: const Text(
                                     'Editable',
-                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.plumSlate),
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.plumSlate),
                                   ),
                                 ),
                               ],
@@ -776,12 +743,12 @@ class _ReviewScreenState extends State<ReviewScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF3EDF2),
+                                color: AppColors.pillPlumAltBg,
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
                                 '${_items.length} items',
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.inkNavy),
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.inkNavy),
                               ),
                             ),
                           ],
@@ -789,7 +756,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                         const SizedBox(height: 6),
                         const Text(
                           'Tap any item to edit name, quantity, or price if scanned incorrectly.',
-                          style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                         ),
                         const SizedBox(height: 14),
 
@@ -798,7 +765,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFAF7F9),
+                              color: AppColors.surfaceCardMuted,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: AppColors.borderSubtle),
                             ),
@@ -814,7 +781,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                 const Text(
                                   'Add items manually below to calculate and record voucher.',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                  style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                                 ),
                               ],
                             ),
@@ -828,9 +795,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
                               margin: const EdgeInsets.only(bottom: 12),
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFAF7F9),
+                                color: AppColors.surfaceCardMuted,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFFEADBEC)),
+                                border: Border.all(color: AppColors.borderLavender),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -848,17 +815,17 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                         child: Text(
                                           'Item #${item.lineNo}',
                                           style: const TextStyle(
-                                            fontSize: 11,
+                                            fontSize: 12,
                                             fontWeight: FontWeight.w800,
                                             color: Colors.white,
                                           ),
                                         ),
                                       ),
                                       IconButton(
-                                        icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFDC2626)),
+                                        icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.errorRed),
                                         visualDensity: VisualDensity.compact,
                                         padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
+                                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                                         tooltip: 'Remove item',
                                         onPressed: () => _removeItem(idx),
                                       ),
@@ -869,26 +836,12 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                   // 1. Item Name / Description Field
                                   const Text(
                                     'Item Name / Description',
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.inkNavy),
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.inkNavy),
                                   ),
                                   const SizedBox(height: 4),
                                   TextField(
                                     controller: item.nameController,
-                                    decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: AppColors.surfaceWhite,
-                                      isDense: true,
-                                      hintText: 'e.g. Paracetamol 500mg',
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                        borderSide: const BorderSide(color: AppColors.borderSubtle),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                        borderSide: const BorderSide(color: AppColors.borderSubtle),
-                                      ),
-                                    ),
+                                    decoration: _itemInputDecoration(hintText: 'e.g. Paracetamol 500mg'),
                                     onChanged: (_) => setState(() {}),
                                   ),
                                   const SizedBox(height: 8),
@@ -904,27 +857,15 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                           children: [
                                             const Text(
                                               'Quantity',
-                                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.inkNavy),
+                                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.inkNavy),
                                             ),
                                             const SizedBox(height: 4),
                                             TextField(
                                               controller: item.qtyController,
                                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                              decoration: InputDecoration(
-                                                filled: true,
-                                                fillColor: AppColors.surfaceWhite,
-                                                isDense: true,
+                                              decoration: _itemInputDecoration(
                                                 prefixText: 'Qty ',
-                                                prefixStyle: const TextStyle(fontSize: 11, color: AppColors.textMuted),
-                                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                                border: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  borderSide: const BorderSide(color: AppColors.borderSubtle),
-                                                ),
-                                                enabledBorder: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  borderSide: const BorderSide(color: AppColors.borderSubtle),
-                                                ),
+                                                prefixStyle: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                                               ),
                                               onChanged: (_) => _onItemsChanged(),
                                             ),
@@ -941,27 +882,15 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                           children: [
                                             const Text(
                                               'Price / Rate (₹)',
-                                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.inkNavy),
+                                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.inkNavy),
                                             ),
                                             const SizedBox(height: 4),
                                             TextField(
                                               controller: item.rateController,
                                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                              decoration: InputDecoration(
-                                                filled: true,
-                                                fillColor: AppColors.surfaceWhite,
-                                                isDense: true,
+                                              decoration: _itemInputDecoration(
                                                 prefixText: '₹ ',
                                                 prefixStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.inkNavy),
-                                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                                border: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  borderSide: const BorderSide(color: AppColors.borderSubtle),
-                                                ),
-                                                enabledBorder: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  borderSide: const BorderSide(color: AppColors.borderSubtle),
-                                                ),
                                               ),
                                               onChanged: (_) => _onItemsChanged(),
                                             ),
@@ -978,7 +907,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                     children: [
                                       const Text(
                                         'Line Total:',
-                                        style: TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                                        style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600),
                                       ),
                                       Text(
                                         currencyFormatter.format(item.total),
@@ -1047,43 +976,43 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                 children: const [
                                   Text(
                                     'Discount (-)',
-                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFDC2626)),
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.errorRed),
                                   ),
                                   SizedBox(width: 4),
                                   Text(
                                     '(if any)',
-                                    style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+                                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                                   ),
                                 ],
                               ),
                               SizedBox(
                                 width: 115,
-                                height: 32,
+                                height: 36,
                                 child: TextField(
                                   controller: _discountController,
                                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                   textAlign: TextAlign.end,
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFDC2626)),
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.errorRed),
                                   decoration: InputDecoration(
                                     filled: true,
-                                    fillColor: const Color(0xFFFFF1F2),
+                                    fillColor: AppColors.errorFieldBg,
                                     isDense: true,
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
                                     prefixText: '₹ - ',
-                                    prefixStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFFDC2626)),
+                                    prefixStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.errorRed),
                                     hintText: '0.00',
-                                    hintStyle: const TextStyle(fontSize: 11, color: Color(0xFFFDA4AF)),
+                                    hintStyle: const TextStyle(fontSize: 12, color: AppColors.errorHintText),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(6),
-                                      borderSide: const BorderSide(color: Color(0xFFFECDD3)),
+                                      borderSide: const BorderSide(color: AppColors.errorFieldBorder),
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(6),
-                                      borderSide: const BorderSide(color: Color(0xFFFECDD3)),
+                                      borderSide: const BorderSide(color: AppColors.errorFieldBorder),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(6),
-                                      borderSide: const BorderSide(color: Color(0xFFDC2626), width: 1.5),
+                                      borderSide: const BorderSide(color: AppColors.errorRed, width: 1.5),
                                     ),
                                   ),
                                   onChanged: (_) {
@@ -1157,28 +1086,28 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                   ),
                                   decoration: InputDecoration(
                                     filled: true,
-                                    fillColor: const Color(0xFFF0FDF4),
+                                    fillColor: AppColors.successFieldBg,
                                     isDense: true,
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
                                     prefixText: '₹ ',
                                     prefixStyle: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w800,
-                                      color: Color(0xFF166534),
+                                      color: AppColors.successFieldText,
                                     ),
                                     hintText: '0.00',
-                                    hintStyle: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                    hintStyle: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(8),
-                                      borderSide: const BorderSide(color: Color(0xFFBBF7D0)),
+                                      borderSide: const BorderSide(color: AppColors.successFieldBorder),
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(8),
-                                      borderSide: const BorderSide(color: Color(0xFFBBF7D0)),
+                                      borderSide: const BorderSide(color: AppColors.successFieldBorder),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(8),
-                                      borderSide: const BorderSide(color: Color(0xFF16A34A), width: 1.5),
+                                      borderSide: const BorderSide(color: AppColors.successFocusBorder, width: 1.5),
                                     ),
                                   ),
                                   onChanged: (_) => setState(() {}),
@@ -1225,7 +1154,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                     style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2E7D32), // Distinct Forest Green
+                    backgroundColor: AppColors.successGreen, // Distinct Forest Green
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -1256,7 +1185,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
           ),
           SizedBox(
             width: 115,
-            height: 32,
+            height: 36,
             child: TextField(
               controller: controller,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -1264,13 +1193,13 @@ class _ReviewScreenState extends State<ReviewScreen> {
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.inkNavy),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: const Color(0xFFF8FAFC),
+                fillColor: AppColors.surfaceCoolSlate,
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
                 prefixText: '₹ ',
-                prefixStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.inkNavy),
+                prefixStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.inkNavy),
                 hintText: '0.00',
-                hintStyle: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                hintStyle: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(6),
                   borderSide: const BorderSide(color: AppColors.borderSubtle),
@@ -1289,6 +1218,44 @@ class _ReviewScreenState extends State<ReviewScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  static InputDecoration _voucherInputDecoration({
+    EdgeInsetsGeometry contentPadding = const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+  }) {
+    const border = OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(10)),
+      borderSide: BorderSide(color: AppColors.borderSubtle),
+    );
+    return InputDecoration(
+      filled: true,
+      fillColor: AppColors.surfaceField,
+      contentPadding: contentPadding,
+      border: border,
+      enabledBorder: border,
+    );
+  }
+
+  static InputDecoration _itemInputDecoration({
+    String? hintText,
+    String? prefixText,
+    TextStyle? prefixStyle,
+  }) {
+    const border = OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(8)),
+      borderSide: BorderSide(color: AppColors.borderSubtle),
+    );
+    return InputDecoration(
+      filled: true,
+      fillColor: AppColors.surfaceWhite,
+      isDense: true,
+      hintText: hintText,
+      prefixText: prefixText,
+      prefixStyle: prefixStyle,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      border: border,
+      enabledBorder: border,
     );
   }
 }

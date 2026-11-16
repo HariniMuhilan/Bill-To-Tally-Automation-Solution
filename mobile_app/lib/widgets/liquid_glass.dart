@@ -179,10 +179,13 @@ class LiquidGlass extends StatefulWidget {
   final bool isDarkMaroon;
   final bool isOrangeGloss;
   final bool useBlur;
+  final bool isModalSurface;
   final VoidCallback? onTap;
   final double? width;
   final double? height;
   final AlignmentGeometry? alignment;
+  final String? semanticLabel;
+  final bool? semanticSelected;
 
   const LiquidGlass({
     super.key,
@@ -192,10 +195,13 @@ class LiquidGlass extends StatefulWidget {
     this.isDarkMaroon = false,
     this.isOrangeGloss = false,
     this.useBlur = false,
+    this.isModalSurface = false,
     this.onTap,
     this.width,
     this.height,
     this.alignment,
+    this.semanticLabel,
+    this.semanticSelected,
   });
 
   @override
@@ -225,7 +231,7 @@ class _LiquidGlassState extends State<LiquidGlass> {
           border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFF0580E).withValues(alpha: 0.45),
+              color: AppColors.orangeEnd.withValues(alpha: 0.45),
               blurRadius: 12,
               offset: const Offset(0, 5),
             ),
@@ -277,12 +283,12 @@ class _LiquidGlassState extends State<LiquidGlass> {
               stops: [0.0, 0.4, 1.0],
             ),
             border: Border.all(
-              color: const Color(0xFFFFBED7).withValues(alpha: 0.35),
+              color: AppColors.pinkGlow.withValues(alpha: 0.35),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF6A1634).withValues(alpha: 0.35),
+                color: AppColors.maroonShadow.withValues(alpha: 0.35),
                 blurRadius: 24,
                 offset: const Offset(0, 10),
               ),
@@ -304,7 +310,7 @@ class _LiquidGlassState extends State<LiquidGlass> {
                       gradient: RadialGradient(
                         colors: [
                           Colors.white.withValues(alpha: 0.25),
-                          const Color(0xFFFFBED7).withValues(alpha: 0.12),
+                          AppColors.pinkGlow.withValues(alpha: 0.12),
                           Colors.transparent,
                         ],
                       ),
@@ -347,10 +353,15 @@ class _LiquidGlassState extends State<LiquidGlass> {
           gradient: LinearGradient(
             begin: const Alignment(-0.8, -1.0),
             end: const Alignment(0.8, 1.0),
-            colors: [
-              Colors.white.withValues(alpha: 0.72),
-              const Color(0xFFFFF0E6).withValues(alpha: 0.50),
-            ],
+            colors: widget.isModalSurface
+                ? [
+                    Colors.white.withValues(alpha: 0.96),
+                    AppColors.blushIvory.withValues(alpha: 0.94),
+                  ]
+                : [
+                    Colors.white.withValues(alpha: 0.72),
+                    AppColors.warmPeachTint.withValues(alpha: 0.50),
+                  ],
           ),
           border: Border.all(
             color: Colors.white.withValues(alpha: 0.85),
@@ -358,7 +369,7 @@ class _LiquidGlassState extends State<LiquidGlass> {
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFC86E46).withValues(alpha: 0.14),
+              color: AppColors.warmOrangeShadow.withValues(alpha: 0.14),
               blurRadius: 14,
               offset: const Offset(0, 6),
             ),
@@ -408,20 +419,162 @@ class _LiquidGlassState extends State<LiquidGlass> {
     }
 
     if (widget.onTap != null) {
-      return GestureDetector(
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) => setState(() => _isPressed = false),
-        onTapCancel: () => setState(() => _isPressed = false),
-        onTap: widget.onTap,
-        child: AnimatedScale(
-          scale: _isPressed ? 0.97 : 1.0,
-          duration: const Duration(milliseconds: 100),
-          curve: Curves.easeInOut,
-          child: content,
+      final disableAnimations = MediaQuery.disableAnimationsOf(context);
+      final radius = BorderRadius.circular(widget.borderRadius);
+
+      final interactive = AnimatedScale(
+        scale: (!disableAnimations && _isPressed) ? 0.97 : 1.0,
+        duration: disableAnimations ? Duration.zero : const Duration(milliseconds: 100),
+        curve: Curves.easeInOut,
+        child: Stack(
+          children: [
+            content,
+            Positioned.fill(
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: radius,
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: widget.onTap,
+                  borderRadius: radius,
+                  onHighlightChanged: (pressed) {
+                    if (mounted && _isPressed != pressed) {
+                      setState(() => _isPressed = pressed);
+                    }
+                  },
+                ),
+              ),
+            ),
+          ],
         ),
+      );
+
+      if (widget.semanticLabel != null || widget.semanticSelected != null) {
+        return Semantics(
+          container: true,
+          button: true,
+          enabled: true,
+          selected: widget.semanticSelected,
+          label: widget.semanticLabel,
+          child: interactive,
+        );
+      }
+      return interactive;
+    }
+
+    if (widget.semanticLabel != null) {
+      return Semantics(
+        container: true,
+        button: true,
+        enabled: false,
+        selected: widget.semanticSelected,
+        label: widget.semanticLabel,
+        child: content,
       );
     }
 
     return content;
+  }
+}
+
+/// Shared frosted-glass text input field with accessible password toggle
+/// (>= 44x44dp hit target via IconButton + descriptive tooltip/semantics).
+class FrostedInputField extends StatelessWidget {
+  final TextEditingController controller;
+  final IconData icon;
+  final String? hintText;
+  final String? semanticLabel;
+  final TextInputType? keyboardType;
+  final bool obscureText;
+  final bool hasError;
+  final VoidCallback? onToggleObscure;
+
+  const FrostedInputField({
+    super.key,
+    required this.controller,
+    required this.icon,
+    this.hintText,
+    this.semanticLabel,
+    this.keyboardType,
+    this.obscureText = false,
+    this.hasError = false,
+    this.onToggleObscure,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.75),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: hasError
+              ? AppColors.errorRed.withValues(alpha: 0.8)
+              : Colors.white.withValues(alpha: 0.90),
+          width: hasError ? 1.5 : 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: hasError
+                ? AppColors.errorRed.withValues(alpha: 0.08)
+                : AppColors.warmOrangeShadow.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.only(left: 14, right: onToggleObscure != null ? 4 : 14),
+      child: Row(
+        children: [
+          ExcludeSemantics(
+            child: Icon(
+              icon,
+              size: 19,
+              color: hasError ? AppColors.errorRed : AppColors.maroonDark.withValues(alpha: 0.70),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Semantics(
+              textField: true,
+              label: semanticLabel ?? hintText,
+              child: TextField(
+                controller: controller,
+                obscureText: obscureText,
+                keyboardType: keyboardType,
+                style: AppTypography.fontM(
+                  color: AppColors.brandInk,
+                  fontWeight: FontWeight.w600,
+                ),
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  hintText: hintText,
+                  hintStyle: TextStyle(
+                    color: AppColors.brandInk.withValues(alpha: 0.55),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (onToggleObscure != null)
+            IconButton(
+              onPressed: onToggleObscure,
+              tooltip: obscureText ? 'Show password' : 'Hide password',
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              padding: EdgeInsets.zero,
+              icon: Icon(
+                obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                color: AppColors.maroonDark.withValues(alpha: 0.70),
+                size: 19,
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }

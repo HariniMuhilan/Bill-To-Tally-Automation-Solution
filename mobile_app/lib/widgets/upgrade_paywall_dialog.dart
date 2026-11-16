@@ -124,7 +124,11 @@ class UpgradePaywallDialog extends StatelessWidget {
                 const SizedBox(height: 22),
 
                 // Upgrade / Pay Button
-                GestureDetector(
+                LiquidGlass(
+                  isOrangeGloss: true,
+                  borderRadius: 14,
+                  height: 48,
+                  semanticLabel: 'Upgrade to Pro, 499 rupees per month',
                   onTap: () {
                     if (onUpgrade != null) {
                       onUpgrade!();
@@ -132,38 +136,19 @@ class UpgradePaywallDialog extends StatelessWidget {
                       Navigator.of(context).pop(true);
                     }
                   },
-                  child: Container(
-                    width: double.infinity,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.orangeStart, AppColors.orangeEnd],
-                      ),
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.orange.withValues(alpha: 0.35),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.lock_open_rounded, size: 18, color: Colors.white),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Upgrade to Pro — ₹499/mo',
+                        style: AppTypography.fontM(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
                         ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.lock_open_rounded, size: 18, color: Colors.white),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Upgrade to Pro — ₹499/mo',
-                            style: AppTypography.fontM(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
                       ),
-                    ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -171,6 +156,9 @@ class UpgradePaywallDialog extends StatelessWidget {
                 // Maybe Later Dismiss
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(false),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(88, 44),
+                  ),
                   child: Text(
                     'Maybe Later',
                     style: AppTypography.fontS(
