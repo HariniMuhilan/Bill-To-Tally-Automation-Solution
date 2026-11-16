@@ -257,3 +257,4 @@ export default function UpdatePaymentModal({ isOpen, onClose, user, onConfirmPay
     </div>
   );
 }
+

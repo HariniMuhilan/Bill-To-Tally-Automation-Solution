@@ -247,3 +247,4 @@ export function calculateDaysRemaining(deadlineDateStr) {
     return { days: diffDays, status: 'SAFE' };
   }
 }
+

@@ -249,3 +249,4 @@ export default function ApproveModal({ isOpen, onClose, user, onConfirmApprove }
     </div>
   );
 }
+

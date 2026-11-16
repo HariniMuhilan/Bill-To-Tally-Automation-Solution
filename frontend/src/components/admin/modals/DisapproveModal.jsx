@@ -24,12 +24,12 @@ export default function DisapproveModal({ isOpen, onClose, user, onConfirmDisapp
         <div className="modal-header" style={{ borderBottom: '1px solid #E8E0E5' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div className="modal-icon-badge" style={{ background: '#FEE2E2', color: '#B91C1C' }}>
-              <i className="fa-solid fa-user-xmark"></i>
+              <i className="fa-solid fa-ban"></i>
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#111522' }}>Disapprove User Account</h3>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#111522' }}>Block User Account</h3>
               <p style={{ margin: 0, fontSize: '0.82rem', color: '#80536F' }}>
-                Payment verification failed or pending
+                Payment not done or verification pending
               </p>
             </div>
           </div>
@@ -42,7 +42,8 @@ export default function DisapproveModal({ isOpen, onClose, user, onConfirmDisapp
           <div className="modal-body" style={{ padding: '20px 24px' }}>
             <div style={{ background: '#FFF5F5', padding: '12px 14px', borderRadius: '8px', border: '1px solid #FED7D7', marginBottom: '16px' }}>
               <div style={{ fontWeight: 600, color: '#9B2C2C', fontSize: '0.88rem' }}>
-                Disapproving {user.shopName}
+                <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px' }}></i>
+                Blocking {user.shopName}
               </div>
               <div style={{ fontSize: '0.8rem', color: '#742A2A', marginTop: '4px' }}>
                 Owner: {user.ownerName} &bull; Monthly Fee: ₹{user.monthlyFee}
@@ -51,7 +52,7 @@ export default function DisapproveModal({ isOpen, onClose, user, onConfirmDisapp
 
             <div className="form-group" style={{ marginBottom: '16px' }}>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#111522', marginBottom: '6px' }}>
-                Reason for Disapproval *
+                Reason for Blocking *
               </label>
               <select
                 className="auth-input"
@@ -91,7 +92,7 @@ export default function DisapproveModal({ isOpen, onClose, user, onConfirmDisapp
               <textarea
                 className="auth-input"
                 rows="3"
-                placeholder="e.g. Called client on Nov 16, promised to pay via UPI by evening."
+                placeholder="e.g. Blocked due to unpaid invoice for November. Awaiting client response."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
@@ -107,8 +108,8 @@ export default function DisapproveModal({ isOpen, onClose, user, onConfirmDisapp
               className="btn btn-primary"
               style={{ background: '#B91C1C', borderColor: '#B91C1C', color: '#fff', fontWeight: 600 }}
             >
-              <i className="fa-solid fa-user-xmark" style={{ marginRight: '6px' }}></i>
-              Confirm Disapproval
+              <i className="fa-solid fa-ban" style={{ marginRight: '6px' }}></i>
+              Confirm Block
             </button>
           </div>
         </form>

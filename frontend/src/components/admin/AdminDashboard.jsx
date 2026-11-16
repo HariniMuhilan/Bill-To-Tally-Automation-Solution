@@ -61,24 +61,24 @@ export default function AdminDashboard({ admin, onLogout, onShowToast }) {
     onShowToast(`User approved! Credentials issued for ${approvedTarget?.shopName || 'client'}.`, 'success');
   }
 
-  // 2. DISAPPROVE USER
+  // 2. BLOCK USER (WHEN PAYMENT NOT DONE)
   function handleConfirmDisapprove({ userId, reason, suspendCredentials, notes }) {
     setUsers(prev => prev.map(u => {
       if (u.id !== userId) return u;
       return {
         ...u,
-        accountStatus: 'DISAPPROVED',
+        accountStatus: 'BLOCKED',
         paymentStatus: u.paymentStatus === 'PAID' ? 'PENDING' : u.paymentStatus,
         credentials: u.credentials ? {
           ...u.credentials,
           active: !suspendCredentials
         } : null,
-        notes: `${reason}. ${notes}`.trim()
+        notes: `BLOCKED: ${reason}. ${notes}`.trim()
       };
     }));
 
     const target = users.find(u => u.id === userId);
-    onShowToast(`Account for ${target?.shopName} disapproved. Reason: ${reason}`, 'warning');
+    onShowToast(`Account for ${target?.shopName} blocked. Reason: ${reason}`, 'warning');
   }
 
   // 3. BLOCK / UNBLOCK USER
@@ -272,3 +272,4 @@ export default function AdminDashboard({ admin, onLogout, onShowToast }) {
     </div>
   );
 }
+

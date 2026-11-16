@@ -38,7 +38,8 @@ export default function UserManagementTable({
       (u.credentials?.username && u.credentials.username.toLowerCase().includes(q));
 
     // Status filter
-    const matchesStatus = statusFilter === 'ALL' || u.accountStatus === statusFilter;
+    const matchesStatus = statusFilter === 'ALL' ||
+      (statusFilter === 'BLOCKED' ? (u.accountStatus === 'BLOCKED' || u.accountStatus === 'DISAPPROVED') : u.accountStatus === statusFilter);
 
     // Payment filter
     const matchesPayment = paymentFilter === 'ALL' || u.paymentStatus === paymentFilter;
@@ -121,7 +122,6 @@ export default function UserManagementTable({
               <option value="ALL">All Account Statuses</option>
               <option value="APPROVED">Approved & Active</option>
               <option value="PENDING_APPROVAL">Pending Approval</option>
-              <option value="DISAPPROVED">Disapproved</option>
               <option value="BLOCKED">Blocked</option>
             </select>
           </div>
@@ -373,11 +373,14 @@ export default function UserManagementTable({
                     {/* 5. Account Status */}
                     <td>
                       <div className="status-cell-wrap">
-                        <span className={`admin-pill pill-status-${user.accountStatus.toLowerCase()}`}>
+                        <span className={`admin-pill ${
+                          user.accountStatus === 'APPROVED' ? 'pill-status-approved' :
+                          user.accountStatus === 'PENDING_APPROVAL' ? 'pill-status-pending_approval' :
+                          'pill-status-blocked'
+                        }`}>
                           {user.accountStatus === 'APPROVED' && 'APPROVED'}
                           {user.accountStatus === 'PENDING_APPROVAL' && 'PENDING'}
-                          {user.accountStatus === 'DISAPPROVED' && 'DISAPPROVED'}
-                          {user.accountStatus === 'BLOCKED' && 'BLOCKED'}
+                          {(user.accountStatus === 'DISAPPROVED' || user.accountStatus === 'BLOCKED') && 'BLOCKED'}
                         </span>
                       </div>
                     </td>
@@ -397,15 +400,15 @@ export default function UserManagementTable({
                           </button>
                         )}
 
-                        {/* DISAPPROVE BUTTON (if payment not done) */}
-                        {user.accountStatus !== 'DISAPPROVED' && (
+                        {/* BLOCK BUTTON (if payment not done) */}
+                        {user.accountStatus !== 'BLOCKED' && user.accountStatus !== 'DISAPPROVED' && (
                           <button
                             type="button"
                             className="btn-action-pill btn-action-disapprove"
                             onClick={() => onDisapproveUser(user)}
-                            title="Disapprove user if payment is not done"
+                            title="Block user if payment is not done"
                           >
-                            <i className="fa-solid fa-xmark"></i> Disapprove
+                            <i className="fa-solid fa-ban"></i> Block
                           </button>
                         )}
 

@@ -124,3 +124,4 @@ export default function BlockModal({ isOpen, onClose, user, onConfirmBlockToggle
     </div>
   );
 }
+

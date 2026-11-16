@@ -4,8 +4,7 @@ export default function AdminStatsCards({ users }) {
   const total = users.length;
   const approved = users.filter(u => u.accountStatus === 'APPROVED').length;
   const pending = users.filter(u => u.accountStatus === 'PENDING_APPROVAL').length;
-  const disapproved = users.filter(u => u.accountStatus === 'DISAPPROVED').length;
-  const blocked = users.filter(u => u.accountStatus === 'BLOCKED').length;
+  const blocked = users.filter(u => u.accountStatus === 'BLOCKED' || u.accountStatus === 'DISAPPROVED').length;
 
   const paidCount = users.filter(u => u.paymentStatus === 'PAID').length;
   const overdueCount = users.filter(u => u.paymentStatus === 'OVERDUE').length;
@@ -45,9 +44,9 @@ export default function AdminStatsCards({ users }) {
     },
     {
       id: 'overdue',
-      label: 'OVERDUE / DISAPPROVED',
-      value: `${overdueCount} / ${disapproved}`,
-      subtext: 'Payment pending or overdue',
+      label: 'OVERDUE PAYMENTS',
+      value: overdueCount,
+      subtext: 'Subscriptions past deadline',
       icon: 'fa-solid fa-triangle-exclamation',
       color: '#B91C1C',
       bg: '#FEE2E2'
@@ -91,3 +90,4 @@ export default function AdminStatsCards({ users }) {
     </div>
   );
 }
+
