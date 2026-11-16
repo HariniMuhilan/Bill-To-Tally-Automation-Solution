@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import billbooksLogo from '../../assets/billbooks_logo.svg';
-import { getAdminCredentials } from '../../data/adminMockData';
+import { API_BASE, saveAdminToken, clearAdminToken } from '../../services/adminApi';
 import ForgotPasswordModal from './modals/ForgotPasswordModal';
+
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || 'https://fechwdczejepckkhbizm.supabase.co').replace(/\/+$/, '');
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_JkKCUhgqkhXb20YR-r2ZMw_tBYq-77z';
 
 export default function AdminLogin({ onLoginSuccess, onShowToast }) {
   const [username, setUsername] = useState('');
@@ -12,37 +15,78 @@ export default function AdminLogin({ onLoginSuccess, onShowToast }) {
   const [loading, setLoading] = useState(false);
   const [forgotModalOpen, setForgotModalOpen] = useState(false);
 
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e.preventDefault();
     setErrorMsg('');
+    const email = username.trim();
 
-    const creds = getAdminCredentials();
-    const enteredUser = username.trim().toLowerCase();
-    const isUserMatch = enteredUser === creds.username.toLowerCase() || enteredUser === creds.email.toLowerCase();
-    const isPassMatch = password === creds.password;
-
-    if (!isUserMatch || !isPassMatch) {
-      setErrorMsg('Invalid administrator credentials. Please check your username and password.');
+    if (!email || !password) {
+      setErrorMsg('Please enter your administrator email and password.');
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      onLoginSuccess(creds, rememberMe);
-    }, 450);
-  }
 
-  function handleDemoLogin() {
-    setUsername('admin');
-    setPassword('admin@2026');
-    setErrorMsg('');
-    setLoading(true);
-    const creds = getAdminCredentials();
-    setTimeout(() => {
+    try {
+      // 1. Authenticate with Supabase Auth REST API
+      const authRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+        }),
+      });
+
+      if (!authRes.ok) {
+        const errJson = await authRes.json().catch(() => ({}));
+        const message = errJson.error_description || errJson.msg || 'Invalid administrator email or password.';
+        setErrorMsg(message);
+        setLoading(false);
+        return;
+      }
+
+      const authData = await authRes.json();
+      const accessToken = authData.access_token;
+      saveAdminToken(accessToken, rememberMe);
+
+      // 2. Verify admin privilege against FastAPI /api/admin/users
+      const verifyRes = await fetch(`${API_BASE}/api/admin/users`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (verifyRes.status === 403) {
+        clearAdminToken();
+        setErrorMsg('This account is authenticated, but is not authorized in ADMIN_EMAILS as an administrator.');
+        setLoading(false);
+        return;
+      }
+
+      if (!verifyRes.ok && verifyRes.status !== 200) {
+        const errJson = await verifyRes.json().catch(() => ({}));
+        setErrorMsg(errJson.detail || `Backend verification error (${verifyRes.status}). Check server status.`);
+        setLoading(false);
+        return;
+      }
+
+      // Authorized admin session confirmed
       setLoading(false);
-      onLoginSuccess(creds, true);
-    }, 400);
+      onLoginSuccess({
+        email: authData.user?.email || email,
+        fullName: authData.user?.user_metadata?.full_name || authData.user?.email?.split('@')[0] || 'Administrator',
+      }, rememberMe);
+
+    } catch (err) {
+      clearAdminToken();
+      setErrorMsg(`Authentication failed: ${err.message || 'Cannot reach server'}`);
+      setLoading(false);
+    }
   }
 
   return (
@@ -156,23 +200,6 @@ export default function AdminLogin({ onLoginSuccess, onShowToast }) {
                 ) : (
                   <span><i className="fa-solid fa-arrow-right-to-bracket"></i> Login to Admin Dashboard</span>
                 )}
-              </button>
-
-              <div style={{ textAlign: 'center', margin: '16px 0 10px 0', position: 'relative' }}>
-                <span style={{ background: '#FFFFFF', padding: '0 10px', fontSize: '0.78rem', color: '#80536F', position: 'relative', zIndex: 1 }}>
-                  OR QUICK ACCESS
-                </span>
-                <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '1px', background: '#E8E0E5' }}></div>
-              </div>
-
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={handleDemoLogin}
-                style={{ width: '100%', padding: '10px', fontSize: '0.85rem', fontWeight: 600, background: '#F7F2F4', border: '1px solid #E8E0E5', color: '#493044' }}
-              >
-                <i className="fa-solid fa-bolt" style={{ color: '#FF9900', marginRight: '6px' }}></i>
-                Quick Demo Admin Login (<code>admin / admin@2026</code>)
               </button>
             </form>
           </section>

@@ -3,7 +3,10 @@
  * Interfaces with FastAPI /api/admin/* and /api/* endpoints
  */
 
-const API_BASE = '';
+export const API_BASE = (
+  import.meta.env.VITE_API_BASE ||
+  'https://bill-to-tally-automation-solution-l68w.onrender.com'
+).replace(/\/+$/, '');
 
 function getAuthHeader() {
   const token = sessionStorage.getItem('billbooks_admin_jwt') || localStorage.getItem('billbooks_admin_jwt');

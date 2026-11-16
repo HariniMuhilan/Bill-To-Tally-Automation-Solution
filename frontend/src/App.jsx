@@ -12,10 +12,14 @@ export default function App() {
   // Handle static compliance URL fallbacks
   useEffect(() => {
     const path = window.location.pathname;
-    if (path === '/email-confirmed') {
+    if (path === '/email-confirmed' || path === '/email-confirmed/') {
       window.location.replace('/email-confirmed/index.html');
-    } else if (path === '/delete-account') {
+    } else if (path === '/delete-account' || path === '/delete-account/') {
       window.location.replace('/delete-account/index.html');
+    } else if (path === '/privacy-policy' || path === '/privacy-policy/') {
+      window.location.replace('/privacy-policy/index.html');
+    } else if (path === '/terms' || path === '/terms/') {
+      window.location.replace('/terms/index.html');
     }
   }, []);
 

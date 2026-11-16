@@ -175,6 +175,10 @@
         </ul>
       </div>
 
+      <div id="error-alert" style="display: none; background: #FDEDEC; border: 1px solid #F5C6CB; color: #721C24; padding: 12px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 0.85rem;">
+        <i class="fa-solid fa-triangle-exclamation"></i> <span id="error-text"></span>
+      </div>
+
       <form id="deletion-form">
         <div class="form-group">
           <label for="email">Registered Email Address *</label>
@@ -226,25 +230,35 @@
     document.getElementById('deletion-form').addEventListener('submit', async function(e) {
       e.preventDefault();
       const btn = document.getElementById('submit-btn');
+      const errorAlert = document.getElementById('error-alert');
+      const errorText = document.getElementById('error-text');
+      errorAlert.style.display = 'none';
+
       btn.disabled = true;
       btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Submitting...';
 
       const email = document.getElementById('email').value.trim();
       const phone = document.getElementById('phone').value.trim();
       const reason = document.getElementById('reason').value.trim();
+      const API_URL = 'https://bill-to-tally-automation-solution-l68w.onrender.com/api/public/deletion-requests';
 
       try {
-        const res = await fetch('/api/public/deletion-requests', {
+        const res = await fetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, phone, reason })
         });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `Server returned status ${res.status}`);
+        }
         document.getElementById('form-container').style.display = 'none';
         document.getElementById('success-container').style.display = 'block';
       } catch (err) {
-        // Even if offline, show confirmation receipt
-        document.getElementById('form-container').style.display = 'none';
-        document.getElementById('success-container').style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-user-xmark"></i> Submit Deletion Request';
+        errorText.textContent = 'Submission error: ' + (err.message || 'Please check your internet connection.');
+        errorAlert.style.display = 'block';
       }
     });
   </script>
