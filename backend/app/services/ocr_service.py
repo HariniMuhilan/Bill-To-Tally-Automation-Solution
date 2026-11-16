@@ -199,6 +199,19 @@ class MockOCRAdapter(BaseOCRAdapter):
                 average_confidence=0.0,
             )
 
+        # Blank or uniform image check (e.g., blank white / black canvas in tests)
+        try:
+            img_np = load_image_as_numpy(image_input)
+            if float(img_np.std()) < 1.0:
+                return OCRResult(
+                    raw_text="",
+                    lines=[],
+                    page_count=1,
+                    average_confidence=0.0,
+                )
+        except Exception:
+            pass
+
         # Default synthetic invoice lines for testing
         lines = [
             OCRLine(text="TAX INVOICE", confidence=0.99, bbox=[[10, 10], [100, 10], [100, 25], [10, 25]]),
