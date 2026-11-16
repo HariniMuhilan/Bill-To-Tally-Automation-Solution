@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/widgets.dart';
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile_app/models/audit_log.dart';
 import 'package:mobile_app/models/draft_sheet.dart';
@@ -217,24 +217,28 @@ void main() {
       expect(storage.getInvoices().map((e) => e.id), ['INV-REAL']);
     });
 
-    test('enforces 2 free scan limit per user and respects Pro/exempt accounts', () async {
+    test('manages single-device session and subscription state correctly', () async {
       final storage = await StorageService.init();
 
-      expect(storage.isUserExempt('Admin '), isTrue);
-      expect(storage.canUserScan('admin'), isTrue);
+      expect(storage.activeDeviceSessionId, isNull);
+      await storage.setActiveDeviceSessionId('session-uuid-1234');
+      expect(storage.activeDeviceSessionId, 'session-uuid-1234');
 
-      const user = 'TrialUser@Example.com';
-      expect(storage.canUserScan(user), isTrue);
-      await storage.incrementFreeScansUsed(user);
-      expect(storage.getFreeScansUsed('trialuser@example.com'), 1);
-      expect(storage.canUserScan(user), isTrue);
+      expect(storage.isScanAllowed, isTrue);
+      await storage.setScanAllowed(false);
+      expect(storage.isScanAllowed, isFalse);
 
-      await storage.incrementFreeScansUsed(user);
-      expect(storage.getFreeScansUsed(user), 2);
-      expect(storage.canUserScan(user), isFalse);
+      await storage.setSubscriptionStatus('active');
+      expect(storage.subscriptionStatus, 'active');
 
-      await storage.setUserPro(user, true);
-      expect(storage.canUserScan(user), isTrue);
+      await storage.setSubscriptionStartDate('2026-03-01');
+      await storage.setSubscriptionEndDate('2026-04-01');
+      expect(storage.subscriptionStartDate, '2026-03-01');
+      expect(storage.subscriptionEndDate, '2026-04-01');
+
+      await storage.clearAllUserData();
+      expect(storage.activeDeviceSessionId, isNull);
+      expect(storage.getUser(), isNull);
     });
   });
 }

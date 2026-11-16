@@ -20,16 +20,13 @@ class StorageService {
   static const String _keyPostingEnabled = 'bill_to_tally_mobile_posting_enabled';
 
   static const String _keyCleanedOldData = 'bill_to_tally_mobile_cleaned_v5';
-  static const String _keyFreeScansPrefix = 'bill_to_tally_free_scans_';
-  static const String _keyProPrefix = 'bill_to_tally_pro_user_';
+  static const String _keyActiveSessionId = 'bill_to_tally_active_session_id';
+  static const String _keyScanAllowed = 'bill_to_tally_is_scan_allowed';
+  static const String _keySubStatus = 'bill_to_tally_sub_status';
+  static const String _keySubStart = 'bill_to_tally_sub_start';
+  static const String _keySubEnd = 'bill_to_tally_sub_end';
 
   static final RegExp _scopeSanitizer = RegExp(r'[^a-z0-9_@.-]');
-
-  static const Set<String> _exemptAccounts = {
-    'admin',
-    'accounts_user_01',
-    'operator',
-  };
 
   static const String defaultApiUrl = 'https://bill-to-tally-automation-solution.onrender.com';
 
@@ -231,41 +228,68 @@ class StorageService {
     await _writeScopedList(_keyAudit, logs, (a) => a.toJson());
   }
 
-  // --- Free Bill Quota & Pro Membership ---
+  // --- Device Session (Single-Device Enforcement) ---
 
-  bool isUserExempt(String? username) {
-    final normalized = _normalizeUsername(username);
-    return normalized.isNotEmpty && _exemptAccounts.contains(normalized);
+  String? get activeDeviceSessionId => _prefs.getString(_keyActiveSessionId);
+
+  Future<void> setActiveDeviceSessionId(String? sessionId) async {
+    if (sessionId == null || sessionId.isEmpty) {
+      await _prefs.remove(_keyActiveSessionId);
+    } else {
+      await _prefs.setString(_keyActiveSessionId, sessionId);
+    }
   }
 
-  bool isUserPro(String? username) {
-    final normalized = _normalizeUsername(username);
-    if (normalized.isEmpty) return false;
-    if (_exemptAccounts.contains(normalized)) return true;
-    return _prefs.getBool('$_keyProPrefix$normalized') ?? false;
+  // --- Subscription State (Admin-Provisioned & Expiry-Gated) ---
+
+  bool get isScanAllowed => _prefs.getBool(_keyScanAllowed) ?? true;
+
+  Future<void> setScanAllowed(bool allowed) async {
+    await _prefs.setBool(_keyScanAllowed, allowed);
   }
 
-  Future<void> setUserPro(String? username, bool isPro) async {
-    final normalized = _normalizeUsername(username);
-    if (normalized.isEmpty) return;
-    await _prefs.setBool('$_keyProPrefix$normalized', isPro);
+  String? get subscriptionStatus => _prefs.getString(_keySubStatus);
+
+  Future<void> setSubscriptionStatus(String? status) async {
+    if (status == null) {
+      await _prefs.remove(_keySubStatus);
+    } else {
+      await _prefs.setString(_keySubStatus, status);
+    }
   }
 
-  int getFreeScansUsed(String? username) {
-    final normalized = _normalizeUsername(username);
-    if (normalized.isEmpty) return 0;
-    return _prefs.getInt('$_keyFreeScansPrefix$normalized') ?? 0;
+  String? get subscriptionStartDate => _prefs.getString(_keySubStart);
+
+  Future<void> setSubscriptionStartDate(String? date) async {
+    if (date == null) {
+      await _prefs.remove(_keySubStart);
+    } else {
+      await _prefs.setString(_keySubStart, date);
+    }
   }
 
-  Future<void> incrementFreeScansUsed(String? username) async {
-    final normalized = _normalizeUsername(username);
-    if (normalized.isEmpty) return;
-    final current = getFreeScansUsed(normalized);
-    await _prefs.setInt('$_keyFreeScansPrefix$normalized', current + 1);
+  String? get subscriptionEndDate => _prefs.getString(_keySubEnd);
+
+  Future<void> setSubscriptionEndDate(String? date) async {
+    if (date == null) {
+      await _prefs.remove(_keySubEnd);
+    } else {
+      await _prefs.setString(_keySubEnd, date);
+    }
   }
 
-  bool canUserScan(String? username) {
-    if (isUserPro(username)) return true;
-    return getFreeScansUsed(username) < 2;
+  /// Wipes all user data, cached vouchers, drafts, and device credentials (for account deletion or logout)
+  Future<void> clearAllUserData() async {
+    await _prefs.remove(_keyUser);
+    await _prefs.remove(_keyActiveSessionId);
+    await _prefs.remove(_keyScanAllowed);
+    await _prefs.remove(_keySubStatus);
+    await _prefs.remove(_keySubStart);
+    await _prefs.remove(_keySubEnd);
+    await _prefs.remove(_scopedKey(_keyInvoices));
+    await _prefs.remove(_scopedKey(_keyDrafts));
+    await _prefs.remove(_scopedKey(_keyMappings));
+    await _prefs.remove(_scopedKey(_keyAudit));
+    _cachedUser = null;
   }
 }

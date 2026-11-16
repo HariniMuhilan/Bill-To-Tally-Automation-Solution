@@ -10,9 +10,7 @@ import '../widgets/liquid_glass.dart';
 import 'inbox_screen.dart';
 import 'review_screen.dart';
 import 'tally_connector_screen.dart';
-import 'audit_trail_screen.dart';
-import 'upgrade_screen.dart';
-import '../widgets/upgrade_paywall_dialog.dart';
+import '../services/supabase_service.dart';
 
 class HomeShell extends StatefulWidget {
   final StorageService storage;
@@ -44,6 +42,7 @@ class _HomeShellState extends State<HomeShell> {
   void initState() {
     super.initState();
     _loadInitialData();
+    _refreshSubscriptionAndSync();
   }
 
   void _loadInitialData() {
@@ -55,6 +54,71 @@ class _HomeShellState extends State<HomeShell> {
     });
   }
 
+  Future<void> _refreshSubscriptionAndSync() async {
+    try {
+      final statusRes = await widget.api.getSubscriptionStatus();
+      if (statusRes.success && statusRes.data != null) {
+        final data = statusRes.data!;
+        final isAllowed = data['is_scan_allowed'] == true;
+        await widget.storage.setScanAllowed(isAllowed);
+        await widget.storage.setSubscriptionStatus(data['status']?.toString());
+        await widget.storage.setSubscriptionStartDate(data['subscription_start']?.toString());
+        await widget.storage.setSubscriptionEndDate(data['subscription_end']?.toString());
+        if (mounted) setState(() {});
+      }
+    } catch (_) {}
+
+    // Cross-device sync: fetch draft sheets from backend
+    try {
+      final sheetsRes = await widget.api.fetchDraftSheets();
+      if (sheetsRes.success && sheetsRes.data != null) {
+        final remoteList = sheetsRes.data!;
+        if (remoteList.isNotEmpty) {
+          final List<DraftSheet> remoteDrafts = [];
+          for (final item in remoteList) {
+            if (item is Map) {
+              final rawRows = (item['rows_json'] as List?) ?? [];
+              final invList = rawRows.map((r) => Invoice.fromJson(r as Map<String, dynamic>)).toList();
+              remoteDrafts.add(
+                DraftSheet(
+                  id: item['sheet_id']?.toString() ?? '',
+                  fileName: item['sheet_name']?.toString() ?? 'Vouchers.xlsx',
+                  createdAt: item['updated_at']?.toString() ?? '',
+                  updatedAt: item['updated_at']?.toString() ?? '',
+                  totalAmount: invList.fold(0.0, (sum, i) => sum + i.grandTotal),
+                  invoices: invList,
+                ),
+              );
+            }
+          }
+          if (remoteDrafts.isNotEmpty) {
+            final localMap = {for (var d in _draftSheets) d.id: d};
+            for (final rd in remoteDrafts) {
+              localMap[rd.id] = rd;
+            }
+            final merged = localMap.values.toList();
+            if (mounted) {
+              setState(() => _draftSheets = merged);
+              widget.storage.saveDraftSheets(merged);
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _syncDraftSheetsToBackend(List<DraftSheet> sheets) async {
+    try {
+      final payload = sheets.map((s) => {
+        'sheet_id': s.id,
+        'sheet_name': s.fileName,
+        'rows_json': s.invoices.map((i) => i.toJson()).toList(),
+        'updated_at': s.updatedAt.isNotEmpty ? s.updatedAt : DateTime.now().toIso8601String(),
+      }).toList();
+      await widget.api.syncDraftSheets(payload);
+    } catch (_) {}
+  }
+
   void _selectInvoiceForReview(Invoice inv) {
     setState(() {
       _selectedReviewInvoice = inv;
@@ -63,11 +127,8 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   void _handleQuickCameraCapture() {
-    if (!widget.storage.canUserScan(widget.user.username)) {
-      UpgradePaywallDialog.show(
-        context,
-        onUpgrade: () => setState(() => _currentIndex = 3),
-      );
+    if (!widget.storage.isScanAllowed) {
+      _showScanDisabledDialog();
       return;
     }
     if (_currentIndex != 0) {
@@ -78,6 +139,41 @@ class _HomeShellState extends State<HomeShell> {
     } else {
       _inboxKey.currentState?.handleCaptureCamera();
     }
+  }
+
+  void _showScanDisabledDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.lock_clock_rounded, color: AppColors.orange, size: 26),
+            SizedBox(width: 10),
+            Text(
+              'Scanning Disabled',
+              style: TextStyle(
+                fontFamily: 'DM Sans',
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+                color: AppColors.brandInk,
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Your shop subscription is currently inactive, expired, or pending renewal.\n\nScanning new bills is temporarily disabled, but you can continue to view, edit, and export all your existing bills and Excel sheets.\n\nPlease contact your administrator to renew your monthly plan.',
+          style: TextStyle(fontFamily: 'DM Sans', fontSize: 13.5, height: 1.4, color: AppColors.mutedText),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.maroonDark)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -94,7 +190,6 @@ class _HomeShellState extends State<HomeShell> {
           invoices: _invoices,
           onInvoicesChanged: (updated) => setState(() => _invoices = updated),
           onSelectInvoice: _selectInvoiceForReview,
-          onNavigateToUpgrade: () => setState(() => _currentIndex = 3),
         );
         break;
       case 1:
@@ -159,6 +254,7 @@ class _HomeShellState extends State<HomeShell> {
                 _draftSheets = sheets;
                 widget.storage.saveDraftSheets(_draftSheets);
               });
+              _syncDraftSheetsToBackend(sheets);
             },
             onBack: () {
               setState(() {
@@ -174,11 +270,12 @@ class _HomeShellState extends State<HomeShell> {
           storage: widget.storage,
           api: widget.api,
           draftSheets: _draftSheets,
-          onDraftSheetsChanged: (updated) => setState(() => _draftSheets = updated),
+          onDraftSheetsChanged: (updated) {
+            setState(() => _draftSheets = updated);
+            widget.storage.saveDraftSheets(updated);
+            _syncDraftSheetsToBackend(updated);
+          },
         );
-        break;
-      case 3:
-        body = UpgradeScreen(storage: widget.storage);
         break;
       default:
         body = const SizedBox();
@@ -205,6 +302,10 @@ class _HomeShellState extends State<HomeShell> {
                 // Top Header: Exact new BillBooks Logo artwork on the left, round maroon avatar on the right
                 _buildHeader(),
 
+                // Subscription Expiry View-Only Mode Banner
+                if (!widget.storage.isScanAllowed)
+                  _buildSubscriptionExpiryBanner(),
+
                 // Screen Body
                 Expanded(child: body),
               ],
@@ -226,6 +327,39 @@ class _HomeShellState extends State<HomeShell> {
             bottom: 30,
             child: Center(
               child: _buildSeparateCameraButton(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubscriptionExpiryBanner() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.warningAmber.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.warningAmber.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline_rounded, color: AppColors.orange, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Subscription Inactive (View-Only Mode)\nScanning new bills is disabled. All existing vouchers and Excel sheets remain viewable and downloadable.',
+              style: TextStyle(
+                fontFamily: 'DM Sans',
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.brandInk.withValues(alpha: 0.9),
+                height: 1.3,
+              ),
             ),
           ),
         ],
@@ -282,7 +416,9 @@ class _HomeShellState extends State<HomeShell> {
             ),
             onSelected: (val) {
               if (val == 'logout') {
-                widget.onLogout();
+                _handleLogout();
+              } else if (val == 'delete_account') {
+                _confirmDeleteAccount();
               }
             },
             itemBuilder: (context) => [
@@ -299,6 +435,16 @@ class _HomeShellState extends State<HomeShell> {
                     const Icon(Icons.logout_rounded, color: AppColors.errorRed, size: 18),
                     const SizedBox(width: 8),
                     Text('Logout', style: AppTypography.fontM(color: AppColors.errorRed)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'delete_account',
+                child: Row(
+                  children: [
+                    const Icon(Icons.delete_forever_rounded, color: AppColors.errorRed, size: 18),
+                    const SizedBox(width: 8),
+                    Text('Delete Account', style: AppTypography.fontM(color: AppColors.errorRed)),
                   ],
                 ),
               ),
@@ -341,6 +487,75 @@ class _HomeShellState extends State<HomeShell> {
     );
   }
 
+  Future<void> _handleLogout() async {
+    try {
+      await widget.api.releaseDeviceSession();
+    } catch (_) {}
+    await widget.storage.setActiveDeviceSessionId(null);
+    try {
+      await SupabaseService.signOut();
+    } catch (_) {}
+    widget.onLogout();
+  }
+
+  void _confirmDeleteAccount() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppColors.errorRed, size: 28),
+            SizedBox(width: 8),
+            Text(
+              'Delete Account',
+              style: TextStyle(
+                fontFamily: 'DM Sans',
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+                color: AppColors.brandInk,
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to permanently delete your merchant account?\n\nThis will immediately remove your credentials, all uploaded invoice photos, and draft data from the servers. This action cannot be undone.',
+          style: TextStyle(fontFamily: 'DM Sans', fontSize: 13.5, height: 1.4, color: AppColors.mutedText),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.mutedText)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.errorRed,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              _executeDeleteAccount();
+            },
+            child: const Text('Delete Account', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _executeDeleteAccount() async {
+    try {
+      await widget.api.deleteAccount();
+    } catch (_) {}
+    await widget.storage.clearAllUserData();
+    try {
+      await SupabaseService.signOut();
+    } catch (_) {}
+    widget.onLogout();
+  }
+
   Widget _buildFloatingBottomNav(int needsReviewCount) {
     return LiquidGlass(
       useBlur: true,
@@ -376,14 +591,6 @@ class _HomeShellState extends State<HomeShell> {
                 index: 2,
                 icon: Icons.sync_rounded,
                 label: 'Tally',
-              ),
-            ),
-            // 3: Upgrade (Future Payment Gateway)
-            Expanded(
-              child: _buildNavItem(
-                index: 3,
-                icon: Icons.workspace_premium_rounded,
-                label: 'Upgrade',
               ),
             ),
           ],

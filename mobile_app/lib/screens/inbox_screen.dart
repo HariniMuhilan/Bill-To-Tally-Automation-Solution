@@ -11,7 +11,6 @@ import '../theme/app_theme.dart';
 import '../utils/invoice_validator.dart';
 import '../widgets/liquid_glass.dart';
 import '../widgets/invoice_card.dart';
-import '../widgets/upgrade_paywall_dialog.dart';
 
 class InboxScreen extends StatefulWidget {
   final StorageService storage;
@@ -19,7 +18,6 @@ class InboxScreen extends StatefulWidget {
   final List<Invoice> invoices;
   final ValueChanged<List<Invoice>> onInvoicesChanged;
   final ValueChanged<Invoice> onSelectInvoice;
-  final VoidCallback? onNavigateToUpgrade;
 
   const InboxScreen({
     super.key,
@@ -28,7 +26,6 @@ class InboxScreen extends StatefulWidget {
     required this.invoices,
     required this.onInvoicesChanged,
     required this.onSelectInvoice,
-    this.onNavigateToUpgrade,
   });
 
   @override
@@ -41,12 +38,8 @@ class InboxScreenState extends State<InboxScreen> {
   String _uploadStatusText = '';
 
   Future<void> handleCaptureCamera() async {
-    final user = widget.storage.getUser();
-    if (!widget.storage.canUserScan(user?.username)) {
-      UpgradePaywallDialog.show(
-        context,
-        onUpgrade: widget.onNavigateToUpgrade,
-      );
+    if (!widget.storage.isScanAllowed) {
+      _showScanDisabledDialog();
       return;
     }
     try {
@@ -67,12 +60,8 @@ class InboxScreenState extends State<InboxScreen> {
   }
 
   Future<void> _handlePickFile() async {
-    final user = widget.storage.getUser();
-    if (!widget.storage.canUserScan(user?.username)) {
-      UpgradePaywallDialog.show(
-        context,
-        onUpgrade: widget.onNavigateToUpgrade,
-      );
+    if (!widget.storage.isScanAllowed) {
+      _showScanDisabledDialog();
       return;
     }
     try {
@@ -183,16 +172,46 @@ class InboxScreenState extends State<InboxScreen> {
       widget.onInvoicesChanged(updatedList);
       widget.storage.saveInvoices(updatedList);
 
-      // Increment quota for new users on free tier
-      final user = widget.storage.getUser();
-      await widget.storage.incrementFreeScansUsed(user?.username);
-      if (mounted) setState(() {});
-
       _showSnackbar('Scanned ${newInvoice.id}: ${newInvoice.supplierRaw}');
       widget.onSelectInvoice(newInvoice);
     } else {
       _showSnackbar(res.error ?? 'Processing failed. Check backend connection.', isError: true);
     }
+  }
+
+  void _showScanDisabledDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.lock_clock_rounded, color: AppColors.orange, size: 26),
+            SizedBox(width: 10),
+            Text(
+              'Scanning Disabled',
+              style: TextStyle(
+                fontFamily: 'DM Sans',
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+                color: AppColors.brandInk,
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Your shop subscription is currently inactive, expired, or pending renewal.\n\nScanning new bills is temporarily disabled, but you can continue to view, edit, and export all your existing bills and Excel sheets.\n\nPlease contact your administrator to renew your monthly plan.',
+          style: TextStyle(fontFamily: 'DM Sans', fontSize: 13.5, height: 1.4, color: AppColors.mutedText),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.maroonDark)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showInvalidBillDialog() {
@@ -315,13 +334,11 @@ class InboxScreenState extends State<InboxScreen> {
                               const SizedBox(height: 3),
                               Builder(
                                 builder: (context) {
-                                  final user = widget.storage.getUser();
-                                  final isPro = widget.storage.isUserPro(user?.username);
-                                  final used = widget.storage.getFreeScansUsed(user?.username);
-                                  final remaining = (2 - used).clamp(0, 2);
-                                  final subtitle = isPro
-                                      ? 'Pro Plan • Unlimited Scans'
-                                      : 'Free Tier • $remaining/2 free bills remaining';
+                                  final isAllowed = widget.storage.isScanAllowed;
+                                  final end = widget.storage.subscriptionEndDate;
+                                  final subtitle = isAllowed
+                                      ? (end != null ? 'Subscription Active • Valid till $end' : 'B2B Subscription Active')
+                                      : 'Subscription Inactive • View Only';
                                   return Text(
                                     subtitle,
                                     style: AppTypography.fontS(

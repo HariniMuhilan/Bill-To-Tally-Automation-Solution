@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   final root = Directory.current.path.endsWith('mobile_app')
@@ -54,7 +54,7 @@ void main() {
 
       final template = projectFile('android/key.properties.example');
       expect(template.existsSync(), isTrue);
-      final templateText = template.readAsStringSync();
+      final templateText = template.readAsStringSync().replaceAll('\r\n', '\n');
       expect(templateText, contains('storePassword=\n'));
       expect(templateText, contains('keyPassword=\n'));
     });

@@ -124,15 +124,19 @@ class ApiService {
 
       final response = await _sendAuthorized((token) async {
         final request = http.MultipartRequest('POST', uri)
-          ..headers['Authorization'] = 'Bearer $token'
-          ..files.add(
-            http.MultipartFile.fromBytes(
-              'file',
-              bytes,
-              filename: filename,
-              contentType: mediaType,
-            ),
-          );
+          ..headers['Authorization'] = 'Bearer $token';
+        final activeSession = storage.activeDeviceSessionId;
+        if (activeSession != null && activeSession.isNotEmpty) {
+          request.headers['X-Device-Session-Id'] = activeSession;
+        }
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'file',
+            bytes,
+            filename: filename,
+            contentType: mediaType,
+          ),
+        );
         final streamed = await _httpClient
             .send(request)
             .timeout(const Duration(seconds: 60));
@@ -184,12 +188,20 @@ class ApiService {
   }) async {
     try {
       final uri = Uri.parse('$_baseUrl/api/invoices/extract-text');
+      final headers = {
+        'Content-Type': 'application/json',
+      };
+      final activeSession = storage.activeDeviceSessionId;
+      if (activeSession != null && activeSession.isNotEmpty) {
+        headers['X-Device-Session-Id'] = activeSession;
+      }
+
       final response = await _sendAuthorized(
         (token) => _httpClient
             .post(
               uri,
               headers: {
-                'Content-Type': 'application/json',
+                ...headers,
                 'Authorization': 'Bearer $token',
               },
               body: jsonEncode(ocrResult),
@@ -320,5 +332,266 @@ class ApiService {
       warnings: ((ext['warnings'] as List?) ?? []).map((e) => e.toString()).toList(),
       lines: lineItems,
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Single-Device Session & Subscription Management
+  // ---------------------------------------------------------------------------
+
+  Future<ApiResult<Map<String, dynamic>>> claimDeviceSession({
+    required String deviceLabel,
+  }) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/api/me/session/claim');
+      final response = await _sendAuthorized(
+        (token) => _httpClient
+            .post(
+              uri,
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $token',
+              },
+              body: jsonEncode({'device_label': deviceLabel}),
+            )
+            .timeout(const Duration(seconds: 15)),
+      );
+
+      if (response == null || response.statusCode == 401) {
+        return ApiResult(
+          success: false,
+          requiresReauth: true,
+          error: _sessionExpiredMessage,
+        );
+      }
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return ApiResult(success: true, data: data);
+      }
+
+      if (response.statusCode == 409) {
+        String conflictMsg = 'Logged in on another device.';
+        try {
+          final decoded = jsonDecode(response.body);
+          if (decoded is Map && decoded['detail'] != null) {
+            conflictMsg = decoded['detail'].toString();
+          }
+        } catch (_) {}
+        return ApiResult(success: false, error: conflictMsg);
+      }
+
+      return ApiResult(
+        success: false,
+        error: _parseErrorMessage(response),
+      );
+    } catch (e) {
+      return ApiResult(success: false, error: 'Connection error: $e');
+    }
+  }
+
+  Future<void> releaseDeviceSession() async {
+    try {
+      final uri = Uri.parse('$_baseUrl/api/me/session/release');
+      final sessionId = storage.activeDeviceSessionId;
+      await _sendAuthorized((token) {
+        final headers = {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        };
+        if (sessionId != null && sessionId.isNotEmpty) {
+          headers['X-Device-Session-Id'] = sessionId;
+        }
+        return _httpClient
+            .post(uri, headers: headers)
+            .timeout(const Duration(seconds: 8));
+      });
+    } catch (_) {}
+  }
+
+  Future<ApiResult<Map<String, dynamic>>> getSubscriptionStatus() async {
+    try {
+      final uri = Uri.parse('$_baseUrl/api/me/status');
+      final response = await _sendAuthorized(
+        (token) => _httpClient
+            .get(
+              uri,
+              headers: {
+                'Authorization': 'Bearer $token',
+                'Accept': 'application/json',
+              },
+            )
+            .timeout(const Duration(seconds: 15)),
+      );
+
+      if (response == null || response.statusCode == 401) {
+        return ApiResult(
+          success: false,
+          requiresReauth: true,
+          error: _sessionExpiredMessage,
+        );
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return ApiResult(success: true, data: data);
+      }
+
+      return ApiResult(
+        success: false,
+        error: _parseErrorMessage(response),
+      );
+    } catch (e) {
+      return ApiResult(success: false, error: 'Status check error: $e');
+    }
+  }
+
+  Future<ApiResult<List<dynamic>>> fetchDraftSheets() async {
+    try {
+      final uri = Uri.parse('$_baseUrl/api/me/draft-sheets');
+      final response = await _sendAuthorized(
+        (token) => _httpClient
+            .get(
+              uri,
+              headers: {
+                'Authorization': 'Bearer $token',
+                'Accept': 'application/json',
+              },
+            )
+            .timeout(const Duration(seconds: 15)),
+      );
+
+      if (response == null || response.statusCode == 401) {
+        return ApiResult(
+          success: false,
+          requiresReauth: true,
+          error: _sessionExpiredMessage,
+        );
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final list = jsonDecode(response.body) as List<dynamic>;
+        return ApiResult(success: true, data: list);
+      }
+
+      return ApiResult(
+        success: false,
+        error: _parseErrorMessage(response),
+      );
+    } catch (e) {
+      return ApiResult(success: false, error: 'Draft sheets fetch error: $e');
+    }
+  }
+
+  Future<ApiResult<dynamic>> syncDraftSheets(List<Map<String, dynamic>> sheets) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/api/me/draft-sheets');
+      final response = await _sendAuthorized(
+        (token) => _httpClient
+            .put(
+              uri,
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $token',
+              },
+              body: jsonEncode(sheets),
+            )
+            .timeout(const Duration(seconds: 20)),
+      );
+
+      if (response == null || response.statusCode == 401) {
+        return ApiResult(
+          success: false,
+          requiresReauth: true,
+          error: _sessionExpiredMessage,
+        );
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return ApiResult(success: true, data: jsonDecode(response.body));
+      }
+
+      return ApiResult(
+        success: false,
+        error: _parseErrorMessage(response),
+      );
+    } catch (e) {
+      return ApiResult(success: false, error: 'Draft sheets sync error: $e');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Public Access Requests & Account Deletion (Google Play Compliance)
+  // ---------------------------------------------------------------------------
+
+  Future<ApiResult<Map<String, dynamic>>> submitAccessRequest({
+    required String fullName,
+    required String businessName,
+    required String email,
+    required String phone,
+    String? notes,
+  }) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/api/access-requests');
+      final response = await _httpClient
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'full_name': fullName,
+              'business_name': businessName,
+              'email': email,
+              'phone': phone,
+              'notes': notes ?? '',
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return ApiResult(success: true, data: jsonDecode(response.body));
+      }
+
+      return ApiResult(
+        success: false,
+        error: _parseErrorMessage(response),
+      );
+    } catch (e) {
+      return ApiResult(success: false, error: 'Connection error: $e');
+    }
+  }
+
+  Future<ApiResult<Map<String, dynamic>>> deleteAccount() async {
+    try {
+      final uri = Uri.parse('$_baseUrl/api/me/account');
+      final response = await _sendAuthorized(
+        (token) => _httpClient
+            .delete(
+              uri,
+              headers: {
+                'Authorization': 'Bearer $token',
+                'Accept': 'application/json',
+              },
+            )
+            .timeout(const Duration(seconds: 25)),
+      );
+
+      if (response == null || response.statusCode == 401) {
+        return ApiResult(
+          success: false,
+          requiresReauth: true,
+          error: _sessionExpiredMessage,
+        );
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return ApiResult(success: true, data: jsonDecode(response.body));
+      }
+
+      return ApiResult(
+        success: false,
+        error: _parseErrorMessage(response),
+      );
+    } catch (e) {
+      return ApiResult(success: false, error: 'Account deletion error: $e');
+    }
   }
 }
