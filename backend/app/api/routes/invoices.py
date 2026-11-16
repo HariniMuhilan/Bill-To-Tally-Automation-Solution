@@ -22,6 +22,7 @@ if str(_backend_dir) not in sys.path:
 
 try:
     from backend.app.core.auth import AuthenticatedUser, get_current_user
+    from backend.app.core.subscription_guard import require_active_subscription
     from backend.app.core.config import settings
     from backend.app.schemas.invoice import InvoiceExtractedData, OCRResult
     from backend.app.services.extraction import get_extraction_service
@@ -29,6 +30,7 @@ try:
 except (ImportError, ValueError):
     try:
         from app.core.auth import AuthenticatedUser, get_current_user
+        from app.core.subscription_guard import require_active_subscription
         from app.core.config import settings
         from app.schemas.invoice import InvoiceExtractedData, OCRResult
         from app.services.extraction import get_extraction_service
@@ -36,6 +38,8 @@ except (ImportError, ValueError):
     except (ImportError, ValueError):
         # pyrefly: ignore[missing-import]
         from ...core.auth import AuthenticatedUser, get_current_user
+        # pyrefly: ignore[missing-import]
+        from ...core.subscription_guard import require_active_subscription
         # pyrefly: ignore[missing-import]
         from ...core.config import settings
         # pyrefly: ignore[missing-import]
@@ -125,7 +129,7 @@ async def _read_upload_bounded(file: UploadFile, max_bytes: int) -> bytes:
 @router.post("/ocr", response_model=OCRExtractionResponse, status_code=status.HTTP_201_CREATED)
 async def upload_and_extract_ocr(
     file: UploadFile = File(...),
-    current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(require_active_subscription),
 ):
     """Upload photo bill/invoice and scan with OCR + Gemini Vision."""
     filename = file.filename or "invoice_photo.jpg"
@@ -211,7 +215,7 @@ async def upload_and_extract_ocr(
 @router.post("/extract-text", response_model=InvoiceExtractedData)
 async def extract_from_raw_ocr(
     ocr_result: OCRResult,
-    current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(require_active_subscription),
 ):
     """Directly run Gemini structured bill extraction on an existing OCR result payload."""
     if not is_likely_invoice(ocr_result.raw_text):

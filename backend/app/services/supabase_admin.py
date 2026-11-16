@@ -1,0 +1,391 @@
+"""Supabase Admin Client for B2B Subscription & Auth Provisioning.
+
+Uses httpx (already in requirements.txt) to communicate securely with:
+- Supabase GoTrue Admin API (/auth/v1/admin/users)
+- Supabase PostgREST API (/rest/v1/*) using the service_role key.
+Includes an in-memory local fallback store when service_role key is unset or in local dev/testing.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime, timedelta, timezone
+import logging
+from typing import Any, Dict, List, Optional
+import uuid
+import httpx
+
+try:
+    from backend.app.core.config import settings
+except (ImportError, ValueError):
+    try:
+        from app.core.config import settings
+    except (ImportError, ValueError):
+        from ..core.config import settings
+
+logger = logging.getLogger(__name__)
+
+
+class SupabaseAdminClient:
+    """Admin-level client interacting with Supabase Auth and Postgres via service_role key."""
+
+    def __init__(
+        self,
+        supabase_url: Optional[str] = None,
+        service_role_key: Optional[str] = None,
+        timeout: float = 8.0,
+    ) -> None:
+        self.supabase_url = (supabase_url or settings.SUPABASE_URL).rstrip("/")
+        self.service_role_key = (service_role_key or settings.SUPABASE_SERVICE_ROLE_KEY).strip()
+        self.timeout = timeout
+        self._is_live = bool(self.supabase_url and self.service_role_key)
+
+        # In-memory mock store for tests / offline development
+        self._mock_users: Dict[str, Dict[str, Any]] = {}
+        self._mock_access_requests: Dict[str, Dict[str, Any]] = {}
+        self._mock_subscriptions: Dict[str, Dict[str, Any]] = {}
+        self._mock_draft_sheets: Dict[str, Dict[str, Any]] = {}  # key: f"{user_id}:{sheet_id}"
+
+    @property
+    def is_live(self) -> bool:
+        """True when Supabase URL and service_role key are configured."""
+        return self._is_live
+
+    def _headers(self, prefer: Optional[str] = None) -> Dict[str, str]:
+        headers = {
+            "apikey": self.service_role_key,
+            "Authorization": f"Bearer {self.service_role_key}",
+            "Content-Type": "application/json",
+        }
+        if prefer:
+            headers["Prefer"] = prefer
+        return headers
+
+    # =========================================================================
+    # 1. Supabase Auth Admin (/auth/v1/admin/users)
+    # =========================================================================
+
+    def create_user(
+        self,
+        email: str,
+        password: str,
+        full_name: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Provision a new user directly in Supabase Auth (confirmed email, no public signup needed)."""
+        clean_email = email.strip().lower()
+        user_metadata = {"full_name": full_name}
+        if metadata:
+            user_metadata.update(metadata)
+
+        if not self.is_live:
+            # Mock provision
+            user_id = str(uuid.uuid4())
+            user_record = {
+                "id": user_id,
+                "email": clean_email,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "user_metadata": user_metadata,
+            }
+            self._mock_users[user_id] = user_record
+            return user_record
+
+        url = f"{self.supabase_url}/auth/v1/admin/users"
+        payload = {
+            "email": clean_email,
+            "password": password,
+            "email_confirm": True,
+            "user_metadata": user_metadata,
+        }
+
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.post(url, json=payload, headers=self._headers())
+            if resp.status_code >= 400:
+                logger.error("Supabase Admin create_user failed: %s %s", resp.status_code, resp.text)
+                raise RuntimeError(f"Failed to create user in Supabase Auth: {resp.text}")
+            return resp.json()
+
+    def delete_user(self, user_id: str) -> bool:
+        """Permanently delete a user from Supabase Auth (triggers Postgres cascade on user_subscriptions)."""
+        if not self.is_live:
+            self._mock_users.pop(user_id, None)
+            self._mock_subscriptions.pop(user_id, None)
+            keys_to_del = [k for k in self._mock_draft_sheets if k.startswith(f"{user_id}:")]
+            for k in keys_to_del:
+                self._mock_draft_sheets.pop(k, None)
+            return True
+
+        url = f"{self.supabase_url}/auth/v1/admin/users/{user_id}"
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.delete(url, headers=self._headers())
+            if resp.status_code >= 400:
+                logger.error("Supabase Admin delete_user failed: %s %s", resp.status_code, resp.text)
+                raise RuntimeError(f"Failed to delete user in Supabase Auth: {resp.text}")
+            return True
+
+    # =========================================================================
+    # 2. Access Requests (/rest/v1/access_requests)
+    # =========================================================================
+
+    def create_access_request(
+        self,
+        full_name: str,
+        business_name: str,
+        email: str,
+        phone: str,
+        notes: str = "",
+    ) -> Dict[str, Any]:
+        """Insert a client access request."""
+        clean_email = email.strip().lower()
+        now_str = datetime.now(timezone.utc).isoformat()
+
+        if not self.is_live:
+            req_id = str(uuid.uuid4())
+            record = {
+                "id": req_id,
+                "full_name": full_name.strip(),
+                "business_name": business_name.strip(),
+                "email": clean_email,
+                "phone": phone.strip(),
+                "notes": notes.strip(),
+                "status": "pending",
+                "created_at": now_str,
+            }
+            self._mock_access_requests[req_id] = record
+            return record
+
+        url = f"{self.supabase_url}/rest/v1/access_requests"
+        payload = {
+            "full_name": full_name.strip(),
+            "business_name": business_name.strip(),
+            "email": clean_email,
+            "phone": phone.strip(),
+            "notes": notes.strip(),
+            "status": "pending",
+        }
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.post(url, json=payload, headers=self._headers(prefer="return=representation"))
+            if resp.status_code >= 400:
+                logger.error("Failed to insert access request: %s %s", resp.status_code, resp.text)
+                raise RuntimeError(f"Database error inserting access request: {resp.text}")
+            results = resp.json()
+            return results[0] if isinstance(results, list) and results else results
+
+    def list_access_requests(self, status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List onboarding requests ordered by created_at desc."""
+        if not self.is_live:
+            items = list(self._mock_access_requests.values())
+            if status_filter:
+                items = [i for i in items if i.get("status") == status_filter]
+            return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)
+
+        url = f"{self.supabase_url}/rest/v1/access_requests?select=*&order=created_at.desc"
+        if status_filter:
+            url += f"&status=eq.{status_filter}"
+
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.get(url, headers=self._headers())
+            if resp.status_code >= 400:
+                raise RuntimeError(f"Failed to query access requests: {resp.text}")
+            return resp.json()
+
+    def update_access_request_status(self, request_id: str, new_status: str) -> Optional[Dict[str, Any]]:
+        """Update request status ('approved' | 'rejected')."""
+        if not self.is_live:
+            req = self._mock_access_requests.get(request_id)
+            if req:
+                req["status"] = new_status
+            return req
+
+        url = f"{self.supabase_url}/rest/v1/access_requests?id=eq.{request_id}"
+        payload = {"status": new_status}
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.patch(url, json=payload, headers=self._headers(prefer="return=representation"))
+            if resp.status_code >= 400:
+                raise RuntimeError(f"Failed to update access request status: {resp.text}")
+            items = resp.json()
+            return items[0] if isinstance(items, list) and items else None
+
+    # =========================================================================
+    # 3. User Subscriptions (/rest/v1/user_subscriptions)
+    # =========================================================================
+
+    def get_user_subscription(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve user subscription record."""
+        if not self.is_live:
+            return self._mock_subscriptions.get(user_id)
+
+        url = f"{self.supabase_url}/rest/v1/user_subscriptions?user_id=eq.{user_id}&select=*"
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.get(url, headers=self._headers())
+            if resp.status_code >= 400:
+                logger.error("get_user_subscription failed: %s %s", resp.status_code, resp.text)
+                return None
+            items = resp.json()
+            return items[0] if isinstance(items, list) and items else None
+
+    def upsert_user_subscription(self, subscription_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create or update a subscription record."""
+        user_id = str(subscription_data["user_id"])
+        now_str = datetime.now(timezone.utc).isoformat()
+        clean = dict(subscription_data)
+        clean["updated_at"] = now_str
+        if "created_at" not in clean:
+            clean["created_at"] = now_str
+
+        if not self.is_live:
+            self._mock_subscriptions[user_id] = clean
+            return clean
+
+        url = f"{self.supabase_url}/rest/v1/user_subscriptions"
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.post(
+                url,
+                json=clean,
+                headers=self._headers(prefer="resolution=merge-duplicates,return=representation"),
+            )
+            if resp.status_code >= 400:
+                logger.error("upsert_user_subscription failed: %s %s", resp.status_code, resp.text)
+                raise RuntimeError(f"Database error saving subscription: {resp.text}")
+            items = resp.json()
+            return items[0] if isinstance(items, list) and items else items
+
+    def update_user_subscription(self, user_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Patch specific fields in user_subscriptions."""
+        now_str = datetime.now(timezone.utc).isoformat()
+        clean_updates = dict(updates)
+        clean_updates["updated_at"] = now_str
+
+        if not self.is_live:
+            sub = self._mock_subscriptions.get(user_id)
+            if not sub:
+                return None
+            sub.update(clean_updates)
+            return sub
+
+        url = f"{self.supabase_url}/rest/v1/user_subscriptions?user_id=eq.{user_id}"
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.patch(
+                url,
+                json=clean_updates,
+                headers=self._headers(prefer="return=representation"),
+            )
+            if resp.status_code >= 400:
+                logger.error("update_user_subscription failed: %s %s", resp.status_code, resp.text)
+                raise RuntimeError(f"Database error updating subscription: {resp.text}")
+            items = resp.json()
+            return items[0] if isinstance(items, list) and items else None
+
+    def list_user_subscriptions(self) -> List[Dict[str, Any]]:
+        """List all subscriptions ordered by created_at desc."""
+        if not self.is_live:
+            return sorted(
+                list(self._mock_subscriptions.values()),
+                key=lambda x: x.get("created_at", ""),
+                reverse=True,
+            )
+
+        url = f"{self.supabase_url}/rest/v1/user_subscriptions?select=*&order=created_at.desc"
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.get(url, headers=self._headers())
+            if resp.status_code >= 400:
+                raise RuntimeError(f"Failed to query subscriptions: {resp.text}")
+            return resp.json()
+
+    def delete_user_subscription(self, user_id: str) -> bool:
+        """Delete subscription record."""
+        if not self.is_live:
+            self._mock_subscriptions.pop(user_id, None)
+            return True
+
+        url = f"{self.supabase_url}/rest/v1/user_subscriptions?user_id=eq.{user_id}"
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.delete(url, headers=self._headers())
+            return resp.status_code < 400
+
+    # =========================================================================
+    # 4. User Draft Sheets (/rest/v1/user_draft_sheets)
+    # =========================================================================
+
+    def get_user_draft_sheets(self, user_id: str) -> List[Dict[str, Any]]:
+        """Get all synchronized draft sheets for a user."""
+        if not self.is_live:
+            prefix = f"{user_id}:"
+            sheets = [v for k, v in self._mock_draft_sheets.items() if k.startswith(prefix)]
+            return sorted(sheets, key=lambda x: x.get("updated_at", ""), reverse=True)
+
+        url = f"{self.supabase_url}/rest/v1/user_draft_sheets?user_id=eq.{user_id}&select=*&order=updated_at.desc"
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.get(url, headers=self._headers())
+            if resp.status_code >= 400:
+                logger.error("get_user_draft_sheets failed: %s %s", resp.status_code, resp.text)
+                return []
+            return resp.json()
+
+    def upsert_user_draft_sheet(
+        self,
+        user_id: str,
+        sheet_id: str,
+        sheet_name: str,
+        rows_json: List[Any],
+    ) -> Dict[str, Any]:
+        """Upsert a single draft sheet."""
+        now_str = datetime.now(timezone.utc).isoformat()
+        record = {
+            "user_id": user_id,
+            "sheet_id": sheet_id,
+            "sheet_name": sheet_name,
+            "rows_json": rows_json,
+            "updated_at": now_str,
+        }
+
+        if not self.is_live:
+            key = f"{user_id}:{sheet_id}"
+            if "id" not in record:
+                record["id"] = str(uuid.uuid4())
+            self._mock_draft_sheets[key] = record
+            return record
+
+        url = f"{self.supabase_url}/rest/v1/user_draft_sheets"
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.post(
+                url,
+                json=record,
+                headers=self._headers(prefer="resolution=merge-duplicates,return=representation"),
+            )
+            if resp.status_code >= 400:
+                logger.error("upsert_user_draft_sheet failed: %s %s", resp.status_code, resp.text)
+                raise RuntimeError(f"Database error saving draft sheet: {resp.text}")
+            items = resp.json()
+            return items[0] if isinstance(items, list) and items else items
+
+    def delete_user_draft_sheets(self, user_id: str) -> bool:
+        """Delete all draft sheets for a user."""
+        if not self.is_live:
+            keys = [k for k in self._mock_draft_sheets if k.startswith(f"{user_id}:")]
+            for k in keys:
+                self._mock_draft_sheets.pop(k, None)
+            return True
+
+        url = f"{self.supabase_url}/rest/v1/user_draft_sheets?user_id=eq.{user_id}"
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.delete(url, headers=self._headers())
+            return resp.status_code < 400
+
+
+# Singleton instance
+_supabase_admin_client: Optional[SupabaseAdminClient] = None
+
+
+def get_supabase_admin() -> SupabaseAdminClient:
+    """Get or initialize singleton SupabaseAdminClient."""
+    global _supabase_admin_client
+    if _supabase_admin_client is None:
+        _supabase_admin_client = SupabaseAdminClient()
+    return _supabase_admin_client
+
+
+def reset_supabase_admin_for_tests() -> SupabaseAdminClient:
+    """Reset and return a fresh in-memory SupabaseAdminClient (for test isolation)."""
+    global _supabase_admin_client
+    _supabase_admin_client = SupabaseAdminClient(supabase_url="", service_role_key="")
+    return _supabase_admin_client

@@ -20,15 +20,21 @@ try:
     from backend.app.core.auth import AuthenticatedUser, get_current_user
     from backend.app.core.config import settings
     from backend.app.api.routes.invoices import router as invoices_router
+    from backend.app.api.routes.account import router as account_router
+    from backend.app.api.routes.admin import router as admin_router
 except (ImportError, ValueError):
     try:
         from app.core.auth import AuthenticatedUser, get_current_user
         from app.core.config import settings
         from app.api.routes.invoices import router as invoices_router
+        from app.api.routes.account import router as account_router
+        from app.api.routes.admin import router as admin_router
     except (ImportError, ValueError):
         from .core.auth import AuthenticatedUser, get_current_user
         from .core.config import settings
         from .api.routes.invoices import router as invoices_router
+        from .api.routes.account import router as account_router
+        from .api.routes.admin import router as admin_router
 
 
 @asynccontextmanager
@@ -64,8 +70,9 @@ def create_app() -> FastAPI:
         allow_origins=explicit_origins,
         allow_origin_regex=origin_regex,
         allow_credentials=bool(explicit_origins or origin_regex),
-        allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-Device-Session-Id", "X-Device-Label"],
+        expose_headers=["X-Device-Session-Id"],
     )
 
     @application.middleware("http")
@@ -77,6 +84,8 @@ def create_app() -> FastAPI:
         return await call_next(request)
 
     application.include_router(invoices_router)
+    application.include_router(account_router)
+    application.include_router(admin_router)
 
     @application.get("/api/health", tags=["System"])
     async def api_health():

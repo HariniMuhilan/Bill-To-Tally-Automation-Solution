@@ -21,10 +21,13 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: str = ""
     MAX_UPLOAD_BYTES: int = 10 * 1024 * 1024  # 10 MB upload cap
 
-    # Authentication (Supabase JWT)
+    # Authentication (Supabase JWT & Admin)
     AUTH_REQUIRED: bool = True
     SUPABASE_URL: str = ""
     SUPABASE_JWT_SECRET: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
+    ADMIN_EMAILS: str = ""
+    ACCESS_REQUEST_RATE_LIMIT: int = 5  # Max requests per hour per IP
 
     # Storage and Database
     DATABASE_URL: str = "sqlite:///./bill_to_tally.db"
@@ -60,6 +63,17 @@ class Settings(BaseSettings):
             origin.strip().rstrip("/")
             for origin in raw.split(",")
             if origin.strip() and origin.strip() != "*"
+        ]
+
+    def get_admin_emails(self) -> List[str]:
+        """Parse lowercase normalized admin emails from comma-separated ADMIN_EMAILS."""
+        raw = self.ADMIN_EMAILS.strip()
+        if not raw:
+            return []
+        return [
+            email.strip().lower()
+            for email in raw.split(",")
+            if email.strip()
         ]
 
     def ensure_directories(self) -> None:

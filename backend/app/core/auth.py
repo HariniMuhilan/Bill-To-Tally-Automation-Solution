@@ -301,6 +301,29 @@ def get_current_user(
     return verify_supabase_jwt(credentials.credentials)
 
 
+def get_admin_user(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> AuthenticatedUser:
+    """FastAPI dependency enforcing that current user is an authorized administrator."""
+    if not settings.AUTH_REQUIRED:
+        return current_user
+
+    admin_emails = settings.get_admin_emails()
+    user_email = (current_user.email or "").strip().lower()
+
+    if not user_email or user_email not in admin_emails:
+        logger.warning(
+            "Access to admin endpoint rejected for user_id=%s, email=%s",
+            current_user.user_id,
+            user_email or "<none>",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrative privileges required.",
+        )
+    return current_user
+
+
 def clear_jwks_cache() -> None:
     """Clear in-memory JWKS cache (for tests)."""
     with _jwks_lock:
