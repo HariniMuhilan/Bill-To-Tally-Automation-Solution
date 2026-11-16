@@ -386,7 +386,7 @@ export default function UserManagementTable({
                     <td>
                       <div className="actions-cell-wrap">
                         {/* APPROVE BUTTON (if payment done or needs approval) */}
-                        {user.accountStatus !== 'APPROVED' && user.accountStatus !== 'BLOCKED' && (
+                        {user.accountStatus !== 'APPROVED' && (
                           <button
                             type="button"
                             className="btn-action-pill btn-action-approve"
@@ -398,7 +398,7 @@ export default function UserManagementTable({
                         )}
 
                         {/* DISAPPROVE BUTTON (if payment not done) */}
-                        {user.accountStatus !== 'DISAPPROVED' && user.accountStatus !== 'BLOCKED' && (
+                        {user.accountStatus !== 'DISAPPROVED' && (
                           <button
                             type="button"
                             className="btn-action-pill btn-action-disapprove"
@@ -408,17 +408,6 @@ export default function UserManagementTable({
                             <i className="fa-solid fa-xmark"></i> Disapprove
                           </button>
                         )}
-
-                        {/* BLOCK / UNBLOCK BUTTON */}
-                        <button
-                          type="button"
-                          className={`btn-action-pill ${user.accountStatus === 'BLOCKED' ? 'btn-action-unblock' : 'btn-action-block'}`}
-                          onClick={() => onBlockUserToggle(user)}
-                          title={user.accountStatus === 'BLOCKED' ? 'Lift block on this account' : 'Block user from accessing the system'}
-                        >
-                          <i className={`fa-solid ${user.accountStatus === 'BLOCKED' ? 'fa-lock-open' : 'fa-ban'}`}></i>
-                          {' '}{user.accountStatus === 'BLOCKED' ? 'Unblock' : 'Block'}
-                        </button>
 
                         {/* DELETE / REMOVE BUTTON */}
                         <button
@@ -446,3 +435,4 @@ export default function UserManagementTable({
     </div>
   );
 }
+
