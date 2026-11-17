@@ -238,6 +238,53 @@ class ApiService {
     }
   }
 
+  /// Submit organization onboarding / access request to backend.
+  Future<ApiResult<Map<String, dynamic>>> submitAccessRequest({
+    required String fullName,
+    required String businessName,
+    required String email,
+    required String phone,
+    String? notes,
+  }) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/api/access-requests');
+      final payload = <String, dynamic>{
+        'full_name': fullName.trim(),
+        'business_name': businessName.trim(),
+        'email': email.trim(),
+        'phone': phone.trim(),
+      };
+      if (notes != null && notes.trim().isNotEmpty) {
+        payload['notes'] = notes.trim();
+      }
+
+      final response = await _httpClient
+          .post(
+            uri,
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        Map<String, dynamic>? data;
+        try {
+          data = jsonDecode(response.body) as Map<String, dynamic>?;
+        } catch (_) {}
+        return ApiResult(success: true, data: data);
+      }
+      if (response.statusCode == 404) {
+        return ApiResult(
+          success: false,
+          error: 'ACCESS_REQUEST_ENDPOINT_UNAVAILABLE',
+        );
+      }
+      return ApiResult(success: false, error: _parseErrorMessage(response));
+    } catch (e) {
+      return ApiResult(success: false, error: 'Cannot connect to backend: $e');
+    }
+  }
+
   MediaType _resolveMediaType(String filename, String? mimeType) {
     if (mimeType != null && mimeType.contains('/')) {
       final parts = mimeType.split('/');
@@ -522,42 +569,6 @@ class ApiService {
   // ---------------------------------------------------------------------------
   // Public Access Requests & Account Deletion (Google Play Compliance)
   // ---------------------------------------------------------------------------
-
-  Future<ApiResult<Map<String, dynamic>>> submitAccessRequest({
-    required String fullName,
-    required String businessName,
-    required String email,
-    required String phone,
-    String? notes,
-  }) async {
-    try {
-      final uri = Uri.parse('$_baseUrl/api/access-requests');
-      final response = await _httpClient
-          .post(
-            uri,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'full_name': fullName,
-              'business_name': businessName,
-              'email': email,
-              'phone': phone,
-              'notes': notes ?? '',
-            }),
-          )
-          .timeout(const Duration(seconds: 15));
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return ApiResult(success: true, data: jsonDecode(response.body));
-      }
-
-      return ApiResult(
-        success: false,
-        error: _parseErrorMessage(response),
-      );
-    } catch (e) {
-      return ApiResult(success: false, error: 'Connection error: $e');
-    }
-  }
 
   Future<ApiResult<Map<String, dynamic>>> deleteAccount() async {
     try {

@@ -28,7 +28,8 @@ class StorageService {
 
   static final RegExp _scopeSanitizer = RegExp(r'[^a-z0-9_@.-]');
 
-  static const String defaultApiUrl = 'https://bill-to-tally-automation-solution.onrender.com';
+  static const String defaultApiUrl = 'https://bill-to-tally-automation-solution-l68w.onrender.com';
+  static const String staticSiteUrl = 'https://bill-to-tally-frontend.onrender.com';
 
   final SharedPreferences _prefs;
   UserSession? _cachedUser;
@@ -290,6 +291,9 @@ class StorageService {
     await _prefs.remove(_scopedKey(_keyDrafts));
     await _prefs.remove(_scopedKey(_keyMappings));
     await _prefs.remove(_scopedKey(_keyAudit));
-    _cachedUser = null;
+    await saveUser(null);
   }
+
+  /// Alias for backward compatibility
+  Future<void> clearActiveUserData() => clearAllUserData();
 }

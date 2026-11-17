@@ -240,5 +240,23 @@ void main() {
       expect(storage.activeDeviceSessionId, isNull);
       expect(storage.getUser(), isNull);
     });
+
+    test('clearActiveUserData removes only active user data and signs user out locally', () async {
+      final storage = await StorageService.init();
+
+      await storage.saveUser(_makeUser('alice@example.com', fullName: 'Alice'));
+      await storage.saveInvoices([_makeInvoice('INV-A1', 'Alice Supply')]);
+      await storage.saveUser(_makeUser('bob@example.com', fullName: 'Bob'));
+      await storage.saveInvoices([_makeInvoice('INV-B1', 'Bob Supply')]);
+
+      await storage.clearActiveUserData();
+
+      expect(storage.getUser(), isNull);
+      await storage.saveUser(_makeUser('bob@example.com', fullName: 'Bob'));
+      expect(storage.getInvoices(), isEmpty);
+
+      await storage.saveUser(_makeUser('alice@example.com', fullName: 'Alice'));
+      expect(storage.getInvoices().map((e) => e.id), ['INV-A1']);
+    });
   });
 }

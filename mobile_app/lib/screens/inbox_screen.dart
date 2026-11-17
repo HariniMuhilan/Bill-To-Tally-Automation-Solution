@@ -171,6 +171,7 @@ class InboxScreenState extends State<InboxScreen> {
       final updatedList = [newInvoice, ...widget.invoices];
       widget.onInvoicesChanged(updatedList);
       widget.storage.saveInvoices(updatedList);
+      if (mounted) setState(() {});
 
       _showSnackbar('Scanned ${newInvoice.id}: ${newInvoice.supplierRaw}');
       widget.onSelectInvoice(newInvoice);

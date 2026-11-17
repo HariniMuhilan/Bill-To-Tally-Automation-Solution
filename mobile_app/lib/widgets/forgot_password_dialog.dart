@@ -97,7 +97,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
     final newPass = _newPasswordController.text.trim();
     final confirmPass = _confirmPasswordController.text.trim();
 
-    if (otp.isEmpty || otp.length < 6) {
+    if (otp.isEmpty || otp.length != 6 || !RegExp(r'^\d{6}$').hasMatch(otp)) {
       setState(() => _dialogError = 'Please enter the 6-digit verification code');
       return;
     }

@@ -11,6 +11,7 @@ import 'inbox_screen.dart';
 import 'review_screen.dart';
 import 'tally_connector_screen.dart';
 import '../services/supabase_service.dart';
+import 'account_screen.dart';
 
 class HomeShell extends StatefulWidget {
   final StorageService storage;
@@ -275,6 +276,13 @@ class _HomeShellState extends State<HomeShell> {
             widget.storage.saveDraftSheets(updated);
             _syncDraftSheetsToBackend(updated);
           },
+        );
+        break;
+      case 3:
+        body = AccountScreen(
+          user: widget.user,
+          storage: widget.storage,
+          onLogout: _handleLogout,
         );
         break;
       default:
@@ -591,6 +599,14 @@ class _HomeShellState extends State<HomeShell> {
                 index: 2,
                 icon: Icons.sync_rounded,
                 label: 'Tally',
+              ),
+            ),
+            // 3: Account & Subscription Status
+            Expanded(
+              child: _buildNavItem(
+                index: 3,
+                icon: Icons.person_outline_rounded,
+                label: 'Account',
               ),
             ),
           ],

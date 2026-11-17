@@ -44,28 +44,25 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // Toggle: false = Sign In, true = Request Access
-  bool _isSignUp = false;
-  bool _accessRequestSubmitted = false;
+  bool _isRequestAccess = false;
 
-  // Sign In Controllers
+  // Sign In controllers
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
-  // Request Access Controllers
-  final _reqFullNameController = TextEditingController();
+  // Request Access controllers
+  final _reqNameController = TextEditingController();
   final _reqBusinessController = TextEditingController();
   final _reqEmailController = TextEditingController();
   final _reqPhoneController = TextEditingController();
-  final _reqNotesController = TextEditingController();
 
   WarningBannerData? _warningBanner;
 
-  // Real-time inline field validation errors
+  // Inline validation errors
   String? _signInEmailError;
   String? _signInPasswordError;
-  String? _reqFullNameError;
+  String? _reqNameError;
   String? _reqBusinessError;
   String? _reqEmailError;
   String? _reqPhoneError;
@@ -75,7 +72,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    // Add listeners to auto-clear inline errors when user types
     _emailController.addListener(() {
       if (_signInEmailError != null && _isValidEmail(_emailController.text.trim())) {
         setState(() => _signInEmailError = null);
@@ -86,9 +82,9 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _signInPasswordError = null);
       }
     });
-    _reqFullNameController.addListener(() {
-      if (_reqFullNameError != null && _reqFullNameController.text.trim().isNotEmpty) {
-        setState(() => _reqFullNameError = null);
+    _reqNameController.addListener(() {
+      if (_reqNameError != null && _reqNameController.text.trim().isNotEmpty) {
+        setState(() => _reqNameError = null);
       }
     });
     _reqBusinessController.addListener(() {
@@ -102,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     });
     _reqPhoneController.addListener(() {
-      if (_reqPhoneError != null && _reqPhoneController.text.trim().length >= 10) {
+      if (_reqPhoneError != null && _isValidPhone(_reqPhoneController.text.trim())) {
         setState(() => _reqPhoneError = null);
       }
     });
@@ -112,16 +108,20 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _reqFullNameController.dispose();
+    _reqNameController.dispose();
     _reqBusinessController.dispose();
     _reqEmailController.dispose();
     _reqPhoneController.dispose();
-    _reqNotesController.dispose();
     super.dispose();
   }
 
   bool _isValidEmail(String email) {
     return RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(email);
+  }
+
+  bool _isValidPhone(String phone) {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    return digits.length >= 10 && digits.length <= 15;
   }
 
   String _getDeviceLabel() {
@@ -140,7 +140,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    // Early validation
     bool hasError = false;
     if (email.isEmpty) {
       _signInEmailError = 'Email address is required';
@@ -184,6 +183,7 @@ class _LoginScreenState extends State<LoginScreen> {
           emailOrUsername: email,
           password: password,
         );
+        if (!mounted) return;
         if (session != null) {
           // Strict Single-Device Lock: Claim device session
           final deviceLabel = _getDeviceLabel();
@@ -192,6 +192,7 @@ class _LoginScreenState extends State<LoginScreen> {
           if (!claimRes.success) {
             // Revert local sign-in if another device owns the session
             await SupabaseService.signOut();
+            if (!mounted) return;
             setState(() {
               _warningBanner = WarningBannerData(
                 icon: Icons.phonelink_lock_rounded,
@@ -199,6 +200,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 message: claimRes.error ??
                     'This account is currently active on another device. BillBooks enforces single-device security per merchant. Please log out from that device or ask your administrator to reset your device lock.',
                 color: AppColors.errorRed,
+                actionLabel: 'OK',
+                onAction: () => setState(() => _warningBanner = null),
               );
             });
             return;
@@ -208,7 +211,18 @@ class _LoginScreenState extends State<LoginScreen> {
             await widget.storage.setActiveDeviceSessionId(claimRes.data!['session_id'].toString());
           }
 
-          widget.storage.saveUser(session);
+          // Check and update subscription status
+          final subStatus = await widget.api.getSubscriptionStatus();
+          if (subStatus.success && subStatus.data != null) {
+            final data = subStatus.data!;
+            await widget.storage.setScanAllowed(data['is_active'] == true);
+            await widget.storage.setSubscriptionStatus(data['status']);
+            await widget.storage.setSubscriptionStartDate(data['start_date']);
+            await widget.storage.setSubscriptionEndDate(data['end_date']);
+          }
+
+          await widget.storage.saveUser(session);
+          if (!mounted) return;
           widget.onLoginSuccess(session);
           return;
         }
@@ -223,20 +237,20 @@ class _LoginScreenState extends State<LoginScreen> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       final rawMsg = e.toString().toLowerCase();
-      
-      // Case 1: Account does not exist or wrong password
+
       if (rawMsg.contains('invalid login credentials') || rawMsg.contains('invalid_credentials')) {
         setState(() {
           _warningBanner = WarningBannerData(
             icon: Icons.person_search_rounded,
             title: 'Account Not Found or Incorrect Password',
-            message: 'We could not sign you in with "$email". If your shop account has not been provisioned yet, please request access below.',
+            message: 'We could not sign you in with "$email". If your organization has not provisioned login access yet, request access below.',
             color: AppColors.warningAmber,
             actionLabel: 'REQUEST ACCESS',
             onAction: () {
               setState(() {
-                _isSignUp = true;
+                _isRequestAccess = true;
                 _reqEmailController.text = email;
                 _warningBanner = null;
                 _signInEmailError = null;
@@ -245,52 +259,70 @@ class _LoginScreenState extends State<LoginScreen> {
             },
           );
         });
-      } 
-      // Case 2: Email not confirmed
-      else if (rawMsg.contains('email not confirmed')) {
+      } else if (rawMsg.contains('email not confirmed')) {
         setState(() {
           _warningBanner = WarningBannerData(
             icon: Icons.mark_email_unread_rounded,
             title: 'Email Confirmation Required',
-            message: 'Supabase sent a confirmation email to $email. Please check your inbox and verify before signing in, or disable "Confirm email" in Supabase Auth settings.',
+            message: 'Supabase sent a confirmation email to $email. Check your inbox (and Spam) or resend it below.',
             color: AppColors.warningAmber,
+            actionLabel: 'RESEND CONFIRMATION EMAIL',
+            onAction: () => _handleResendConfirmationEmail(email),
           );
         });
-      }
-      // Case 3: Network / Connection error
-      else if (rawMsg.contains('socketexception') ||
-               rawMsg.contains('failed host lookup') ||
-               rawMsg.contains('clientexception') ||
-               rawMsg.contains('connection refused')) {
+      } else if (rawMsg.contains('socketexception') ||
+          rawMsg.contains('network') ||
+          rawMsg.contains('failed host lookup') ||
+          rawMsg.contains('connection refused') ||
+          rawMsg.contains('clientexception')) {
         setState(() {
           _warningBanner = const WarningBannerData(
             icon: Icons.wifi_off_rounded,
-            title: 'Network Connection Failed',
-            message: 'Could not connect to the authentication server. Please check your internet connection.',
+            title: 'Connection Error',
+            message: 'Could not reach Supabase. Check your internet connection and verify that fechwdczejepckkhbizm.supabase.co is accessible.',
             color: AppColors.errorRed,
           );
         });
-      }
-      // Case 4: Rate limit / too many attempts
-      else if (rawMsg.contains('over_email_send_rate_limit') || rawMsg.contains('too many requests')) {
-        setState(() {
-          _warningBanner = const WarningBannerData(
-            icon: Icons.timer_outlined,
-            title: 'Rate Limit Reached',
-            message: 'Too many attempts. Please wait a minute and try again.',
-            color: AppColors.warningAmber,
-          );
-        });
-      }
-      // Generic error
-      else {
-        String cleanMsg = e.toString().replaceAll('Exception: ', '').replaceAll('AuthException: ', '');
+      } else {
         setState(() {
           _warningBanner = WarningBannerData(
             icon: Icons.error_outline_rounded,
             title: 'Sign In Failed',
-            message: cleanMsg,
+            message: e.toString().replaceFirst(RegExp(r'^[A-Za-z]+Exception:\s*'), ''),
             color: AppColors.errorRed,
+          );
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleResendConfirmationEmail(String email) async {
+    setState(() => _isLoading = true);
+    try {
+      final resendRes = await SupabaseService.resendConfirmationEmail(email);
+      if (!mounted) return;
+      if (resendRes.success) {
+        setState(() {
+          _warningBanner = WarningBannerData(
+            icon: Icons.mark_email_read_rounded,
+            title: 'Confirmation Email Sent',
+            message: 'A fresh confirmation link was sent to $email. Open it to activate your account, then sign in.',
+            color: AppColors.successGreen,
+            actionLabel: 'OK',
+            onAction: () => setState(() => _warningBanner = null),
+          );
+        });
+      } else {
+        setState(() {
+          _warningBanner = WarningBannerData(
+            icon: Icons.error_outline_rounded,
+            title: 'Could Not Resend Email',
+            message: resendRes.errorMessage ?? 'Please try again in a few moments.',
+            color: AppColors.errorRed,
+            actionLabel: 'RETRY',
+            onAction: () => _handleResendConfirmationEmail(email),
           );
         });
       }
@@ -300,45 +332,40 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _openForgotPasswordDialog() {
-    showDialog(
+    showDialog<void>(
       context: context,
       barrierDismissible: true,
-      builder: (ctx) => ForgotPasswordDialog(
+      builder: (dialogContext) => ForgotPasswordDialog(
         initialEmail: _emailController.text.trim(),
-        onPasswordResetSuccess: (email) {
-          setState(() {
-            _emailController.text = email;
-            _passwordController.clear();
-            _warningBanner = const WarningBannerData(
-              icon: Icons.check_circle_outline_rounded,
-              title: 'Password Updated Successfully',
-              message: 'Your password has been reset. You can now sign in with your new password.',
-              color: AppColors.successGreen,
-            );
-          });
+        onSubmit: (email) async {
+          final res = await SupabaseService.resetPasswordForEmail(email);
+          return ForgotPasswordResult(
+            success: res.success,
+            message: res.success
+                ? 'Password reset instructions sent to $email. Please check your inbox.'
+                : (res.errorMessage ?? 'Could not send reset email. Please try again.'),
+          );
         },
       ),
     );
   }
 
   Future<void> _handleRequestAccess() async {
-    final fullName = _reqFullNameController.text.trim();
+    final fullName = _reqNameController.text.trim();
     final businessName = _reqBusinessController.text.trim();
     final email = _reqEmailController.text.trim();
     final phone = _reqPhoneController.text.trim();
-    final notes = _reqNotesController.text.trim();
 
-    // Early validation
     bool hasError = false;
     if (fullName.isEmpty) {
-      _reqFullNameError = 'Contact name is required';
+      _reqNameError = 'Full name is required';
       hasError = true;
     } else {
-      _reqFullNameError = null;
+      _reqNameError = null;
     }
 
     if (businessName.isEmpty) {
-      _reqBusinessError = 'Shop or business name is required';
+      _reqBusinessError = 'Business or shop name is required';
       hasError = true;
     } else {
       _reqBusinessError = null;
@@ -348,17 +375,17 @@ class _LoginScreenState extends State<LoginScreen> {
       _reqEmailError = 'Email address is required';
       hasError = true;
     } else if (!_isValidEmail(email)) {
-      _reqEmailError = 'Enter a valid email address (e.g. name@gmail.com)';
+      _reqEmailError = 'Enter a valid email address (e.g. name@company.com)';
       hasError = true;
     } else {
       _reqEmailError = null;
     }
 
     if (phone.isEmpty) {
-      _reqPhoneError = 'Phone number is required for WhatsApp credentials';
+      _reqPhoneError = 'Phone number is required';
       hasError = true;
-    } else if (phone.replaceAll(RegExp(r'\D'), '').length < 10) {
-      _reqPhoneError = 'Enter a valid 10-digit mobile number';
+    } else if (!_isValidPhone(phone)) {
+      _reqPhoneError = 'Enter a valid 10–15 digit phone number';
       hasError = true;
     } else {
       _reqPhoneError = null;
@@ -368,8 +395,8 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _warningBanner = const WarningBannerData(
           icon: Icons.warning_amber_rounded,
-          title: 'Missing Required Information',
-          message: 'Please review the fields highlighted below to submit your access request.',
+          title: 'Check Request Details',
+          message: 'Please fill in all fields with valid contact details before submitting.',
           color: AppColors.orange,
         );
       });
@@ -379,48 +406,71 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _isLoading = true;
       _warningBanner = null;
-      _reqFullNameError = null;
+      _reqNameError = null;
       _reqBusinessError = null;
       _reqEmailError = null;
       _reqPhoneError = null;
     });
 
     try {
-      final res = await widget.api.submitAccessRequest(
+      final result = await widget.api.submitAccessRequest(
         fullName: fullName,
         businessName: businessName,
         email: email,
         phone: phone,
-        notes: notes.isNotEmpty ? notes : null,
       );
+      if (!mounted) return;
 
-      if (res.success) {
+      if (result.success) {
+        _reqNameController.clear();
+        _reqBusinessController.clear();
+        _reqPhoneController.clear();
         setState(() {
-          _accessRequestSubmitted = true;
-          _warningBanner = null;
+          _isRequestAccess = false;
+          _emailController.text = email;
+          _warningBanner = WarningBannerData(
+            icon: Icons.check_circle_outline_rounded,
+            title: 'Access Request Submitted',
+            message: 'Your request for "$businessName" ($email) has been received. Your admin will share login credentials once activated.',
+            color: AppColors.successGreen,
+          );
+        });
+      } else if (result.error == 'ACCESS_REQUEST_ENDPOINT_UNAVAILABLE') {
+        setState(() {
+          _warningBanner = WarningBannerData(
+            icon: Icons.admin_panel_settings_outlined,
+            title: 'Contact Admin for Access',
+            message: 'Online request submission is not active on the server yet. Please share "$email" and "$businessName" with your administrator to provision your account.',
+            color: AppColors.infoBlue,
+          );
         });
       } else {
         setState(() {
           _warningBanner = WarningBannerData(
             icon: Icons.error_outline_rounded,
-            title: 'Submission Failed',
-            message: res.error ?? 'Could not submit access request. Please check connection.',
+            title: 'Request Could Not Be Sent',
+            message: result.error ?? 'Please try again in a moment.',
             color: AppColors.errorRed,
           );
         });
       }
-    } catch (e) {
-      setState(() {
-        _warningBanner = WarningBannerData(
-          icon: Icons.error_outline_rounded,
-          title: 'Request Error',
-          message: e.toString(),
-          color: AppColors.errorRed,
-        );
-      });
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _switchTab(bool toRequestAccess) {
+    if (_isRequestAccess == toRequestAccess) return;
+    setState(() {
+      _isRequestAccess = toRequestAccess;
+      _warningBanner = null;
+      _signInEmailError = null;
+      _signInPasswordError = null;
+      _reqNameError = null;
+      _reqBusinessError = null;
+      _reqEmailError = null;
+      _reqPhoneError = null;
+    });
   }
 
   @override
@@ -429,7 +479,6 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // 1. Exact 3D Wavy Liquid Glass Background
           Positioned.fill(
             child: RepaintBoundary(
               child: CustomPaint(
@@ -437,8 +486,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
-
-          // 2. Main Login Content
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -446,7 +493,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Top Full Brand Logo
                     Hero(
                       tag: 'billbooks_brand_logo',
                       child: Column(
@@ -481,386 +527,299 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 22),
-
-                    // Liquid Glass Form Card
                     LiquidGlass(
                       borderRadius: 28,
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Pill Toggle: SIGN IN / CREATE ACCOUNT
-                          Container(
-                            height: 46,
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              borderRadius: BorderRadius.circular(22),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.6),
-                                width: 1,
-                              ),
-                            ),
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                final pillWidth = constraints.maxWidth / 2;
-                                return Stack(
-                                  children: [
-                                    AnimatedPositioned(
-                                      duration: MediaQuery.disableAnimationsOf(context)
-                                          ? Duration.zero
-                                          : const Duration(milliseconds: 220),
-                                      curve: Curves.easeInOutCubic,
-                                      left: _isSignUp ? pillWidth : 0,
-                                      top: 0,
-                                      bottom: 0,
-                                      width: pillWidth,
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          gradient: const LinearGradient(
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                            colors: [AppColors.maroonLight, AppColors.maroonDark],
-                                          ),
-                                          borderRadius: BorderRadius.circular(18),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: AppColors.maroonDark.withValues(alpha: 0.35),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Semantics(
-                                            button: true,
-                                            selected: !_isSignUp,
-                                            label: 'Sign In tab',
-                                            child: InkWell(
-                                              onTap: () {
-                                                if (_isSignUp) {
-                                                  setState(() {
-                                                    _isSignUp = false;
-                                                    _warningBanner = null;
-                                                  });
-                                                }
-                                              },
-                                              borderRadius: BorderRadius.circular(18),
-                                              child: Center(
-                                                child: Padding(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                                                  child: FittedBox(
-                                                    fit: BoxFit.scaleDown,
-                                                    child: Text(
-                                                      'SIGN IN',
-                                                      maxLines: 1,
-                                                      style: AppTypography.fontS(
-                                                        color: !_isSignUp ? Colors.white : AppColors.brandInk.withValues(alpha: 0.70),
-                                                        fontWeight: FontWeight.w700,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Semantics(
-                                            button: true,
-                                            selected: _isSignUp,
-                                            label: 'Request Access tab',
-                                            child: InkWell(
-                                              onTap: () {
-                                                if (!_isSignUp) {
-                                                  setState(() {
-                                                    _isSignUp = true;
-                                                    _warningBanner = null;
-                                                  });
-                                                }
-                                              },
-                                              borderRadius: BorderRadius.circular(18),
-                                              child: Center(
-                                                child: Padding(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                                                  child: FittedBox(
-                                                    fit: BoxFit.scaleDown,
-                                                    child: Text(
-                                                      'REQUEST ACCESS',
-                                                      maxLines: 1,
-                                                      style: AppTypography.fontS(
-                                                        color: _isSignUp ? Colors.white : AppColors.brandInk.withValues(alpha: 0.70),
-                                                        fontWeight: FontWeight.w700,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                          ),
+                          _buildModeToggle(),
                           const SizedBox(height: 16),
-
-                          // Clean Warning / Exceptional Case Card
                           if (_warningBanner != null) ...[
                             _buildWarningCard(_warningBanner!),
                             const SizedBox(height: 14),
                           ],
-
-                          // Form Content
-                          if (!_isSignUp) ...[
-                            // EMAIL FIELD
-                            _buildFieldHeader('EMAIL ADDRESS', error: _signInEmailError),
-                            const SizedBox(height: 5),
-                            FrostedInputField(
-                              controller: _emailController,
-                              icon: Icons.mail_outline_rounded,
-                              hintText: 'name@company.com',
-                              semanticLabel: 'Email address',
-                              keyboardType: TextInputType.emailAddress,
-                              hasError: _signInEmailError != null,
-                            ),
-                            if (_signInEmailError != null)
-                              _buildInlineErrorText(_signInEmailError!),
-                            const SizedBox(height: 14),
-
-                            // PASSWORD FIELD
-                            _buildFieldHeader('PASSWORD', error: _signInPasswordError),
-                            const SizedBox(height: 5),
-                            FrostedInputField(
-                              controller: _passwordController,
-                              icon: Icons.lock_outline_rounded,
-                              hintText: 'Enter password',
-                              semanticLabel: 'Password',
-                              obscureText: _obscurePassword,
-                              hasError: _signInPasswordError != null,
-                              onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
-                            ),
-                            if (_signInPasswordError != null)
-                              _buildInlineErrorText(_signInPasswordError!),
-                            const SizedBox(height: 4),
-
-                            // FORGOT PASSWORD LINK
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: _openForgotPasswordDialog,
-                                style: TextButton.styleFrom(
-                                  minimumSize: const Size(48, 44),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                                  tapTargetSize: MaterialTapTargetSize.padded,
-                                ),
-                                child: Text(
-                                  'Forgot Password?',
-                                  style: TextStyle(
-                                    fontFamily: 'DM Sans',
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.maroonDark.withValues(alpha: 0.90),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-
-                            // SIGN IN CTA BUTTON (Orange Gloss)
-                            LiquidGlass(
-                              isOrangeGloss: true,
-                              borderRadius: 24,
-                              height: 48,
-                              semanticLabel: _isLoading ? 'Signing in' : 'Sign In',
-                              onTap: _isLoading ? null : _handleSignIn,
-                              child: Center(
-                                child: _isLoading
-                                    ? const SizedBox(
-                                        width: 22,
-                                        height: 22,
-                                        child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
-                                      )
-                                    : Text(
-                                        'SIGN IN',
-                                        style: AppTypography.fontL(color: Colors.white, fontWeight: FontWeight.w700),
-                                      ),
-                              ),
-                            ),
-                          ] else if (_accessRequestSubmitted) ...[
-                            // ACCESS REQUEST CONFIRMATION STATE
-                            Container(
-                              padding: const EdgeInsets.all(18),
-                              decoration: BoxDecoration(
-                                color: AppColors.successGreen.withValues(alpha: 0.10),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: AppColors.successGreen.withValues(alpha: 0.35),
-                                  width: 1.2,
-                                ),
-                              ),
-                              child: Column(
-                                children: [
-                                  const Icon(
-                                    Icons.check_circle_rounded,
-                                    color: AppColors.successGreen,
-                                    size: 48,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'Access Request Submitted!',
-                                    style: AppTypography.fontM(
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.brandInk,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Thank you, ${_reqFullNameController.text.trim()}! Your request for ${_reqBusinessController.text.trim()} has been registered.\n\nOur team will review your shop details, verify subscription, and send your login credentials via WhatsApp / Email.',
-                                    textAlign: TextAlign.center,
-                                    style: AppTypography.fontS(
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.mutedText,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-                            LiquidGlass(
-                              isOrangeGloss: true,
-                              borderRadius: 24,
-                              height: 48,
-                              onTap: () {
-                                setState(() {
-                                  _isSignUp = false;
-                                  _accessRequestSubmitted = false;
-                                  _reqFullNameController.clear();
-                                  _reqBusinessController.clear();
-                                  _reqEmailController.clear();
-                                  _reqPhoneController.clear();
-                                  _reqNotesController.clear();
-                                });
-                              },
-                              child: Center(
-                                child: Text(
-                                  'RETURN TO SIGN IN',
-                                  style: AppTypography.fontL(color: Colors.white, fontWeight: FontWeight.w700),
-                                ),
-                              ),
-                            ),
-                          ] else ...[
-                            // REQUEST ACCESS FORM
-                            // CONTACT NAME
-                            _buildFieldHeader('CONTACT NAME', error: _reqFullNameError),
-                            const SizedBox(height: 5),
-                            FrostedInputField(
-                              controller: _reqFullNameController,
-                              icon: Icons.person_outline_rounded,
-                              hintText: 'e.g. Ramesh Kumar',
-                              semanticLabel: 'Contact full name',
-                              keyboardType: TextInputType.name,
-                              hasError: _reqFullNameError != null,
-                            ),
-                            if (_reqFullNameError != null)
-                              _buildInlineErrorText(_reqFullNameError!),
-                            const SizedBox(height: 12),
-
-                            // SHOP / BUSINESS NAME
-                            _buildFieldHeader('SHOP / BUSINESS NAME', error: _reqBusinessError),
-                            const SizedBox(height: 5),
-                            FrostedInputField(
-                              controller: _reqBusinessController,
-                              icon: Icons.storefront_outlined,
-                              hintText: 'e.g. Sri Balaji Hardware & Electricals',
-                              semanticLabel: 'Shop or business name',
-                              keyboardType: TextInputType.text,
-                              hasError: _reqBusinessError != null,
-                            ),
-                            if (_reqBusinessError != null)
-                              _buildInlineErrorText(_reqBusinessError!),
-                            const SizedBox(height: 12),
-
-                            // EMAIL ADDRESS
-                            _buildFieldHeader('EMAIL ADDRESS', error: _reqEmailError),
-                            const SizedBox(height: 5),
-                            FrostedInputField(
-                              controller: _reqEmailController,
-                              icon: Icons.mail_outline_rounded,
-                              hintText: 'shop@gmail.com',
-                              semanticLabel: 'Shop contact email',
-                              keyboardType: TextInputType.emailAddress,
-                              hasError: _reqEmailError != null,
-                            ),
-                            if (_reqEmailError != null)
-                              _buildInlineErrorText(_reqEmailError!),
-                            const SizedBox(height: 12),
-
-                            // WHATSAPP PHONE NUMBER
-                            _buildFieldHeader('WHATSAPP MOBILE NUMBER', error: _reqPhoneError),
-                            const SizedBox(height: 5),
-                            FrostedInputField(
-                              controller: _reqPhoneController,
-                              icon: Icons.phone_outlined,
-                              hintText: '+91 98400 12345',
-                              semanticLabel: 'Mobile number for credentials',
-                              keyboardType: TextInputType.phone,
-                              hasError: _reqPhoneError != null,
-                            ),
-                            if (_reqPhoneError != null)
-                              _buildInlineErrorText(_reqPhoneError!),
-                            const SizedBox(height: 12),
-
-                            // NOTES / REQUIREMENTS (OPTIONAL)
-                            _buildFieldHeader('SHOP REQUIREMENTS (OPTIONAL)'),
-                            const SizedBox(height: 5),
-                            FrostedInputField(
-                              controller: _reqNotesController,
-                              icon: Icons.notes_rounded,
-                              hintText: 'e.g. Parrys wholesale shop, ~40 daily bills',
-                              semanticLabel: 'Additional notes or requirements',
-                              keyboardType: TextInputType.text,
-                            ),
-                            const SizedBox(height: 18),
-
-                            // REQUEST ACCESS CTA BUTTON
-                            LiquidGlass(
-                              isOrangeGloss: true,
-                              borderRadius: 24,
-                              height: 48,
-                              semanticLabel: _isLoading ? 'Submitting request' : 'Request Access',
-                              onTap: _isLoading ? null : _handleRequestAccess,
-                              child: Center(
-                                child: _isLoading
-                                    ? const SizedBox(
-                                        width: 22,
-                                        height: 22,
-                                        child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
-                                      )
-                                    : Text(
-                                        'REQUEST SHOP ACCESS',
-                                        style: AppTypography.fontL(color: Colors.white, fontWeight: FontWeight.w700),
-                                      ),
-                              ),
-                            ),
-                          ],
+                          if (!_isRequestAccess)
+                            _buildSignInForm(context)
+                          else
+                            _buildRequestAccessForm(),
                         ],
                       ),
                     ),
-
                   ],
                 ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildModeToggle() {
+    return Container(
+      height: 46,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.6),
+          width: 1,
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final pillWidth = constraints.maxWidth / 2;
+          return Stack(
+            children: [
+              AnimatedPositioned(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
+                curve: Curves.easeInOutCubic,
+                left: _isRequestAccess ? pillWidth : 0,
+                top: 0,
+                bottom: 0,
+                width: pillWidth,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [AppColors.maroonLight, AppColors.maroonDark],
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.maroonDark.withValues(alpha: 0.35),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  _buildTabOption(
+                    label: 'SIGN IN',
+                    semanticLabel: 'Sign In tab',
+                    isSelected: !_isRequestAccess,
+                    onTap: () => _switchTab(false),
+                  ),
+                  _buildTabOption(
+                    label: 'REQUEST ACCESS',
+                    semanticLabel: 'Request Access tab',
+                    isSelected: _isRequestAccess,
+                    onTap: () => _switchTab(true),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTabOption({
+    required String label,
+    required String semanticLabel,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: isSelected,
+        label: semanticLabel,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: AppTypography.fontS(
+                    color: isSelected ? Colors.white : AppColors.brandInk.withValues(alpha: 0.70),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSignInForm(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildLabeledInput(
+          label: 'EMAIL ADDRESS',
+          controller: _emailController,
+          icon: Icons.mail_outline_rounded,
+          hintText: 'name@company.com',
+          semanticLabel: 'Email address',
+          keyboardType: TextInputType.emailAddress,
+          error: _signInEmailError,
+        ),
+        const SizedBox(height: 14),
+        _buildLabeledInput(
+          label: 'PASSWORD',
+          controller: _passwordController,
+          icon: Icons.lock_outline_rounded,
+          hintText: 'Enter password',
+          semanticLabel: 'Password',
+          obscureText: _obscurePassword,
+          onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
+          error: _signInPasswordError,
+        ),
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: _openForgotPasswordDialog,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(48, 44),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              tapTargetSize: MaterialTapTargetSize.padded,
+            ),
+            child: Text(
+              'Forgot Password?',
+              style: TextStyle(
+                fontFamily: 'DM Sans',
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.maroonDark.withValues(alpha: 0.90),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        _buildSubmitButton(
+          label: 'SIGN IN',
+          busySemanticLabel: 'Signing in',
+          idleSemanticLabel: 'Sign In',
+          onTap: _handleSignIn,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRequestAccessForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildLabeledInput(
+          label: 'FULL NAME',
+          controller: _reqNameController,
+          icon: Icons.person_outline_rounded,
+          hintText: 'Your full name',
+          semanticLabel: 'Full name',
+          error: _reqNameError,
+        ),
+        const SizedBox(height: 14),
+        _buildLabeledInput(
+          label: 'BUSINESS / SHOP NAME',
+          controller: _reqBusinessController,
+          icon: Icons.storefront_outlined,
+          hintText: 'Company or shop name',
+          semanticLabel: 'Business or shop name',
+          error: _reqBusinessError,
+        ),
+        const SizedBox(height: 14),
+        _buildLabeledInput(
+          label: 'EMAIL ADDRESS',
+          controller: _reqEmailController,
+          icon: Icons.mail_outline_rounded,
+          hintText: 'name@company.com',
+          semanticLabel: 'Access request email address',
+          keyboardType: TextInputType.emailAddress,
+          error: _reqEmailError,
+        ),
+        const SizedBox(height: 14),
+        _buildLabeledInput(
+          label: 'PHONE NUMBER',
+          controller: _reqPhoneController,
+          icon: Icons.phone_outlined,
+          hintText: '10-digit mobile number',
+          semanticLabel: 'Phone number',
+          keyboardType: TextInputType.phone,
+          error: _reqPhoneError,
+        ),
+        const SizedBox(height: 20),
+        _buildSubmitButton(
+          label: 'REQUEST ACCESS',
+          busySemanticLabel: 'Submitting access request',
+          idleSemanticLabel: 'Request Access',
+          onTap: _handleRequestAccess,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLabeledInput({
+    required String label,
+    required TextEditingController controller,
+    required IconData icon,
+    required String hintText,
+    required String semanticLabel,
+    TextInputType keyboardType = TextInputType.text,
+    bool obscureText = false,
+    VoidCallback? onToggleObscure,
+    String? error,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildFieldHeader(label, error: error),
+        const SizedBox(height: 5),
+        FrostedInputField(
+          controller: controller,
+          icon: icon,
+          hintText: hintText,
+          semanticLabel: semanticLabel,
+          keyboardType: keyboardType,
+          obscureText: obscureText,
+          hasError: error != null,
+          onToggleObscure: onToggleObscure,
+        ),
+        if (error != null) _buildInlineErrorText(error),
+      ],
+    );
+  }
+
+  Widget _buildSubmitButton({
+    required String label,
+    required String busySemanticLabel,
+    required String idleSemanticLabel,
+    required VoidCallback onTap,
+  }) {
+    return LiquidGlass(
+      isOrangeGloss: true,
+      borderRadius: 24,
+      height: 48,
+      semanticLabel: _isLoading ? busySemanticLabel : idleSemanticLabel,
+      onTap: _isLoading ? null : onTap,
+      child: Center(
+        child: _isLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+              )
+            : Text(
+                label,
+                style: AppTypography.fontL(color: Colors.white, fontWeight: FontWeight.w700),
+              ),
       ),
     );
   }
@@ -963,35 +922,35 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                    color: data.color,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: data.color.withValues(alpha: 0.3),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
+                        color: data.color,
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: data.color.withValues(alpha: 0.3),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        data.actionLabel!,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            data.actionLabel!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 13),
+                        ],
                       ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 13),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              ),
               ),
             ),
           ],
