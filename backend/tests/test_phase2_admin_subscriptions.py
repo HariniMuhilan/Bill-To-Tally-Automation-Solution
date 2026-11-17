@@ -16,12 +16,15 @@ from backend.app.services.supabase_admin import get_supabase_admin, reset_supaba
 def setup_test_env(tmp_path: Path):
     """Isolate storage and reset in-memory admin client before each test."""
     original_doc_root = settings.DOCUMENT_ROOT
+    original_key = settings.SUPABASE_SERVICE_ROLE_KEY
     settings.DOCUMENT_ROOT = tmp_path
     settings.AUTH_REQUIRED = True
     settings.ADMIN_EMAILS = "admin@billbooks.app,superadmin@ashantech.com"
+    settings.SUPABASE_SERVICE_ROLE_KEY = ""
     reset_supabase_admin_for_tests()
     yield
     settings.DOCUMENT_ROOT = original_doc_root
+    settings.SUPABASE_SERVICE_ROLE_KEY = original_key
 
 
 @pytest.fixture
