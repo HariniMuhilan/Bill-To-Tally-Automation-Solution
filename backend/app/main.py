@@ -59,19 +59,16 @@ def create_app() -> FastAPI:
     )
 
     explicit_origins = settings.get_allowed_origins()
-    # Fail-closed in production when ALLOWED_ORIGINS is unset; allow localhost in non-prod only.
-    origin_regex = (
-        None
-        if (explicit_origins or is_prod)
-        else r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
-    )
+    # Always permit local development origins (Flutter web, Vite, localhost loopback)
+    # alongside explicit production origins.
+    origin_regex = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
     application.add_middleware(
         CORSMiddleware,
         allow_origins=explicit_origins,
         allow_origin_regex=origin_regex,
-        allow_credentials=bool(explicit_origins or origin_regex),
+        allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Device-Session-Id", "X-Device-Label"],
+        allow_headers=["*"],
         expose_headers=["X-Device-Session-Id"],
     )
 

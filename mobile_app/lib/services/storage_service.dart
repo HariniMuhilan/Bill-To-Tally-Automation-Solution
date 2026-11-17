@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/invoice.dart';
 import '../models/draft_sheet.dart';
@@ -47,7 +48,6 @@ class StorageService {
 
   /// Removes legacy unscoped keys so older builds cannot leak data across accounts.
   void _purgeOldDemoData() {
-    _prefs.remove(_keyApiBase);
     if (!_prefs.containsKey(_keyCleanedOldData)) {
       _prefs.remove(_keyInvoices);
       _prefs.remove(_keyDrafts);
@@ -96,8 +96,28 @@ class StorageService {
 
   // --- Environment & Tally Config ---
 
-  String get apiBaseUrl => defaultApiUrl;
-  Future<void> setApiBaseUrl(String url) async {}
+  String get apiBaseUrl {
+    final custom = _prefs.getString(_keyApiBase);
+    if (custom != null && custom.trim().isNotEmpty) {
+      return custom.trim();
+    }
+    if (kIsWeb) {
+      final host = Uri.base.host;
+      if (host == 'localhost' || host == '127.0.0.1') {
+        return 'http://127.0.0.1:8000';
+      }
+    }
+    return defaultApiUrl;
+  }
+
+  Future<void> setApiBaseUrl(String url) async {
+    final trimmed = url.trim().replaceAll(RegExp(r'/+$'), '');
+    if (trimmed.isEmpty || trimmed == defaultApiUrl) {
+      await _prefs.remove(_keyApiBase);
+    } else {
+      await _prefs.setString(_keyApiBase, trimmed);
+    }
+  }
 
   String get tallyHost => _prefs.getString(_keyTallyHost) ?? '127.0.0.1';
   Future<void> setTallyHost(String host) => _prefs.setString(_keyTallyHost, host);
