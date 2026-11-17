@@ -54,6 +54,7 @@ dev_dependencies:
 
 dependency_overrides:
   url_launcher_android: 6.3.14
+  image_picker_platform_interface: 2.10.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
