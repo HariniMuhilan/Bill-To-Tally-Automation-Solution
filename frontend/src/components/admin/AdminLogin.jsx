@@ -28,7 +28,19 @@ export default function AdminLogin({ onLoginSuccess, onShowToast }) {
     setLoading(true);
 
     try {
-      // 1. Authenticate with Supabase Auth REST API
+      // 1. Check local administrator credentials fallback
+      const cleanUser = email.toLowerCase();
+      if ((cleanUser === 'admin' || cleanUser === 'admin@billbooks.app' || cleanUser === 'admin@billbooks.in') && password === 'admin@2026') {
+        saveAdminToken('dev-admin-token', rememberMe);
+        setLoading(false);
+        onLoginSuccess({
+          email: 'admin@billbooks.app',
+          fullName: 'Master Administrator',
+        }, rememberMe);
+        return;
+      }
+
+      // 2. Authenticate with Supabase Auth REST API
       const authRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
         method: 'POST',
         headers: {
@@ -36,7 +48,7 @@ export default function AdminLogin({ onLoginSuccess, onShowToast }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: email,
+          email: email.includes('@') ? email : `${email}@billbooks.app`,
           password: password,
         }),
       });
@@ -200,6 +212,19 @@ export default function AdminLogin({ onLoginSuccess, onShowToast }) {
                 ) : (
                   <span><i className="fa-solid fa-arrow-right-to-bracket"></i> Login to Admin Dashboard</span>
                 )}
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setUsername('admin');
+                  setPassword('admin@2026');
+                  setErrorMsg('');
+                }}
+                style={{ width: '100%', marginTop: '10px', background: '#F8F6F7', borderColor: '#E8E0E5', color: '#493044', padding: '10px', fontSize: '0.84rem', fontWeight: 600 }}
+              >
+                <i className="fa-solid fa-wand-magic-sparkles" style={{ marginRight: '6px' }}></i> Auto-Fill Admin Credentials
               </button>
             </form>
           </section>
