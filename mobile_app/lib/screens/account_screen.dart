@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/user_session.dart';
 import '../services/storage_service.dart';
+import '../services/api_service.dart';
 import '../services/supabase_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/liquid_glass.dart';
@@ -10,12 +11,14 @@ import '../widgets/liquid_glass.dart';
 class AccountScreen extends StatefulWidget {
   final UserSession user;
   final StorageService storage;
+  final ApiService? api;
   final VoidCallback onLogout;
 
   const AccountScreen({
     super.key,
     required this.user,
     required this.storage,
+    this.api,
     required this.onLogout,
   });
 
@@ -25,10 +28,10 @@ class AccountScreen extends StatefulWidget {
 
 class _AccountScreenState extends State<AccountScreen> {
   static final Uri _privacyUrl = Uri.parse(
-    '${StorageService.defaultApiUrl}/privacy-policy',
+    '${StorageService.staticSiteUrl}/privacy-policy',
   );
   static final Uri _termsUrl = Uri.parse(
-    '${StorageService.defaultApiUrl}/terms',
+    '${StorageService.staticSiteUrl}/terms',
   );
 
   bool _isBusy = false;
@@ -104,6 +107,12 @@ class _AccountScreenState extends State<AccountScreen> {
 
     setState(() => _isBusy = true);
     try {
+      if (widget.api != null) {
+        try {
+          await widget.api!.deleteAccount();
+        } catch (_) {}
+      }
+      await widget.storage.clearAllUserData();
       await widget.storage.clearActiveUserData();
       await SupabaseService.signOut();
       if (!mounted) return;
@@ -122,6 +131,13 @@ class _AccountScreenState extends State<AccountScreen> {
     if (_isBusy) return;
     setState(() => _isBusy = true);
     try {
+      if (widget.api != null) {
+        try {
+          await widget.api!.releaseDeviceSession();
+        } catch (_) {}
+      }
+      await widget.storage.clearAllUserData();
+      await widget.storage.clearActiveUserData();
       await SupabaseService.signOut();
       if (!mounted) return;
       widget.onLogout();
@@ -149,6 +165,10 @@ class _AccountScreenState extends State<AccountScreen> {
   @override
   Widget build(BuildContext context) {
     final user = widget.user;
+    final accessStatus = widget.storage.subscriptionStatus?.toUpperCase() ??
+        (widget.storage.isScanAllowed ? 'ACTIVE' : 'INACTIVE');
+    final validityWindow =
+        '${widget.storage.subscriptionStartDate ?? '—'} → ${widget.storage.subscriptionEndDate ?? '—'}';
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -245,16 +265,16 @@ class _AccountScreenState extends State<AccountScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const _AccountInfoRow(
+                  _AccountInfoRow(
                     icon: Icons.verified_user_outlined,
                     label: 'Access Status',
-                    value: 'Managed by Admin',
+                    value: accessStatus,
                   ),
                   const Divider(height: 18, color: AppColors.borderSubtle),
-                  const _AccountInfoRow(
+                  _AccountInfoRow(
                     icon: Icons.date_range_rounded,
                     label: 'Validity Window',
-                    value: 'Synced via Organization',
+                    value: validityWindow,
                   ),
                   const Divider(height: 18, color: AppColors.borderSubtle),
                   const _AccountInfoRow(

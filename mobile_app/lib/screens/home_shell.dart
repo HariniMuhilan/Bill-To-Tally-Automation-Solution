@@ -282,6 +282,7 @@ class _HomeShellState extends State<HomeShell> {
         body = AccountScreen(
           user: widget.user,
           storage: widget.storage,
+          api: widget.api,
           onLogout: _handleLogout,
         );
         break;

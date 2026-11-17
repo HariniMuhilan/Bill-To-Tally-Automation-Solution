@@ -93,7 +93,7 @@ class SupabaseService {
   }
 
   static String get emailConfirmationRedirectUrl =>
-      '${StorageService.defaultApiUrl}/auth/confirmed';
+      '${StorageService.staticSiteUrl}/email-confirmed/index.html';
 
   /// Sign Up with Email & Password
   static Future<SignUpResult> signUp({

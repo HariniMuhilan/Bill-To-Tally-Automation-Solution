@@ -301,31 +301,30 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleResendConfirmationEmail(String email) async {
     setState(() => _isLoading = true);
     try {
-      final resendRes = await SupabaseService.resendConfirmationEmail(email);
+      await SupabaseService.resendConfirmationEmail(email: email);
       if (!mounted) return;
-      if (resendRes.success) {
-        setState(() {
-          _warningBanner = WarningBannerData(
-            icon: Icons.mark_email_read_rounded,
-            title: 'Confirmation Email Sent',
-            message: 'A fresh confirmation link was sent to $email. Open it to activate your account, then sign in.',
-            color: AppColors.successGreen,
-            actionLabel: 'OK',
-            onAction: () => setState(() => _warningBanner = null),
-          );
-        });
-      } else {
-        setState(() {
-          _warningBanner = WarningBannerData(
-            icon: Icons.error_outline_rounded,
-            title: 'Could Not Resend Email',
-            message: resendRes.errorMessage ?? 'Please try again in a few moments.',
-            color: AppColors.errorRed,
-            actionLabel: 'RETRY',
-            onAction: () => _handleResendConfirmationEmail(email),
-          );
-        });
-      }
+      setState(() {
+        _warningBanner = WarningBannerData(
+          icon: Icons.mark_email_read_rounded,
+          title: 'Confirmation Email Sent',
+          message: 'A fresh confirmation link was sent to $email. Open it to activate your account, then sign in.',
+          color: AppColors.successGreen,
+          actionLabel: 'OK',
+          onAction: () => setState(() => _warningBanner = null),
+        );
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _warningBanner = WarningBannerData(
+          icon: Icons.error_outline_rounded,
+          title: 'Could Not Resend Email',
+          message: e.toString().replaceFirst(RegExp(r'^[A-Za-z]+Exception:\s*'), ''),
+          color: AppColors.errorRed,
+          actionLabel: 'RETRY',
+          onAction: () => _handleResendConfirmationEmail(email),
+        );
+      });
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -337,14 +336,16 @@ class _LoginScreenState extends State<LoginScreen> {
       barrierDismissible: true,
       builder: (dialogContext) => ForgotPasswordDialog(
         initialEmail: _emailController.text.trim(),
-        onSubmit: (email) async {
-          final res = await SupabaseService.resetPasswordForEmail(email);
-          return ForgotPasswordResult(
-            success: res.success,
-            message: res.success
-                ? 'Password reset instructions sent to $email. Please check your inbox.'
-                : (res.errorMessage ?? 'Could not send reset email. Please try again.'),
-          );
+        onPasswordResetSuccess: (message) {
+          if (!mounted) return;
+          setState(() {
+            _warningBanner = WarningBannerData(
+              icon: Icons.check_circle_outline_rounded,
+              title: 'Password Updated',
+              message: message,
+              color: AppColors.successGreen,
+            );
+          });
         },
       ),
     );
