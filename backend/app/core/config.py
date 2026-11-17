@@ -26,8 +26,8 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = ""
     SUPABASE_JWT_SECRET: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = ""
-    ADMIN_EMAILS: str = ""
-    ACCESS_REQUEST_RATE_LIMIT: int = 5  # Max requests per hour per IP
+    ADMIN_EMAILS: str = "admin@billbooks.app,admin@billbooks.in,muhilanharini@gmail.com"
+    ACCESS_REQUEST_RATE_LIMIT: int = 20  # Max requests per hour per IP
 
     # Storage and Database
     DATABASE_URL: str = "sqlite:///./bill_to_tally.db"

@@ -5,7 +5,9 @@
 
 export const API_BASE = (
   import.meta.env.VITE_API_BASE ||
-  'https://bill-to-tally-automation-solution-l68w.onrender.com'
+  (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://127.0.0.1:8000'
+    : 'https://bill-to-tally-automation-solution-l68w.onrender.com')
 ).replace(/\/+$/, '');
 
 function getAuthHeader() {
