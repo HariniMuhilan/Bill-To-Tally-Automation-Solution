@@ -1445,7 +1445,8 @@ select.form-control {
 /* ==========================================================================
    Modals & Popups (Light Mode with Elevated Shadow)
    ========================================================================== */
-.modal-overlay {
+.modal-overlay,
+.modal-backdrop {
   position: fixed;
   top: 0;
   left: 0;
@@ -1457,9 +1458,7 @@ select.form-control {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
+  padding: 20px;
 }
 
 .modal-overlay.open {

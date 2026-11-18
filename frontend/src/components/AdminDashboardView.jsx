@@ -81,6 +81,9 @@ export default function AdminDashboardView({ admin, onLogout, onShowToast }) {
     for (let i = 0; i < 4; i++) rand += chars.charAt(Math.floor(Math.random() * chars.length));
     setProvPassword(`BillBooks@${new Date().getFullYear()}${rand}`);
     setProvisionModalOpen(true);
+    setTimeout(() => {
+      document.getElementById('provision-account-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
   }
 
   async function handleExecuteProvision(e) {
@@ -551,7 +554,8 @@ export default function AdminDashboardView({ admin, onLogout, onShowToast }) {
 
           {/* TAB 2: ACCESS REQUESTS */}
           {activeTab === 'requests' && (
-            <div className="admin-table-container">
+            <>
+              <div className="admin-table-container">
               <div className="admin-table-toolbar">
                 <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#111522' }}>
                   Client Onboarding Inquiries (Mobile App / Web)
@@ -639,118 +643,139 @@ export default function AdminDashboardView({ admin, onLogout, onShowToast }) {
                 </table>
               </div>
             </div>
+
+            {/* APPROVE & PROVISION ACCOUNT PANEL (CENTERED AT BOTTOM OF ACCESS REQUEST TABLE) */}
+            {provisionModalOpen && (
+              <div 
+                id="provision-account-card"
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  marginTop: '28px',
+                  marginBottom: '40px',
+                  width: '100%',
+                }}
+              >
+                <div 
+                  className="admin-modal-card" 
+                  style={{ 
+                    maxWidth: '620px', 
+                    width: '100%', 
+                    background: '#FFFFFF',
+                    borderRadius: '16px',
+                    border: '1px solid #E8E0E5',
+                    boxShadow: '0 12px 36px rgba(17, 21, 34, 0.12)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div className="modal-header" style={{ padding: '18px 24px', borderBottom: '1px solid #E8E0E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div className="modal-icon-badge" style={{ background: '#E6F4EA', color: '#16794B', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <i className="fa-solid fa-user-plus"></i>
+                      </div>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#111522', fontWeight: 700 }}>Approve & Provision Account</h3>
+                        <p style={{ margin: 0, fontSize: '0.82rem', color: '#80536F' }}>
+                          Creates confirmed Supabase Auth credentials + active subscription
+                        </p>
+                      </div>
+                    </div>
+                    <button type="button" className="btn-modal-close" onClick={() => setProvisionModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', color: '#80536F', cursor: 'pointer', padding: '4px' }}>
+                      <i className="fa-solid fa-xmark"></i>
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleExecuteProvision}>
+                    <div className="modal-body" style={{ padding: '20px 24px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Business / Shop Name *</label>
+                          <input type="text" className="auth-input" value={provBusinessName} onChange={(e) => setProvBusinessName(e.target.value)} required />
+                        </div>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Owner / Contact Name *</label>
+                          <input type="text" className="auth-input" value={provFullName} onChange={(e) => setProvFullName(e.target.value)} required />
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Email Address *</label>
+                          <input type="email" className="auth-input" value={provEmail} onChange={(e) => setProvEmail(e.target.value)} required />
+                        </div>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Phone Number *</label>
+                          <input type="text" className="auth-input" value={provPhone} onChange={(e) => setProvPhone(e.target.value)} required />
+                        </div>
+                      </div>
+
+                      <div className="form-group" style={{ marginBottom: '14px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Initial Temporary Password *</label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$';
+                              let rand = '';
+                              for (let i = 0; i < 4; i++) rand += chars.charAt(Math.floor(Math.random() * chars.length));
+                              setProvPassword(`BillBooks@${new Date().getFullYear()}${rand}`);
+                            }}
+                            className="btn btn-sm btn-subtle"
+                            style={{ fontSize: '0.72rem', padding: '2px 6px' }}
+                          >
+                            <i className="fa-solid fa-arrows-rotate"></i> Regenerate
+                          </button>
+                        </div>
+                        <input type="text" className="auth-input" value={provPassword} onChange={(e) => setProvPassword(e.target.value)} required />
+                        <div style={{ fontSize: '0.72rem', color: '#80536F', marginTop: '3px' }}>
+                          User will be confirmed immediately and can reset their password via Forgot Password in the app.
+                        </div>
+                      </div>
+
+                      <div style={{ background: '#F7F2F4', padding: '14px', borderRadius: '10px', border: '1px solid #E8E0E5', marginBottom: '14px' }}>
+                        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#493044', marginBottom: '8px' }}>
+                          SUBSCRIPTION DATES & PAYMENT
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '10px' }}>
+                          <div className="form-group">
+                            <label style={{ fontSize: '0.76rem', fontWeight: 600 }}>Subscription Start Date *</label>
+                            <input type="date" className="auth-input" value={provStart} onChange={(e) => setProvStart(e.target.value)} required />
+                          </div>
+                          <div className="form-group">
+                            <label style={{ fontSize: '0.76rem', fontWeight: 600 }}>Subscription End Date *</label>
+                            <input type="date" className="auth-input" value={provEnd} onChange={(e) => setProvEnd(e.target.value)} required />
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                          <div className="form-group">
+                            <label style={{ fontSize: '0.76rem', fontWeight: 600 }}>Amount Paid (₹) *</label>
+                            <input type="number" className="auth-input" value={provAmount} onChange={(e) => setProvAmount(e.target.value)} required />
+                          </div>
+                          <div className="form-group">
+                            <label style={{ fontSize: '0.76rem', fontWeight: 600 }}>Payment Reference / Notes</label>
+                            <input type="text" className="auth-input" value={provNotes} onChange={(e) => setProvNotes(e.target.value)} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="modal-footer" style={{ borderTop: '1px solid #E8E0E5', padding: '16px 24px', display: 'flex', justifyContent: 'center', gap: '12px' }}>
+                      <button type="button" className="btn btn-secondary" onClick={() => setProvisionModalOpen(false)}>Cancel</button>
+                      <button type="submit" className="btn btn-primary" style={{ background: '#16794B', borderColor: '#16794B', color: '#fff', fontWeight: 700, padding: '10px 24px' }}>
+                        <i className="fa-solid fa-check" style={{ marginRight: '6px' }}></i> Create & Provision Account
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+          </>
           )}
 
         </div>
       </main>
-
-      {/* MODAL 1: PROVISION SUBSCRIBER */}
-      {provisionModalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-container admin-modal-card" style={{ maxWidth: '580px' }}>
-            <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div className="modal-icon-badge" style={{ background: '#E6F4EA', color: '#16794B' }}>
-                  <i className="fa-solid fa-user-plus"></i>
-                </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Approve & Provision Account</h3>
-                  <p style={{ margin: 0, fontSize: '0.82rem', color: '#80536F' }}>
-                    Creates confirmed Supabase Auth credentials + active subscription
-                  </p>
-                </div>
-              </div>
-              <button type="button" className="btn-modal-close" onClick={() => setProvisionModalOpen(false)}>
-                <i className="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-
-            <form onSubmit={handleExecuteProvision}>
-              <div className="modal-body" style={{ padding: '20px 24px', maxHeight: '72vh', overflowY: 'auto' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
-                  <div className="form-group">
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Business / Shop Name *</label>
-                    <input type="text" className="auth-input" value={provBusinessName} onChange={(e) => setProvBusinessName(e.target.value)} required />
-                  </div>
-                  <div className="form-group">
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Owner / Contact Name *</label>
-                    <input type="text" className="auth-input" value={provFullName} onChange={(e) => setProvFullName(e.target.value)} required />
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
-                  <div className="form-group">
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Email Address *</label>
-                    <input type="email" className="auth-input" value={provEmail} onChange={(e) => setProvEmail(e.target.value)} required />
-                  </div>
-                  <div className="form-group">
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Phone Number *</label>
-                    <input type="text" className="auth-input" value={provPhone} onChange={(e) => setProvPhone(e.target.value)} required />
-                  </div>
-                </div>
-
-                <div className="form-group" style={{ marginBottom: '14px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Initial Temporary Password *</label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$';
-                        let rand = '';
-                        for (let i = 0; i < 4; i++) rand += chars.charAt(Math.floor(Math.random() * chars.length));
-                        setProvPassword(`BillBooks@${new Date().getFullYear()}${rand}`);
-                      }}
-                      className="btn btn-sm btn-subtle"
-                      style={{ fontSize: '0.72rem', padding: '2px 6px' }}
-                    >
-                      <i className="fa-solid fa-arrows-rotate"></i> Regenerate
-                    </button>
-                  </div>
-                  <input type="text" className="auth-input" value={provPassword} onChange={(e) => setProvPassword(e.target.value)} required />
-                  <div style={{ fontSize: '0.72rem', color: '#80536F', marginTop: '3px' }}>
-                    User will be confirmed immediately and can reset their password via Forgot Password in the app.
-                  </div>
-                </div>
-
-                <div style={{ background: '#F7F2F4', padding: '14px', borderRadius: '10px', border: '1px solid #E8E0E5', marginBottom: '14px' }}>
-                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#493044', marginBottom: '8px' }}>
-                    SUBSCRIPTION DATES & PAYMENT
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '10px' }}>
-                    <div className="form-group">
-                      <label style={{ fontSize: '0.76rem', fontWeight: 600 }}>Subscription Start Date *</label>
-                      <input type="date" className="auth-input" value={provStart} onChange={(e) => setProvStart(e.target.value)} required />
-                    </div>
-                    <div className="form-group">
-                      <label style={{ fontSize: '0.76rem', fontWeight: 600 }}>Subscription End Date *</label>
-                      <input type="date" className="auth-input" value={provEnd} onChange={(e) => setProvEnd(e.target.value)} required />
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div className="form-group">
-                      <label style={{ fontSize: '0.76rem', fontWeight: 600 }}>Amount Paid (₹) *</label>
-                      <input type="number" className="auth-input" value={provAmount} onChange={(e) => setProvAmount(e.target.value)} required />
-                    </div>
-                    <div className="form-group">
-                      <label style={{ fontSize: '0.76rem', fontWeight: 600 }}>Payment Reference / Notes</label>
-                      <input type="text" className="auth-input" value={provNotes} onChange={(e) => setProvNotes(e.target.value)} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="modal-footer" style={{ borderTop: '1px solid #E8E0E5', padding: '16px 24px', display: 'flex', justifyContent: 'center', gap: '12px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setProvisionModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" style={{ background: '#16794B', borderColor: '#16794B', color: '#fff', fontWeight: 700 }}>
-                  <i className="fa-solid fa-check" style={{ marginRight: '6px' }}></i> Create & Provision Account
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* MODAL 2: RENEW / UNBLOCK */}
       {renewModalUser && (
