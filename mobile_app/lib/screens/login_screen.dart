@@ -8,6 +8,7 @@ import '../services/supabase_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/liquid_glass.dart';
 import '../widgets/forgot_password_dialog.dart';
+import '../widgets/request_access_otp_dialog.dart';
 
 class WarningBannerData {
   final IconData icon;
@@ -215,10 +216,10 @@ class _LoginScreenState extends State<LoginScreen> {
           final subStatus = await widget.api.getSubscriptionStatus();
           if (subStatus.success && subStatus.data != null) {
             final data = subStatus.data!;
-            await widget.storage.setScanAllowed(data['is_active'] == true);
-            await widget.storage.setSubscriptionStatus(data['status']);
-            await widget.storage.setSubscriptionStartDate(data['start_date']);
-            await widget.storage.setSubscriptionEndDate(data['end_date']);
+            await widget.storage.setScanAllowed(data['is_scan_allowed'] == true);
+            await widget.storage.setSubscriptionStatus(data['status']?.toString());
+            await widget.storage.setSubscriptionStartDate(data['subscription_start']?.toString());
+            await widget.storage.setSubscriptionEndDate(data['subscription_end']?.toString());
           }
 
           await widget.storage.saveUser(session);
@@ -414,13 +415,34 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final result = await widget.api.submitAccessRequest(
-        fullName: fullName,
-        businessName: businessName,
-        email: email,
-        phone: phone,
-      );
+      if (!SupabaseService.isReady) {
+        setState(() {
+          _warningBanner = const WarningBannerData(
+            icon: Icons.cloud_off_rounded,
+            title: 'Verification Service Offline',
+            message: 'Email verification is unavailable right now. Please check your internet connection.',
+            color: AppColors.errorRed,
+          );
+        });
+        return;
+      }
+
+      await SupabaseService.sendAccessRequestOtp(email: email);
       if (!mounted) return;
+      setState(() => _isLoading = false);
+
+      final result = await showDialog<ApiResult<Map<String, dynamic>>?>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => RequestAccessOtpDialog(
+          fullName: fullName,
+          businessName: businessName,
+          email: email,
+          phone: phone,
+          api: widget.api,
+        ),
+      );
+      if (!mounted || result == null) return;
 
       if (result.success) {
         _reqNameController.clear();
@@ -432,7 +454,7 @@ class _LoginScreenState extends State<LoginScreen> {
           _warningBanner = WarningBannerData(
             icon: Icons.check_circle_outline_rounded,
             title: 'Access Request Submitted',
-            message: 'Your request for "$businessName" ($email) has been received. Your admin will share login credentials once activated.',
+            message: 'Your email "$email" is verified and your request for "$businessName" has been sent. Your admin will share login credentials once activated.',
             color: AppColors.successGreen,
           );
         });
@@ -455,6 +477,23 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         });
       }
+    } catch (e) {
+      if (!mounted) return;
+      final rawMsg = e.toString().replaceFirst(RegExp(r'^[A-Za-z]+Exception:\s*'), '');
+      final lower = rawMsg.toLowerCase();
+      final friendly = (lower.contains('rate limit') ||
+              lower.contains('429') ||
+              lower.contains('over_email_send_rate_limit'))
+          ? 'Too many verification emails sent. Please wait a minute and try again.'
+          : rawMsg;
+      setState(() {
+        _warningBanner = WarningBannerData(
+          icon: Icons.mark_email_unread_outlined,
+          title: 'Could Not Send Verification Code',
+          message: friendly,
+          color: AppColors.errorRed,
+        );
+      });
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

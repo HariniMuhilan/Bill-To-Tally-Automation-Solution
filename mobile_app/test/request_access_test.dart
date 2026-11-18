@@ -81,11 +81,37 @@ void main() {
       expect(res.error, 'Too many requests');
     });
 
-    test('LoginScreen removes Create Account, keeps Forgot Password, and disposes all controllers', () {
+    test('submitAccessRequest attaches Bearer OTP token when provided', () async {
+      final storage = await _makeStorage();
+      String? authHeader;
+
+      final client = MockClient((request) async {
+        authHeader = request.headers['Authorization'];
+        return http.Response(jsonEncode({'ok': true, 'request_id': 'req-1'}), 201);
+      });
+
+      final api = ApiService(storage, httpClient: client);
+      final res = await api.submitAccessRequest(
+        fullName: 'Arjun S',
+        businessName: 'Raga Pvt Ltd',
+        email: 'arjun@raga.in',
+        phone: '9876543210',
+        accessToken: 'verified-otp-jwt-123',
+      );
+
+      expect(res.success, isTrue);
+      expect(authHeader, 'Bearer verified-otp-jwt-123');
+    });
+
+    test('LoginScreen removes Create Account, enforces Request Access OTP, and disposes controllers', () {
       final src = File('${root.path}/lib/screens/login_screen.dart').readAsStringSync();
+      final otpDialogSrc =
+          File('${root.path}/lib/widgets/request_access_otp_dialog.dart').readAsStringSync();
 
       expect(src, isNot(contains('CREATE ACCOUNT')));
       expect(src, isNot(contains('SupabaseService.signUp')));
+      expect(src, contains('SupabaseService.sendAccessRequestOtp'));
+      expect(otpDialogSrc, contains('SupabaseService.verifyAccessRequestOtp'));
       expect(src, contains('REQUEST ACCESS'));
       expect(src, contains('SIGN IN'));
       expect(src, contains('Forgot Password?'));

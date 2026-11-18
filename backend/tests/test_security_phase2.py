@@ -103,6 +103,12 @@ def test_jwt_validation_rejects_missing_expired_wrong_secret_and_alg_none(monkey
         headers={"Authorization": f"Bearer {wrong_aud}"},
     ).status_code == 401
 
+    # 6. Legacy dev-admin-token bypass must be rejected even outside production
+    assert client.get(
+        "/api/admin/users",
+        headers={"Authorization": "Bearer dev-admin-token"},
+    ).status_code == 401
+
 
 def test_auth_fails_closed_when_unconfigured(monkeypatch):
     monkeypatch.setattr(settings, "AUTH_REQUIRED", True)

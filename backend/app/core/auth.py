@@ -299,14 +299,6 @@ def get_current_user(
         )
 
     token = credentials.credentials
-    if not settings.is_production and token == "dev-admin-token":
-        return AuthenticatedUser(
-            user_id="dev-admin-user",
-            email="admin@billbooks.app",
-            role="authenticated",
-            claims={"role": "authenticated", "email": "admin@billbooks.app", "is_admin": True},
-        )
-
     return verify_supabase_jwt(token)
 
 
