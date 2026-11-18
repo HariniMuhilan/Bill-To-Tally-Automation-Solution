@@ -1,83 +1,64 @@
 import React, { useState } from 'react';
-import { getAdminCredentials, saveAdminCredentials } from '../../../data/adminMockData';
+
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || 'https://fechwdczejepckkhbizm.supabase.co').replace(/\/+$/, '');
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_JkKCUhgqkhXb20YR-r2ZMw_tBYq-77z';
 
 export default function ForgotPasswordModal({ isOpen, onClose, onShowToast }) {
-  const [step, setStep] = useState(1); // 1: identify, 2: security answer / PIN, 3: set new password
-  const [usernameInput, setUsernameInput] = useState('');
-  const [pinInput, setPinInput] = useState('');
-  const [answerInput, setAnswerInput] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [emailInput, setEmailInput] = useState('admin@billbooks.app');
+  const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
   if (!isOpen) return null;
 
-  const currentAdmin = getAdminCredentials();
-
-  function handleVerifyIdentity(e) {
+  async function handleSendResetEmail(e) {
     e.preventDefault();
     setErrorMsg('');
-    const input = usernameInput.trim().toLowerCase();
-    if (input === currentAdmin.username.toLowerCase() || input === currentAdmin.email.toLowerCase()) {
-      setStep(2);
-    } else {
-      setErrorMsg('No administrator account found with that username or email.');
-    }
-  }
-
-  function handleVerifySecurity(e) {
-    e.preventDefault();
-    setErrorMsg('');
-    const enteredPin = pinInput.trim();
-    const enteredAns = answerInput.trim().toLowerCase();
-
-    const pinMatches = enteredPin && enteredPin === currentAdmin.securityPin;
-    const ansMatches = enteredAns && enteredAns === currentAdmin.securityAnswer.toLowerCase();
-
-    if (pinMatches || ansMatches) {
-      setStep(3);
-    } else {
-      setErrorMsg('Invalid Security PIN or answer. Please check and try again.');
-    }
-  }
-
-  function handleResetPassword(e) {
-    e.preventDefault();
-    setErrorMsg('');
-    if (!newPassword || newPassword.length < 6) {
-      setErrorMsg('Password must be at least 6 characters long.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setErrorMsg('Passwords do not match.');
+    setSuccessMsg('');
+    const email = emailInput.trim().toLowerCase();
+    if (!email || !email.includes('@')) {
+      setErrorMsg('Please enter a valid administrator email address.');
       return;
     }
 
-    const updated = {
-      ...currentAdmin,
-      password: newPassword
-    };
-    saveAdminCredentials(updated);
-    setSuccessMsg('Admin password updated successfully! You can now log in with your new credentials.');
-    if (onShowToast) {
-      onShowToast('Admin password reset successfully!', 'success');
+    setLoading(true);
+    try {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.msg || errJson.error_description || `HTTP ${res.status}`);
+      }
+
+      setSuccessMsg(
+        `If ${email} has a live inbox, a Supabase password recovery email was sent. For system-managed accounts (such as admin@billbooks.app), reset the password in Supabase Dashboard -> Authentication -> Users.`
+      );
+      if (onShowToast) {
+        onShowToast('Password recovery requested.', 'info');
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'Could not initiate password recovery.');
+    } finally {
+      setLoading(false);
     }
-    setTimeout(() => {
-      onClose();
-      setStep(1);
-      setSuccessMsg('');
-      setUsernameInput('');
-      setPinInput('');
-      setAnswerInput('');
-      setNewPassword('');
-      setConfirmPassword('');
-    }, 1600);
+  }
+
+  function handleClose() {
+    setErrorMsg('');
+    setSuccessMsg('');
+    onClose();
   }
 
   return (
     <div className="modal-backdrop">
-      <div className="modal-container admin-modal-card" style={{ maxWidth: '520px' }}>
+      <div className="modal-container admin-modal-card" style={{ maxWidth: '480px' }}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div className="modal-icon-badge" style={{ background: '#F7F2F4', color: '#493044' }}>
@@ -86,186 +67,68 @@ export default function ForgotPasswordModal({ isOpen, onClose, onShowToast }) {
             <div>
               <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#111522' }}>Admin Password Recovery</h3>
               <p style={{ margin: 0, fontSize: '0.82rem', color: '#80536F' }}>
-                Secure multi-factor reset for system administrator
+                Managed via Supabase Authentication
               </p>
             </div>
           </div>
-          <button 
-            type="button" 
-            className="btn-modal-close" 
-            onClick={() => { onClose(); setStep(1); setErrorMsg(''); }}
-          >
+          <button type="button" className="btn-modal-close" onClick={handleClose}>
             <i className="fa-solid fa-xmark"></i>
           </button>
         </div>
 
-        <div className="modal-body" style={{ padding: '24px' }}>
-          {errorMsg && (
-            <div className="admin-alert admin-alert-danger" style={{ marginBottom: '16px' }}>
-              <i className="fa-solid fa-circle-exclamation"></i>
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
-          {successMsg && (
-            <div className="admin-alert admin-alert-success" style={{ marginBottom: '16px' }}>
-              <i className="fa-solid fa-circle-check"></i>
-              <span>{successMsg}</span>
-            </div>
-          )}
-
-          {/* STEP 1: Identify Account */}
-          {step === 1 && !successMsg && (
-            <form onSubmit={handleVerifyIdentity}>
-              <p style={{ fontSize: '0.9rem', color: '#493044', marginBottom: '16px' }}>
-                Enter your registered administrator username or official email address to initiate password recovery.
-              </p>
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#111522', marginBottom: '6px' }}>
-                  Admin Username or Email
-                </label>
-                <div className="input-icon-wrap">
-                  <i className="fa-solid fa-shield-halved input-icon"></i>
-                  <input
-                    type="text"
-                    className="auth-input"
-                    placeholder="e.g. admin or admin@billbooks.app"
-                    value={usernameInput}
-                    onChange={(e) => setUsernameInput(e.target.value)}
-                    required
-                    autoFocus
-                  />
-                </div>
-                <div style={{ marginTop: '8px', fontSize: '0.78rem', color: '#80536F' }}>
-                  <i className="fa-solid fa-circle-info"></i> Default system username is <code>admin</code>
-                </div>
+        <form onSubmit={handleSendResetEmail}>
+          <div className="modal-body" style={{ padding: '24px' }}>
+            {errorMsg && (
+              <div className="admin-alert admin-alert-danger" style={{ marginBottom: '16px' }}>
+                <i className="fa-solid fa-circle-exclamation"></i>
+                <span>{errorMsg}</span>
               </div>
+            )}
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
-                  onClick={() => { onClose(); setErrorMsg(''); }}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" style={{ background: '#493044', color: '#fff' }}>
-                  Next Step <i className="fa-solid fa-arrow-right" style={{ marginLeft: '6px' }}></i>
-                </button>
+            {successMsg && (
+              <div className="admin-alert admin-alert-success" style={{ marginBottom: '16px' }}>
+                <i className="fa-solid fa-circle-check"></i>
+                <span>{successMsg}</span>
               </div>
-            </form>
-          )}
+            )}
 
-          {/* STEP 2: Verify Security PIN or Question */}
-          {step === 2 && !successMsg && (
-            <form onSubmit={handleVerifySecurity}>
-              <div className="admin-security-banner" style={{ background: '#F7F2F4', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', border: '1px solid #E8E0E5' }}>
-                <div style={{ fontSize: '0.8rem', color: '#80536F', fontWeight: 600 }}>SECURITY VERIFICATION</div>
-                <div style={{ fontSize: '0.88rem', color: '#111522', marginTop: '4px' }}>
-                  Enter the 6-digit Master PIN or answer the security question configured for <strong>{currentAdmin.username}</strong>.
-                </div>
-              </div>
+            <p style={{ fontSize: '0.88rem', color: '#493044', marginBottom: '16px' }}>
+              Enter your administrator email address to trigger a Supabase password reset, or update the password directly in <strong>Supabase Dashboard &rarr; Authentication &rarr; Users</strong>.
+            </p>
 
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#111522', marginBottom: '6px' }}>
-                  Master Security PIN (6 digits)
-                </label>
+            <div className="form-group">
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#111522', marginBottom: '6px' }}>
+                Administrator Email
+              </label>
+              <div className="input-icon-wrap">
+                <i className="fa-solid fa-shield-halved input-icon"></i>
                 <input
-                  type="password"
+                  type="email"
                   className="auth-input"
-                  placeholder="Enter 6-digit PIN (default: 202699)"
-                  value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value)}
-                  maxLength={6}
-                />
-                <div style={{ marginTop: '6px', fontSize: '0.76rem', color: '#80536F' }}>
-                  Default Master PIN: <code>202699</code>
-                </div>
-              </div>
-
-              <div style={{ textAlign: 'center', margin: '12px 0', color: '#80536F', fontSize: '0.8rem', fontWeight: 600 }}>
-                — OR ANSWER SECURITY QUESTION —
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#111522', marginBottom: '6px' }}>
-                  Question: {currentAdmin.securityQuestion}
-                </label>
-                <input
-                  type="text"
-                  className="auth-input"
-                  placeholder="e.g. Parrys Corner"
-                  value={answerInput}
-                  onChange={(e) => setAnswerInput(e.target.value)}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
-                  onClick={() => { setStep(1); setErrorMsg(''); }}
-                >
-                  <i className="fa-solid fa-arrow-left" style={{ marginRight: '6px' }}></i> Back
-                </button>
-                <button type="submit" className="btn btn-primary" style={{ background: '#493044', color: '#fff' }}>
-                  Verify & Proceed <i className="fa-solid fa-check" style={{ marginLeft: '6px' }}></i>
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* STEP 3: Set New Password */}
-          {step === 3 && !successMsg && (
-            <form onSubmit={handleResetPassword}>
-              <p style={{ fontSize: '0.9rem', color: '#493044', marginBottom: '16px' }}>
-                Create a strong new password for the administrator account.
-              </p>
-
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#111522', marginBottom: '6px' }}>
-                  New Password
-                </label>
-                <input
-                  type="password"
-                  className="auth-input"
-                  placeholder="Enter at least 6 characters"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="admin@billbooks.app"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
                   required
                   autoFocus
                 />
               </div>
+            </div>
+          </div>
 
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#111522', marginBottom: '6px' }}>
-                  Confirm New Password
-                </label>
-                <input
-                  type="password"
-                  className="auth-input"
-                  placeholder="Re-enter new password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
-                  onClick={() => { onClose(); setErrorMsg(''); }}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" style={{ background: '#16794B', color: '#fff', border: 'none' }}>
-                  <i className="fa-solid fa-floppy-disk" style={{ marginRight: '6px' }}></i> Save & Update Password
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
+          <div className="modal-footer" style={{ borderTop: '1px solid #E8E0E5', padding: '14px 24px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+            <button type="button" className="btn btn-secondary" onClick={handleClose}>
+              Close
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ background: '#493044', borderColor: '#493044', color: '#fff', fontWeight: 700 }}
+              disabled={loading}
+            >
+              {loading ? 'Sending...' : 'Send Recovery Email'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

@@ -11,13 +11,13 @@ export default function CredentialsModal({ isOpen, onClose, user, onShowToast })
   const shareText = `*BillBooks Purchase Voucher Automation*
 *Account Credentials for ${user.shopName}*
 
-👤 *Username:* ${creds?.username || 'Not assigned'}
-🔑 *Password:* ${creds?.password || 'Not assigned'}
-🏬 *Shop Name:* ${user.shopName}
-🗓 *Monthly Plan:* ${user.plan} (₹${user.monthlyFee}/month)
-⏰ *Payment Deadline:* ${user.paymentDeadline || 'N/A'}
+*Username:* ${creds?.username || 'Not assigned'}
+*Password:* ${creds?.password || 'Not assigned'}
+*Shop Name:* ${user.shopName}
+*Monthly Plan:* ${user.plan} (INR ${user.monthlyFee}/month)
+*Payment Deadline:* ${user.paymentDeadline || 'N/A'}
 
-📱 *Download & Login App:* https://billbooks.app
+*Download & Login App:* https://billbooks.app
 _Please change your password upon first login._`;
 
   function handleCopy() {

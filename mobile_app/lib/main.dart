@@ -7,6 +7,7 @@ import 'services/storage_service.dart';
 import 'theme/app_theme.dart';
 import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart';
 import 'widgets/laptop_mobile_frame.dart';
 
 void main() async {
@@ -44,11 +45,18 @@ class BillToTallyApp extends StatefulWidget {
 
 class _BillToTallyAppState extends State<BillToTallyApp> {
   UserSession? _currentUser;
+  bool _showSplash = true;
 
   @override
   void initState() {
     super.initState();
     _currentUser = widget.storage.getUser();
+  }
+
+  void _handleSplashDone() {
+    if (mounted && _showSplash) {
+      setState(() => _showSplash = false);
+    }
   }
 
   void _handleLoginSuccess(UserSession user) {
@@ -62,6 +70,24 @@ class _BillToTallyAppState extends State<BillToTallyApp> {
 
   @override
   Widget build(BuildContext context) {
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
+    final Widget activeScreen = _showSplash
+        ? SplashScreen(key: const ValueKey('splash'), onComplete: _handleSplashDone)
+        : (_currentUser == null
+            ? LoginScreen(
+                key: const ValueKey('login'),
+                storage: widget.storage,
+                api: widget.api,
+                onLoginSuccess: _handleLoginSuccess,
+              )
+            : HomeShell(
+                key: const ValueKey('home'),
+                storage: widget.storage,
+                api: widget.api,
+                user: _currentUser!,
+                onLogout: _handleLogout,
+              ));
+
     return MaterialApp(
       title: 'Bill to Tally Mobile',
       debugShowCheckedModeBanner: false,
@@ -71,18 +97,12 @@ class _BillToTallyAppState extends State<BillToTallyApp> {
           child: child ?? const SizedBox(),
         );
       },
-      home: _currentUser == null
-          ? LoginScreen(
-              storage: widget.storage,
-              api: widget.api,
-              onLoginSuccess: _handleLoginSuccess,
-            )
-          : HomeShell(
-              storage: widget.storage,
-              api: widget.api,
-              user: _currentUser!,
-              onLogout: _handleLogout,
-            ),
+      home: AnimatedSwitcher(
+        duration: disableAnimations ? Duration.zero : const Duration(milliseconds: 220),
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        child: activeScreen,
+      ),
     );
   }
 }

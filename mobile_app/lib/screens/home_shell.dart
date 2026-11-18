@@ -6,6 +6,7 @@ import '../models/user_session.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_vector_icons.dart';
 import '../widgets/liquid_glass.dart';
 import 'inbox_screen.dart';
 import 'review_screen.dart';
@@ -74,34 +75,38 @@ class _HomeShellState extends State<HomeShell> {
       final sheetsRes = await widget.api.fetchDraftSheets();
       if (sheetsRes.success && sheetsRes.data != null) {
         final remoteList = sheetsRes.data!;
-        if (remoteList.isNotEmpty) {
-          final List<DraftSheet> remoteDrafts = [];
-          for (final item in remoteList) {
-            if (item is Map) {
+        final List<DraftSheet> remoteDrafts = [];
+        for (final item in remoteList) {
+          if (item is Map) {
+            try {
               final rawRows = (item['rows_json'] as List?) ?? [];
-              final invList = rawRows.map((r) => Invoice.fromJson(r as Map<String, dynamic>)).toList();
+              final invList = rawRows
+                  .whereType<Map>()
+                  .map((r) => Invoice.fromJson(Map<String, dynamic>.from(r)))
+                  .toList();
+              final updatedAt = item['updated_at']?.toString() ?? '';
               remoteDrafts.add(
                 DraftSheet(
                   id: item['sheet_id']?.toString() ?? '',
                   fileName: item['sheet_name']?.toString() ?? 'Vouchers.xlsx',
-                  createdAt: item['updated_at']?.toString() ?? '',
-                  updatedAt: item['updated_at']?.toString() ?? '',
+                  createdAt: updatedAt,
+                  updatedAt: updatedAt,
                   totalAmount: invList.fold(0.0, (sum, i) => sum + i.grandTotal),
                   invoices: invList,
                 ),
               );
-            }
+            } catch (_) {}
           }
-          if (remoteDrafts.isNotEmpty) {
-            final localMap = {for (var d in _draftSheets) d.id: d};
-            for (final rd in remoteDrafts) {
-              localMap[rd.id] = rd;
-            }
-            final merged = localMap.values.toList();
-            if (mounted) {
-              setState(() => _draftSheets = merged);
-              widget.storage.saveDraftSheets(merged);
-            }
+        }
+        if (remoteDrafts.isNotEmpty) {
+          final localMap = {for (var d in _draftSheets) d.id: d};
+          for (final rd in remoteDrafts) {
+            localMap[rd.id] = rd;
+          }
+          final merged = localMap.values.toList();
+          if (mounted) {
+            setState(() => _draftSheets = merged);
+            widget.storage.saveDraftSheets(merged);
           }
         }
       }
@@ -116,8 +121,13 @@ class _HomeShellState extends State<HomeShell> {
         'rows_json': s.invoices.map((i) => i.toJson()).toList(),
         'updated_at': s.updatedAt.isNotEmpty ? s.updatedAt : DateTime.now().toIso8601String(),
       }).toList();
-      await widget.api.syncDraftSheets(payload);
-    } catch (_) {}
+      final res = await widget.api.syncDraftSheets(payload, replace: true);
+      if (!res.success) {
+        debugPrint('Draft sheet sync skipped/failed: ${res.error}');
+      }
+    } catch (e) {
+      debugPrint('Draft sheet sync error: $e');
+    }
   }
 
   void _selectInvoiceForReview(Invoice inv) {
@@ -315,8 +325,20 @@ class _HomeShellState extends State<HomeShell> {
                 if (!widget.storage.isScanAllowed)
                   _buildSubscriptionExpiryBanner(),
 
-                // Screen Body
-                Expanded(child: body),
+                // Screen Body with smooth GPU fade transition
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 180),
+                    switchInCurve: Curves.easeOut,
+                    switchOutCurve: Curves.easeIn,
+                    child: KeyedSubtree(
+                      key: ValueKey<int>(_currentIndex),
+                      child: body,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -579,7 +601,7 @@ class _HomeShellState extends State<HomeShell> {
             Expanded(
               child: _buildNavItem(
                 index: 0,
-                icon: Icons.all_inbox_rounded,
+                iconType: AppVectorIconType.inbox,
                 label: 'Inbox',
               ),
             ),
@@ -587,7 +609,7 @@ class _HomeShellState extends State<HomeShell> {
             Expanded(
               child: _buildNavItem(
                 index: 1,
-                icon: Icons.check_box_outlined,
+                iconType: AppVectorIconType.review,
                 label: 'Review',
                 badgeCount: needsReviewCount,
               ),
@@ -598,7 +620,7 @@ class _HomeShellState extends State<HomeShell> {
             Expanded(
               child: _buildNavItem(
                 index: 2,
-                icon: Icons.sync_rounded,
+                iconType: AppVectorIconType.tallySync,
                 label: 'Tally',
               ),
             ),
@@ -606,7 +628,7 @@ class _HomeShellState extends State<HomeShell> {
             Expanded(
               child: _buildNavItem(
                 index: 3,
-                icon: Icons.person_outline_rounded,
+                iconType: AppVectorIconType.account,
                 label: 'Account',
               ),
             ),
@@ -656,10 +678,11 @@ class _HomeShellState extends State<HomeShell> {
                 onTap: _handleQuickCameraCapture,
                 child: const ExcludeSemantics(
                   child: Center(
-                    child: Icon(
-                      Icons.camera_alt_rounded,
+                    child: AppVectorIcon(
+                      type: AppVectorIconType.camera,
                       color: Colors.white,
-                      size: 28,
+                      size: 26,
+                      strokeWidth: 2.0,
                     ),
                   ),
                 ),
@@ -673,7 +696,7 @@ class _HomeShellState extends State<HomeShell> {
 
   Widget _buildNavItem({
     required int index,
-    required IconData icon,
+    required AppVectorIconType iconType,
     required String label,
     int? badgeCount,
   }) {
@@ -745,10 +768,10 @@ class _HomeShellState extends State<HomeShell> {
                 clipBehavior: Clip.none,
                 alignment: Alignment.center,
                 children: [
-                  Icon(
-                    icon,
+                  AppVectorIcon(
+                    type: iconType,
                     size: 18,
-                    color: isSelected ? Colors.white : AppColors.maroonDark.withValues(alpha: 0.75),
+                    color: isSelected ? Colors.white : AppColors.maroonDark.withValues(alpha: 0.78),
                   ),
                   if (badgeCount != null && badgeCount > 0)
                     Positioned(

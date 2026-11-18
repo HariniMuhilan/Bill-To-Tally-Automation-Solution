@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
-import 'liquid_glass.dart';
 
 class ServerSettingsDialog extends StatefulWidget {
   final StorageService storage;
@@ -93,12 +92,27 @@ class _ServerSettingsDialogState extends State<ServerSettingsDialog> {
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: LiquidGlass(
-        borderRadius: 24,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: AppColors.maroonDark.withValues(alpha: 0.10),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.14),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
         padding: const EdgeInsets.all(22),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
@@ -209,6 +223,7 @@ class _ServerSettingsDialogState extends State<ServerSettingsDialog> {
               ],
             ),
           ],
+        ),
         ),
       ),
     );

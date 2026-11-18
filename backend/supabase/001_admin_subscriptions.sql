@@ -124,6 +124,22 @@ CREATE POLICY "Users can delete own draft sheets"
     USING (auth.uid() = user_id);
 
 -- ==============================================================================
+-- TABLE 4: deletion_requests
+-- Persists external web account deletion requests for Play Store Data Safety compliance.
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.deletion_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT NOT NULL,
+    phone TEXT DEFAULT '',
+    reason TEXT DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'rejected')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_deletion_requests_email ON public.deletion_requests (email);
+ALTER TABLE public.deletion_requests ENABLE ROW LEVEL SECURITY;
+
+-- ==============================================================================
 -- UPDATED_AT TRIGGER FUNCTION
 -- Automatically sets updated_at = now() on row updates.
 -- ==============================================================================

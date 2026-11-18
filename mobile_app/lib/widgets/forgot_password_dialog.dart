@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
 import '../theme/app_theme.dart';
+import 'app_vector_icons.dart';
 import 'liquid_glass.dart';
 
 class ForgotPasswordDialog extends StatefulWidget {
@@ -149,10 +150,22 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
-      child: LiquidGlass(
-        borderRadius: 28,
-        useBlur: true,
-        isModalSurface: true,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: AppColors.maroonDark.withValues(alpha: 0.10),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.14),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
         child: SingleChildScrollView(
           child: Column(
@@ -163,15 +176,15 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppColors.maroonDark.withValues(alpha: 0.12),
+                      color: AppColors.maroonDark.withValues(alpha: 0.10),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
-                      Icons.lock_reset_rounded,
+                    child: const AppVectorIcon(
+                      type: AppVectorIconType.lockShield,
                       color: AppColors.maroonDark,
-                      size: 24,
+                      size: 22,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -194,14 +207,18 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                           style: TextStyle(
                             fontFamily: 'DM Sans',
                             fontSize: 12,
-                            color: AppColors.brandInk.withValues(alpha: 0.65),
+                            color: AppColors.brandInk.withValues(alpha: 0.70),
                           ),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.brandInk),
+                    icon: const AppVectorIcon(
+                      type: AppVectorIconType.close,
+                      size: 18,
+                      color: AppColors.brandInk,
+                    ),
                     tooltip: 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -257,6 +274,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                   hintText: 'name@company.com',
                   semanticLabel: 'Registered email address',
                   keyboardType: TextInputType.emailAddress,
+                  isSolidSurface: true,
                 ),
                 const SizedBox(height: 22),
 
@@ -298,6 +316,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                   hintText: 'Enter 6-digit code',
                   semanticLabel: '6-digit verification code',
                   keyboardType: TextInputType.number,
+                  isSolidSurface: true,
                 ),
                 const SizedBox(height: 14),
 
@@ -315,6 +334,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                   hintText: 'At least 6 characters',
                   semanticLabel: 'New password',
                   obscureText: _obscureNewPass,
+                  isSolidSurface: true,
                   onToggleObscure: () => setState(() => _obscureNewPass = !_obscureNewPass),
                 ),
                 const SizedBox(height: 14),
@@ -333,6 +353,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                   hintText: 'Repeat new password',
                   semanticLabel: 'Confirm new password',
                   obscureText: _obscureConfirmPass,
+                  isSolidSurface: true,
                   onToggleObscure: () => setState(() => _obscureConfirmPass = !_obscureConfirmPass),
                 ),
                 const SizedBox(height: 22),
