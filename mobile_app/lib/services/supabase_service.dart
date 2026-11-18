@@ -180,6 +180,44 @@ class SupabaseService {
     await supa.auth.resetPasswordForEmail(formatted);
   }
 
+  /// Send a 6-digit email verification OTP before submitting an onboarding access request.
+  static Future<void> sendAccessRequestOtp({required String email}) async {
+    final supa = client;
+    if (supa == null) {
+      throw Exception('Supabase is not initialized');
+    }
+
+    final formatted = formatEmail(email);
+    await supa.auth.signInWithOtp(
+      email: formatted,
+      shouldCreateUser: true,
+    );
+  }
+
+  /// Verify the 6-digit email OTP and return the short-lived JWT access token.
+  static Future<String> verifyAccessRequestOtp({
+    required String email,
+    required String otp,
+  }) async {
+    final supa = client;
+    if (supa == null) {
+      throw Exception('Supabase is not initialized');
+    }
+
+    final formatted = formatEmail(email);
+    final authRes = await supa.auth.verifyOTP(
+      email: formatted,
+      token: otp.trim(),
+      type: OtpType.email,
+    );
+
+    final token = authRes.session?.accessToken ?? supa.auth.currentSession?.accessToken;
+    if (token == null || token.trim().isEmpty) {
+      throw Exception('Invalid or expired 6-digit verification code.');
+    }
+    return token.trim();
+  }
+
   /// Verify 6-8 digit OTP code (if not already verified in current recovery session) and update password
   static Future<void> verifyResetOtpAndUpdatePassword({
     required String email,

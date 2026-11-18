@@ -6,7 +6,17 @@ import { getAdminSession, saveAdminSession, clearAdminSession } from './data/adm
 import { clearAdminToken } from './services/adminApi';
 
 export default function App() {
-  const [admin, setAdmin] = useState(() => getAdminSession());
+  const [admin, setAdmin] = useState(() => {
+    const token =
+      sessionStorage.getItem('billbooks_admin_jwt') ||
+      localStorage.getItem('billbooks_admin_jwt');
+    if (!token || token === 'dev-admin-token') {
+      clearAdminSession();
+      clearAdminToken();
+      return null;
+    }
+    return getAdminSession();
+  });
   const [toasts, setToasts] = useState([]);
 
   // Handle static compliance URL fallbacks

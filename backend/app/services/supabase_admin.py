@@ -12,6 +12,7 @@ from datetime import date, datetime, timedelta, timezone
 import logging
 from typing import Any, Dict, List, Optional
 import uuid
+from urllib.parse import quote
 import httpx
 
 try:
@@ -64,6 +65,33 @@ class SupabaseAdminClient:
     # 1. Supabase Auth Admin (/auth/v1/admin/users)
     # =========================================================================
 
+    def find_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        """Look up a Supabase Auth user by normalized email."""
+        clean_email = email.strip().lower()
+        if not self.is_live:
+            for user in self._mock_users.values():
+                if (user.get("email") or "").strip().lower() == clean_email:
+                    return user
+            return None
+
+        with httpx.Client(timeout=self.timeout) as client:
+            for page in range(1, 21):
+                url = f"{self.supabase_url}/auth/v1/admin/users?page={page}&per_page=100"
+                resp = client.get(url, headers=self._headers())
+                if resp.status_code >= 400:
+                    logger.error("Supabase Admin list users failed: %s %s", resp.status_code, resp.text)
+                    break
+                data = resp.json()
+                users = data.get("users") if isinstance(data, dict) else data
+                if not isinstance(users, list) or not users:
+                    break
+                for u in users:
+                    if (u.get("email") or "").strip().lower() == clean_email:
+                        return u
+                if len(users) < 100:
+                    break
+        return None
+
     def create_user(
         self,
         email: str,
@@ -71,14 +99,19 @@ class SupabaseAdminClient:
         full_name: str = "",
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Provision a new user directly in Supabase Auth (confirmed email, no public signup needed)."""
+        """Provision a new user directly in Supabase Auth (or finalize an OTP-verified unprovisioned user)."""
         clean_email = email.strip().lower()
         user_metadata = {"full_name": full_name}
         if metadata:
             user_metadata.update(metadata)
 
         if not self.is_live:
-            # Mock provision
+            for existing in self._mock_users.values():
+                if (existing.get("email") or "").strip().lower() == clean_email:
+                    if self.get_user_subscription(str(existing["id"])):
+                        raise RuntimeError("A subscriber account with this email already exists.")
+                    existing["user_metadata"] = user_metadata
+                    return existing
             user_id = str(uuid.uuid4())
             user_record = {
                 "id": user_id,
@@ -99,10 +132,33 @@ class SupabaseAdminClient:
 
         with httpx.Client(timeout=self.timeout) as client:
             resp = client.post(url, json=payload, headers=self._headers())
-            if resp.status_code >= 400:
-                logger.error("Supabase Admin create_user failed: %s %s", resp.status_code, resp.text)
-                raise RuntimeError(f"Failed to create user in Supabase Auth: {resp.text}")
-            return resp.json()
+            if resp.status_code < 400:
+                return resp.json()
+
+            err_text = resp.text.lower()
+            if resp.status_code in (400, 422) and ("already" in err_text or "exists" in err_text):
+                existing = self.find_user_by_email(clean_email)
+                if existing and existing.get("id"):
+                    existing_id = str(existing["id"])
+                    if self.get_user_subscription(existing_id):
+                        raise RuntimeError("A subscriber account with this email already exists.")
+                    update_url = f"{self.supabase_url}/auth/v1/admin/users/{existing_id}"
+                    update_resp = client.put(
+                        update_url,
+                        json={
+                            "password": password,
+                            "email_confirm": True,
+                            "user_metadata": user_metadata,
+                        },
+                        headers=self._headers(),
+                    )
+                    if update_resp.status_code < 400:
+                        return update_resp.json()
+                    logger.error("Supabase Admin update_user failed: %s %s", update_resp.status_code, update_resp.text)
+                    raise RuntimeError(f"Failed to provision existing user in Supabase Auth: {update_resp.text}")
+
+            logger.error("Supabase Admin create_user failed: %s %s", resp.status_code, resp.text)
+            raise RuntimeError(f"Failed to create user in Supabase Auth: {resp.text}")
 
     def delete_user(self, user_id: str) -> bool:
         """Permanently delete a user from Supabase Auth (triggers Postgres cascade on user_subscriptions)."""
@@ -125,6 +181,27 @@ class SupabaseAdminClient:
     # =========================================================================
     # 2. Access Requests (/rest/v1/access_requests)
     # =========================================================================
+
+    def has_pending_access_request(self, email: str) -> bool:
+        """Return True if a pending access request already exists for this email."""
+        clean_email = email.strip().lower()
+        if not self.is_live:
+            return any(
+                (r.get("email") or "").strip().lower() == clean_email and r.get("status") == "pending"
+                for r in self._mock_access_requests.values()
+            )
+
+        url = (
+            f"{self.supabase_url}/rest/v1/access_requests"
+            f"?email=eq.{quote(clean_email, safe='')}&status=eq.pending&select=id&limit=1"
+        )
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.get(url, headers=self._headers())
+            if resp.status_code >= 400:
+                logger.error("has_pending_access_request failed: %s %s", resp.status_code, resp.text)
+                return False
+            items = resp.json()
+            return isinstance(items, list) and len(items) > 0
 
     def create_access_request(
         self,

@@ -12,23 +12,28 @@ from typing import Any, Dict, List, Optional, Union
 import uuid
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import re
 from pydantic import BaseModel, Field, field_validator
 
 _EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_optional_bearer = HTTPBearer(auto_error=False)
 
 try:
-    from backend.app.core.auth import AuthenticatedUser, get_current_user
+    from backend.app.core.auth import AuthenticatedUser, get_current_user, verify_supabase_jwt
     from backend.app.core.config import settings
     from backend.app.services.supabase_admin import get_supabase_admin
 except (ImportError, ValueError):
     try:
-        from app.core.auth import AuthenticatedUser, get_current_user
+        from app.core.auth import AuthenticatedUser, get_current_user, verify_supabase_jwt
         from app.core.config import settings
         from app.services.supabase_admin import get_supabase_admin
     except (ImportError, ValueError):
-        from ...core.auth import AuthenticatedUser, get_current_user
+        # pyrefly: ignore[missing-import]
+        from ...core.auth import AuthenticatedUser, get_current_user, verify_supabase_jwt
+        # pyrefly: ignore[missing-import]
         from ...core.config import settings
+        # pyrefly: ignore[missing-import]
         from ...services.supabase_admin import get_supabase_admin
 
 logger = logging.getLogger(__name__)
@@ -117,12 +122,36 @@ async def ping() -> Dict[str, Any]:
 async def submit_access_request(
     request: Request,
     payload: AccessRequestIn,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_optional_bearer),
 ) -> Dict[str, Any]:
-    """Submit B2B onboarding access request (rate-limited per IP)."""
+    """Submit B2B onboarding access request (requires verified email OTP in live mode, rate-limited)."""
     client_ip = request.client.host if request.client else "unknown"
     _check_rate_limit(f"access:{client_ip}", settings.ACCESS_REQUEST_RATE_LIMIT)
 
     admin_client = get_supabase_admin()
+
+    # Enforce email OTP verification whenever live Supabase auth is configured (or when Bearer token is sent)
+    if (admin_client.is_live and settings.AUTH_REQUIRED) or (credentials is not None and credentials.credentials):
+        if credentials is None or credentials.scheme.lower() != "bearer" or not credentials.credentials:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Please verify your email with the 6-digit OTP code before submitting an access request.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        verified_user = verify_supabase_jwt(credentials.credentials)
+        verified_email = (verified_user.email or "").strip().lower()
+        if not verified_email or verified_email != payload.email:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Verified OTP email does not match the requested email address.",
+            )
+
+    if admin_client.has_pending_access_request(payload.email):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An access request for this email is already pending admin review.",
+        )
+
     record = admin_client.create_access_request(
         full_name=payload.full_name,
         business_name=payload.business_name,
@@ -221,8 +250,14 @@ async def claim_device_session(
 
     if sub:
         admin_client.update_user_subscription(current_user.user_id, updates)
+    elif admin_client.is_live:
+        logger.warning("Unprovisioned user %s attempted device session claim.", current_user.user_id)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account is pending administrator approval and subscription activation.",
+        )
     else:
-        # Create default initial subscription record if not yet present
+        # Non-live unit test fallback: initialize mock subscription record
         admin_client.upsert_user_subscription({
             "user_id": current_user.user_id,
             "email": current_user.email or f"{current_user.user_id}@billbooks.app",

@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = ""
     SUPABASE_JWT_SECRET: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = ""
-    ADMIN_EMAILS: str = "admin@billbooks.app,admin@billbooks.in,muhilanharini@gmail.com"
+    ADMIN_EMAILS: str = "admin@billbooks.app"
     ACCESS_REQUEST_RATE_LIMIT: int = 20  # Max requests per hour per IP
 
     # Storage and Database

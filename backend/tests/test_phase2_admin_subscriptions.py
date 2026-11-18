@@ -303,3 +303,102 @@ def test_admin_provision_cancel_unblock_lifecycle(client: TestClient):
     assert del_resp.status_code == 200
 
     app.dependency_overrides.clear()
+
+
+def test_access_request_otp_enforcement_and_duplicate_block(client: TestClient, monkeypatch):
+    """Verify duplicate pending check, live OTP JWT enforcement, and provisioning pre-created OTP users."""
+    import base64
+    import hashlib
+    import hmac
+    import json
+    import time
+
+    secret = "test-otp-enforcement-secret-32chars!!"
+    monkeypatch.setattr(settings, "SUPABASE_JWT_SECRET", secret)
+
+    def sign_jwt(email: str, sub: str = "otp-user-1") -> str:
+        def b64(d: bytes) -> str:
+            return base64.urlsafe_b64encode(d).rstrip(b"=").decode("ascii")
+
+        h = b64(json.dumps({"alg": "HS256", "typ": "JWT"}).encode())
+        p = b64(
+            json.dumps({
+                "sub": sub,
+                "email": email,
+                "aud": "authenticated",
+                "role": "authenticated",
+                "exp": int(time.time()) + 300,
+            }).encode()
+        )
+        sig = b64(hmac.new(secret.encode(), f"{h}.{p}".encode(), hashlib.sha256).digest())
+        return f"{h}.{p}.{sig}"
+
+    payload = {
+        "full_name": "Arjun S",
+        "business_name": "Arjun Traders",
+        "email": "arjun@traders.in",
+        "phone": "+91 98401 23456",
+    }
+
+    # 1. Mismatched JWT email is rejected with 403
+    wrong_jwt = sign_jwt("other@attacker.com")
+    mismatch = client.post(
+        "/api/access-requests",
+        json=payload,
+        headers={"Authorization": f"Bearer {wrong_jwt}"},
+    )
+    assert mismatch.status_code == 403
+
+    # 2. Matching OTP JWT succeeds with 201
+    good_jwt = sign_jwt("arjun@traders.in")
+    ok_resp = client.post(
+        "/api/access-requests",
+        json=payload,
+        headers={"Authorization": f"Bearer {good_jwt}"},
+    )
+    assert ok_resp.status_code == 201
+
+    # 3. Duplicate pending request is rejected with 409
+    dup_resp = client.post(
+        "/api/access-requests",
+        json=payload,
+        headers={"Authorization": f"Bearer {good_jwt}"},
+    )
+    assert dup_resp.status_code == 409
+
+    # 4. In live mode, missing Bearer token on /access-requests -> 401, and unprovisioned /session/claim -> 403
+    admin_client = get_supabase_admin()
+    monkeypatch.setattr(admin_client, "_is_live", True)
+
+    no_auth = client.post("/api/access-requests", json={**payload, "email": "fresh@shop.in"})
+    assert no_auth.status_code == 401
+
+    app = client.app
+    app.dependency_overrides[get_current_user] = lambda: make_user("unprov-1", "unprov@shop.in")
+    monkeypatch.setattr(admin_client, "get_user_subscription", lambda uid: None)
+    unprov_claim = client.post("/api/me/session/claim", json={"device_label": "Pixel 8"})
+    assert unprov_claim.status_code == 403
+    app.dependency_overrides.clear()
+
+    # 5. Provisioning an email that already exists as an unprovisioned OTP user in mock store succeeds
+    monkeypatch.setattr(admin_client, "_is_live", False)
+    admin_client._mock_users["otp-user-1"] = {
+        "id": "otp-user-1",
+        "email": "arjun@traders.in",
+        "user_metadata": {},
+    }
+    app.dependency_overrides[get_current_user] = lambda: make_admin()
+    prov = client.post(
+        "/api/admin/users/provision",
+        json={
+            "request_id": ok_resp.json()["request_id"],
+            "email": "arjun@traders.in",
+            "password": "TempPassword@2026",
+            "full_name": "Arjun S",
+            "business_name": "Arjun Traders",
+            "phone": "+91 98401 23456",
+        },
+    )
+    assert prov.status_code == 201
+    assert prov.json()["user_id"] == "otp-user-1"
+    app.dependency_overrides.clear()

@@ -245,6 +245,7 @@ class ApiService {
     required String email,
     required String phone,
     String? notes,
+    String? accessToken,
   }) async {
     try {
       final uri = Uri.parse('$_baseUrl/api/access-requests');
@@ -258,10 +259,18 @@ class ApiService {
         payload['notes'] = notes.trim();
       }
 
+      final token = (accessToken != null && accessToken.trim().isNotEmpty)
+          ? accessToken.trim()
+          : _currentToken();
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      };
+
       final response = await _httpClient
           .post(
             uri,
-            headers: const {'Content-Type': 'application/json'},
+            headers: headers,
             body: jsonEncode(payload),
           )
           .timeout(const Duration(seconds: 15));

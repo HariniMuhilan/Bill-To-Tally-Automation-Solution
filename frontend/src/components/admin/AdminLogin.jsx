@@ -28,19 +28,8 @@ export default function AdminLogin({ onLoginSuccess, onShowToast }) {
     setLoading(true);
 
     try {
-      // 1. Check local administrator credentials fallback
-      const cleanUser = email.toLowerCase();
-      if ((cleanUser === 'admin' || cleanUser === 'admin@billbooks.app' || cleanUser === 'admin@billbooks.in') && password === 'admin@2026') {
-        saveAdminToken('dev-admin-token', rememberMe);
-        setLoading(false);
-        onLoginSuccess({
-          email: 'admin@billbooks.app',
-          fullName: 'Master Administrator',
-        }, rememberMe);
-        return;
-      }
-
-      // 2. Authenticate with Supabase Auth REST API
+      // Authenticate directly with Supabase Auth REST API (no local dev bypass)
+      const cleanEmail = email.includes('@') ? email.toLowerCase() : `${email.toLowerCase()}@billbooks.app`;
       const authRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
         method: 'POST',
         headers: {
@@ -48,7 +37,7 @@ export default function AdminLogin({ onLoginSuccess, onShowToast }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: email.includes('@') ? email : `${email}@billbooks.app`,
+          email: cleanEmail,
           password: password,
         }),
       });
@@ -81,6 +70,7 @@ export default function AdminLogin({ onLoginSuccess, onShowToast }) {
       }
 
       if (!verifyRes.ok && verifyRes.status !== 200) {
+        clearAdminToken();
         const errJson = await verifyRes.json().catch(() => ({}));
         setErrorMsg(errJson.detail || `Backend verification error (${verifyRes.status}). Check server status.`);
         setLoading(false);
@@ -136,15 +126,15 @@ export default function AdminLogin({ onLoginSuccess, onShowToast }) {
             <form onSubmit={handleLogin} style={{ padding: '0 28px 28px 28px' }}>
               <div className="form-group" style={{ marginBottom: '18px' }}>
                 <label htmlFor="admin-username" style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#111522', marginBottom: '6px' }}>
-                  Admin Username or Email
+                  Admin Email
                 </label>
                 <div className="input-icon-wrap">
                   <i className="fa-solid fa-user-shield input-icon"></i>
                   <input
-                    type="text"
+                    type="email"
                     id="admin-username"
                     className="auth-input"
-                    placeholder="e.g. admin or admin@billbooks.app"
+                    placeholder="admin@billbooks.app"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     required
@@ -212,19 +202,6 @@ export default function AdminLogin({ onLoginSuccess, onShowToast }) {
                 ) : (
                   <span><i className="fa-solid fa-arrow-right-to-bracket"></i> Login to Admin Dashboard</span>
                 )}
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => {
-                  setUsername('admin');
-                  setPassword('admin@2026');
-                  setErrorMsg('');
-                }}
-                style={{ width: '100%', marginTop: '10px', background: '#F8F6F7', borderColor: '#E8E0E5', color: '#493044', padding: '10px', fontSize: '0.84rem', fontWeight: 600 }}
-              >
-                <i className="fa-solid fa-wand-magic-sparkles" style={{ marginRight: '6px' }}></i> Auto-Fill Admin Credentials
               </button>
             </form>
           </section>
