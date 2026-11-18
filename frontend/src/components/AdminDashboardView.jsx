@@ -741,7 +741,7 @@ export default function AdminDashboardView({ admin, onLogout, onShowToast }) {
                 </div>
               </div>
 
-              <div className="modal-footer" style={{ borderTop: '1px solid #E8E0E5', padding: '16px 24px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <div className="modal-footer" style={{ borderTop: '1px solid #E8E0E5', padding: '16px 24px', display: 'flex', justifyContent: 'center', gap: '12px' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setProvisionModalOpen(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" style={{ background: '#16794B', borderColor: '#16794B', color: '#fff', fontWeight: 700 }}>
                   <i className="fa-solid fa-check" style={{ marginRight: '6px' }}></i> Create & Provision Account
@@ -786,7 +786,7 @@ export default function AdminDashboardView({ admin, onLogout, onShowToast }) {
                   <input type="text" className="auth-input" value={renewNotes} onChange={(e) => setRenewNotes(e.target.value)} />
                 </div>
               </div>
-              <div className="modal-footer" style={{ borderTop: '1px solid #E8E0E5', padding: '16px 24px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <div className="modal-footer" style={{ borderTop: '1px solid #E8E0E5', padding: '16px 24px', display: 'flex', justifyContent: 'center', gap: '12px' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setRenewModalUser(null)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" style={{ background: '#16794B', borderColor: '#16794B', color: '#fff' }}>
                   Confirm Renewal
