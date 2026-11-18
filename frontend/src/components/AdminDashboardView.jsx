@@ -43,10 +43,52 @@ export default function AdminDashboardView({ admin, onLogout, onShowToast }) {
   const [renewStart, setRenewStart] = useState('');
   const [renewEnd, setRenewEnd] = useState('');
 
+  // Helper: compute exactly 1 month ahead without UTC timezone shifting
+  function addOneMonth(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return '';
+    let y = parseInt(parts[0], 10);
+    let m = parseInt(parts[1], 10);
+    let day = parseInt(parts[2], 10);
+    if (isNaN(y) || isNaN(m) || isNaN(day)) return '';
+
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+
+    const maxDays = new Date(y, m, 0).getDate();
+    if (day > maxDays) {
+      day = maxDays;
+    }
+
+    const mm = String(m).padStart(2, '0');
+    const dd = String(day).padStart(2, '0');
+    return `${y}-${mm}-${dd}`;
+  }
+
+  function handleProvStartChange(dateVal) {
+    setProvStart(dateVal);
+    const next = addOneMonth(dateVal);
+    if (next) {
+      setProvEnd(next);
+    }
+  }
+
+  function handleRenewStartChange(dateVal) {
+    setRenewStart(dateVal);
+    const next = addOneMonth(dateVal);
+    if (next) {
+      setRenewEnd(next);
+    }
+  }
+
   useEffect(() => {
     loadData();
     const today = new Date().toISOString().split('T')[0];
-    const nextMonth = new Date(Date.now() + 86400000 * 30).toISOString().split('T')[0];
+    const nextMonth = addOneMonth(today);
     setProvStart(today);
     setProvEnd(nextMonth);
     setRenewStart(today);
@@ -80,6 +122,9 @@ export default function AdminDashboardView({ admin, onLogout, onShowToast }) {
     let rand = '';
     for (let i = 0; i < 4; i++) rand += chars.charAt(Math.floor(Math.random() * chars.length));
     setProvPassword(`BillBooks@${new Date().getFullYear()}${rand}`);
+    const today = new Date().toISOString().split('T')[0];
+    setProvStart(today);
+    setProvEnd(addOneMonth(today));
     setProvisionModalOpen(true);
   }
 
@@ -143,9 +188,8 @@ export default function AdminDashboardView({ admin, onLogout, onShowToast }) {
     setRenewModalUser(user);
     setRenewAmount(user.amount_paid_inr || 1499);
     const today = new Date().toISOString().split('T')[0];
-    const nextMonth = new Date(Date.now() + 86400000 * 30).toISOString().split('T')[0];
     setRenewStart(today);
-    setRenewEnd(nextMonth);
+    setRenewEnd(addOneMonth(today));
   }
 
   async function handleExecuteRenew(e) {
@@ -739,7 +783,7 @@ export default function AdminDashboardView({ admin, onLogout, onShowToast }) {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '10px' }}>
                     <div className="form-group">
                       <label style={{ fontSize: '0.76rem', fontWeight: 600 }}>Subscription Start Date *</label>
-                      <input type="date" className="auth-input" value={provStart} onChange={(e) => setProvStart(e.target.value)} required />
+                      <input type="date" className="auth-input" value={provStart} onChange={(e) => handleProvStartChange(e.target.value)} required />
                     </div>
                     <div className="form-group">
                       <label style={{ fontSize: '0.76rem', fontWeight: 600 }}>Subscription End Date *</label>
@@ -789,7 +833,7 @@ export default function AdminDashboardView({ admin, onLogout, onShowToast }) {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                   <div className="form-group">
                     <label style={{ fontSize: '0.78rem', fontWeight: 600 }}>New Start Date</label>
-                    <input type="date" className="auth-input" value={renewStart} onChange={(e) => setRenewStart(e.target.value)} required />
+                    <input type="date" className="auth-input" value={renewStart} onChange={(e) => handleRenewStartChange(e.target.value)} required />
                   </div>
                   <div className="form-group">
                     <label style={{ fontSize: '0.78rem', fontWeight: 600 }}>New End Date</label>
