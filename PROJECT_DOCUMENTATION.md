@@ -61,11 +61,11 @@ BillBooks completely automates this workflow: users capture or upload bill image
 ---
 
 ## 4. Live Web Links
-- **Backend API (Cloud Deployment)**:
-  - [https://bill-to-tally-automation-solution-l68w.onrender.com](https://bill-to-tally-automation-solution-l68w.onrender.com)
+- **Web App / Admin Dashboard (Live Vercel Deployment)**:
+  - [https://bill-to-tally-automation-solution.vercel.app](https://bill-to-tally-automation-solution.vercel.app)
+- **Backend API (Live Cloud Deployment)**:
+  - Base URL: [https://bill-to-tally-automation-solution-l68w.onrender.com](https://bill-to-tally-automation-solution-l68w.onrender.com)
   - Interactive API Docs (Swagger): [https://bill-to-tally-automation-solution-l68w.onrender.com/docs](https://bill-to-tally-automation-solution-l68w.onrender.com/docs)
-- **Frontend / Admin Dashboard (Cloud Deployment)**:
-  - [https://bill-to-tally-frontend.onrender.com](https://bill-to-tally-frontend.onrender.com)
 - **Local Development Endpoints**:
   - Flutter Mobile / Web Client: `http://127.0.0.1:8080`
   - Admin Management Dashboard: `http://127.0.0.1:3000`
