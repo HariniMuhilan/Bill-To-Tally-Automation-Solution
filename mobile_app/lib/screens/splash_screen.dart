@@ -34,17 +34,16 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
-    // Start logo entrance slightly after first painted frame so the animation is clearly visible.
-    Future.delayed(const Duration(milliseconds: 60), () {
-      if (mounted) setState(() => _logoVisible = true);
-    });
-
-    _taglineTimer = Timer(const Duration(milliseconds: 360), () {
-      if (mounted) setState(() => _taglineVisible = true);
-    });
-
-    _doneTimer = Timer(const Duration(milliseconds: 1400), () {
-      if (mounted) widget.onComplete();
+    // Pre-decode logo so the scale + fade animation plays smoothly without popping in late.
+    precacheImage(const AssetImage('assets/images/billbooks_header_logo.png'), context).whenComplete(() {
+      if (!mounted) return;
+      setState(() => _logoVisible = true);
+      _taglineTimer = Timer(const Duration(milliseconds: 260), () {
+        if (mounted) setState(() => _taglineVisible = true);
+      });
+      _doneTimer = Timer(const Duration(milliseconds: 1500), () {
+        if (mounted) widget.onComplete();
+      });
     });
   }
 
