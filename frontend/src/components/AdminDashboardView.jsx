@@ -565,17 +565,16 @@ export default function AdminDashboardView({ admin, onLogout, onShowToast }) {
                 <table className="admin-data-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '25%' }}>Business & Contact Name</th>
-                      <th style={{ width: '22%' }}>Email & Phone</th>
-                      <th style={{ width: '28%' }}>Client Notes</th>
-                      <th style={{ width: '10%' }}>Status</th>
-                      <th style={{ width: '15%', textAlign: 'center' }}>Provision</th>
+                      <th style={{ width: '35%' }}>Business & Contact Name</th>
+                      <th style={{ width: '30%' }}>Email & Phone</th>
+                      <th style={{ width: '15%' }}>Status</th>
+                      <th style={{ width: '20%', textAlign: 'center' }}>Provision</th>
                     </tr>
                   </thead>
                   <tbody>
                     {accessRequests.length === 0 ? (
                       <tr>
-                        <td colSpan="5" style={{ textAlign: 'center', padding: '48px 16px', color: '#80536F' }}>
+                        <td colSpan="4" style={{ textAlign: 'center', padding: '48px 16px', color: '#80536F' }}>
                           No onboarding requests recorded.
                         </td>
                       </tr>
@@ -598,12 +597,6 @@ export default function AdminDashboardView({ admin, onLogout, onShowToast }) {
                             <div style={{ fontSize: '0.82rem', color: '#111522' }}>{req.email}</div>
                             <div style={{ fontSize: '0.78rem', color: '#80536F', marginTop: '2px' }}>
                               <i className="fa-solid fa-phone" style={{ marginRight: '4px' }}></i>{req.phone}
-                            </div>
-                          </td>
-
-                          <td>
-                            <div style={{ fontSize: '0.8rem', color: '#493044', whiteSpace: 'pre-wrap' }}>
-                              {req.notes || '—'}
                             </div>
                           </td>
 
