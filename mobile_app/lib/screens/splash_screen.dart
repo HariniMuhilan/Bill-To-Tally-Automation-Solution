@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/liquid_glass.dart';
 
-/// Fast, GPU-composited launch intro (~900ms) with BillBooks logo Hero handoff.
+/// Fast, GPU-composited launch intro (~1.35s) with BillBooks logo animation & Hero handoff.
 class SplashScreen extends StatefulWidget {
   final VoidCallback onComplete;
 
@@ -34,16 +34,16 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      setState(() => _logoVisible = true);
+    // Start logo entrance slightly after first painted frame so the animation is clearly visible.
+    Future.delayed(const Duration(milliseconds: 60), () {
+      if (mounted) setState(() => _logoVisible = true);
     });
 
-    _taglineTimer = Timer(const Duration(milliseconds: 220), () {
+    _taglineTimer = Timer(const Duration(milliseconds: 360), () {
       if (mounted) setState(() => _taglineVisible = true);
     });
 
-    _doneTimer = Timer(const Duration(milliseconds: 950), () {
+    _doneTimer = Timer(const Duration(milliseconds: 1400), () {
       if (mounted) widget.onComplete();
     });
   }
@@ -58,7 +58,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.blushIvory,
       body: Stack(
         children: [
           Positioned.fill(
@@ -77,12 +77,12 @@ class _SplashScreenState extends State<SplashScreen> {
                   RepaintBoundary(
                     child: AnimatedOpacity(
                       opacity: _logoVisible ? 1.0 : 0.0,
-                      duration: const Duration(milliseconds: 420),
+                      duration: const Duration(milliseconds: 500),
                       curve: Curves.easeOutCubic,
                       child: AnimatedScale(
-                        scale: _logoVisible ? 1.0 : 0.88,
-                        duration: const Duration(milliseconds: 450),
-                        curve: Curves.easeOutCubic,
+                        scale: _logoVisible ? 1.0 : 0.78,
+                        duration: const Duration(milliseconds: 520),
+                        curve: Curves.easeOutBack,
                         child: Hero(
                           tag: 'billbooks_brand_logo',
                           child: Image.asset(
@@ -100,23 +100,28 @@ class _SplashScreenState extends State<SplashScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   AnimatedOpacity(
                     opacity: _taglineVisible ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 350),
+                    duration: const Duration(milliseconds: 420),
                     curve: Curves.easeOut,
-                    child: const FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        'PURCHASE VOUCHER AUTOMATION',
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        style: TextStyle(
-                          fontFamily: 'DM Sans',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.6,
-                          color: AppColors.mutedText,
+                    child: AnimatedSlide(
+                      offset: _taglineVisible ? Offset.zero : const Offset(0, 0.25),
+                      duration: const Duration(milliseconds: 420),
+                      curve: Curves.easeOutCubic,
+                      child: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'PURCHASE VOUCHER AUTOMATION',
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontFamily: 'DM Sans',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.6,
+                            color: AppColors.mutedText,
+                          ),
                         ),
                       ),
                     ),

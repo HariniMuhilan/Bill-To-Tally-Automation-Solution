@@ -10,10 +10,7 @@ import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
 import 'widgets/laptop_mobile_frame.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize Supabase
+Future<void> _initSupabase() async {
   try {
     await Supabase.initialize(
       url: SupabaseConfig.url,
@@ -22,21 +19,35 @@ void main() async {
   } catch (e) {
     debugPrint('Supabase initialization failed: $e');
   }
+}
 
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Supabase in parallel with the splash intro so cold startup has zero black delay.
+  final supabaseFuture = _initSupabase();
   final storage = await StorageService.init();
   final api = ApiService(storage);
 
-  runApp(BillToTallyApp(storage: storage, api: api));
+  runApp(
+    BillToTallyApp(
+      storage: storage,
+      api: api,
+      supabaseReady: supabaseFuture,
+    ),
+  );
 }
 
 class BillToTallyApp extends StatefulWidget {
   final StorageService storage;
   final ApiService api;
+  final Future<void>? supabaseReady;
 
   const BillToTallyApp({
     super.key,
     required this.storage,
     required this.api,
+    this.supabaseReady,
   });
 
   @override
@@ -53,7 +64,10 @@ class _BillToTallyAppState extends State<BillToTallyApp> {
     _currentUser = widget.storage.getUser();
   }
 
-  void _handleSplashDone() {
+  Future<void> _handleSplashDone() async {
+    if (widget.supabaseReady != null) {
+      await widget.supabaseReady;
+    }
     if (mounted && _showSplash) {
       setState(() => _showSplash = false);
     }
@@ -98,7 +112,7 @@ class _BillToTallyAppState extends State<BillToTallyApp> {
         );
       },
       home: AnimatedSwitcher(
-        duration: disableAnimations ? Duration.zero : const Duration(milliseconds: 220),
+        duration: disableAnimations ? Duration.zero : const Duration(milliseconds: 240),
         switchInCurve: Curves.easeOut,
         switchOutCurve: Curves.easeIn,
         child: activeScreen,
