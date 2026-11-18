@@ -575,14 +575,31 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           _buildModeToggle(),
                           const SizedBox(height: 16),
-                          if (_warningBanner != null) ...[
-                            _buildWarningCard(_warningBanner!),
-                            const SizedBox(height: 14),
-                          ],
-                          if (!_isRequestAccess)
-                            _buildSignInForm(context)
-                          else
-                            _buildRequestAccessForm(),
+                          AnimatedSize(
+                            duration: MediaQuery.disableAnimationsOf(context)
+                                ? Duration.zero
+                                : const Duration(milliseconds: 180),
+                            curve: Curves.easeOutCubic,
+                            child: _warningBanner == null
+                                ? const SizedBox.shrink()
+                                : Padding(
+                                    padding: const EdgeInsets.only(bottom: 14),
+                                    child: _buildWarningCard(_warningBanner!),
+                                  ),
+                          ),
+                          AnimatedSwitcher(
+                            duration: MediaQuery.disableAnimationsOf(context)
+                                ? Duration.zero
+                                : const Duration(milliseconds: 180),
+                            switchInCurve: Curves.easeOut,
+                            switchOutCurve: Curves.easeIn,
+                            child: KeyedSubtree(
+                              key: ValueKey<bool>(_isRequestAccess),
+                              child: !_isRequestAccess
+                                  ? _buildSignInForm(context)
+                                  : _buildRequestAccessForm(),
+                            ),
+                          ),
                         ],
                       ),
                     ),

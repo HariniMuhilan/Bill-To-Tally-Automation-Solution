@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -224,6 +225,8 @@ void main() {
       await storage.setActiveDeviceSessionId('session-uuid-1234');
       expect(storage.activeDeviceSessionId, 'session-uuid-1234');
 
+      expect(storage.isScanAllowed, isFalse);
+      await storage.setScanAllowed(true);
       expect(storage.isScanAllowed, isTrue);
       await storage.setScanAllowed(false);
       expect(storage.isScanAllowed, isFalse);
@@ -257,6 +260,15 @@ void main() {
 
       await storage.saveUser(_makeUser('alice@example.com', fullName: 'Alice'));
       expect(storage.getInvoices().map((e) => e.id), ['INV-A1']);
+    });
+
+    test('security regression: fail-closed scan default and no hardcoded password fallback', () {
+      final src = File('lib/services/storage_service.dart').existsSync()
+          ? File('lib/services/storage_service.dart').readAsStringSync()
+          : File('mobile_app/lib/services/storage_service.dart').readAsStringSync();
+      expect(src, isNot(contains('tally@2026')));
+      expect(src, isNot(contains('getUserPassword')));
+      expect(src, contains('_prefs.getBool(_keyScanAllowed) ?? false'));
     });
   });
 }

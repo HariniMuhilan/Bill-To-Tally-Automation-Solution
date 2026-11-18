@@ -1,18 +1,7 @@
 /**
- * BillBooks Admin Portal - Mock Data & Storage Service
+ * BillBooks Admin Portal - Session & Helper Utilities
  * Ashan Tech Labs
  */
-
-export const DEFAULT_ADMIN = {
-  username: 'admin',
-  password: 'admin@2026',
-  fullName: 'Master Administrator',
-  email: 'admin@billbooks.app',
-  role: 'System Administrator',
-  securityPin: '202699',
-  securityQuestion: 'What is the primary wholesale market for this deployment?',
-  securityAnswer: 'parrys corner'
-};
 
 export const INITIAL_CLIENT_USERS = [
   {
@@ -152,7 +141,6 @@ export const INITIAL_CLIENT_USERS = [
 ];
 
 const STORAGE_USERS_KEY = 'billbooks_admin_users';
-const STORAGE_ADMIN_AUTH_KEY = 'billbooks_admin_auth';
 const STORAGE_ADMIN_SESSION_KEY = 'billbooks_admin_session';
 
 export function getStoredAdminUsers() {
@@ -170,21 +158,6 @@ export function getStoredAdminUsers() {
 export function saveStoredAdminUsers(users) {
   try {
     localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
-  } catch (e) {}
-}
-
-export function getAdminCredentials() {
-  try {
-    const raw = localStorage.getItem(STORAGE_ADMIN_AUTH_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) {}
-  localStorage.setItem(STORAGE_ADMIN_AUTH_KEY, JSON.stringify(DEFAULT_ADMIN));
-  return DEFAULT_ADMIN;
-}
-
-export function saveAdminCredentials(creds) {
-  try {
-    localStorage.setItem(STORAGE_ADMIN_AUTH_KEY, JSON.stringify(creds));
   } catch (e) {}
 }
 

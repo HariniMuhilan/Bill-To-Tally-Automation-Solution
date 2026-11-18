@@ -30,7 +30,7 @@ class StorageService {
   static final RegExp _scopeSanitizer = RegExp(r'[^a-z0-9_@.-]');
 
   static const String defaultApiUrl = 'https://bill-to-tally-automation-solution-l68w.onrender.com';
-  static const String staticSiteUrl = 'https://bill-to-tally-frontend.onrender.com';
+  static const String staticSiteUrl = 'https://bill-to-tally-automation-solution.vercel.app';
 
   final SharedPreferences _prefs;
   UserSession? _cachedUser;
@@ -154,14 +154,6 @@ class StorageService {
     }
   }
 
-  String getUserPassword(String username) {
-    return _prefs.getString('user_pwd_${_normalizeUsername(username)}') ?? 'tally@2026';
-  }
-
-  Future<void> setUserPassword(String username, String password) async {
-    await _prefs.setString('user_pwd_${_normalizeUsername(username)}', password);
-  }
-
   // --- User-Scoped Invoices ---
 
   List<Invoice> getInvoices() {
@@ -263,7 +255,8 @@ class StorageService {
 
   // --- Subscription State (Admin-Provisioned & Expiry-Gated) ---
 
-  bool get isScanAllowed => _prefs.getBool(_keyScanAllowed) ?? true;
+  /// Fail-closed by default until backend `/api/me/status` confirms an active subscription.
+  bool get isScanAllowed => _prefs.getBool(_keyScanAllowed) ?? false;
 
   Future<void> setScanAllowed(bool allowed) async {
     await _prefs.setBool(_keyScanAllowed, allowed);

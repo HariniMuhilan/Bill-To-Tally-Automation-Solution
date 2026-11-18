@@ -21,6 +21,7 @@ except (ImportError, ValueError):
     try:
         from app.core.config import settings
     except (ImportError, ValueError):
+        # pyrefly: ignore[missing-import]
         from ..core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ class SupabaseAdminClient:
         self._mock_access_requests: Dict[str, Dict[str, Any]] = {}
         self._mock_subscriptions: Dict[str, Dict[str, Any]] = {}
         self._mock_draft_sheets: Dict[str, Dict[str, Any]] = {}  # key: f"{user_id}:{sheet_id}"
+        self._mock_deletion_requests: Dict[str, Dict[str, Any]] = {}
 
     @property
     def is_live(self) -> bool:
@@ -390,13 +392,60 @@ class SupabaseAdminClient:
             sheets = [v for k, v in self._mock_draft_sheets.items() if k.startswith(prefix)]
             return sorted(sheets, key=lambda x: x.get("updated_at", ""), reverse=True)
 
-        url = f"{self.supabase_url}/rest/v1/user_draft_sheets?user_id=eq.{user_id}&select=*&order=updated_at.desc"
+        url = (
+            f"{self.supabase_url}/rest/v1/user_draft_sheets"
+            f"?user_id=eq.{quote(user_id, safe='')}&select=*&order=updated_at.desc"
+        )
         with httpx.Client(timeout=self.timeout) as client:
             resp = client.get(url, headers=self._headers())
             if resp.status_code >= 400:
                 logger.error("get_user_draft_sheets failed: %s %s", resp.status_code, resp.text)
                 return []
             return resp.json()
+
+    def upsert_user_draft_sheets_batch(
+        self,
+        user_id: str,
+        sheets: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """Batch-upsert draft sheets in a single round-trip using (user_id, sheet_id) conflict target."""
+        if not sheets:
+            return []
+
+        now_str = datetime.now(timezone.utc).isoformat()
+        records = [
+            {
+                "user_id": user_id,
+                "sheet_id": str(item["sheet_id"]),
+                "sheet_name": str(item["sheet_name"]),
+                "rows_json": item.get("rows_json") or [],
+                "updated_at": now_str,
+            }
+            for item in sheets
+        ]
+
+        if not self.is_live:
+            saved: List[Dict[str, Any]] = []
+            for rec in records:
+                key = f"{user_id}:{rec['sheet_id']}"
+                existing = self._mock_draft_sheets.get(key)
+                rec["id"] = existing["id"] if existing and "id" in existing else str(uuid.uuid4())
+                self._mock_draft_sheets[key] = rec
+                saved.append(rec)
+            return saved
+
+        url = f"{self.supabase_url}/rest/v1/user_draft_sheets?on_conflict=user_id,sheet_id"
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.post(
+                url,
+                json=records,
+                headers=self._headers(prefer="resolution=merge-duplicates,return=representation"),
+            )
+            if resp.status_code >= 400:
+                logger.error("upsert_user_draft_sheets_batch failed: %s %s", resp.status_code, resp.text)
+                raise RuntimeError(f"Database error saving draft sheets: {resp.text}")
+            items = resp.json()
+            return items if isinstance(items, list) else [items]
 
     def upsert_user_draft_sheet(
         self,
@@ -406,34 +455,36 @@ class SupabaseAdminClient:
         rows_json: List[Any],
     ) -> Dict[str, Any]:
         """Upsert a single draft sheet."""
-        now_str = datetime.now(timezone.utc).isoformat()
-        record = {
-            "user_id": user_id,
-            "sheet_id": sheet_id,
-            "sheet_name": sheet_name,
-            "rows_json": rows_json,
-            "updated_at": now_str,
-        }
+        results = self.upsert_user_draft_sheets_batch(
+            user_id=user_id,
+            sheets=[{"sheet_id": sheet_id, "sheet_name": sheet_name, "rows_json": rows_json}],
+        )
+        return results[0]
+
+    def prune_user_draft_sheets(self, user_id: str, keep_sheet_ids: List[str]) -> bool:
+        """Delete user draft sheets whose sheet_id is not in keep_sheet_ids."""
+        keep_set = {str(sid) for sid in keep_sheet_ids if str(sid)}
+        if not keep_set:
+            return self.delete_user_draft_sheets(user_id)
 
         if not self.is_live:
-            key = f"{user_id}:{sheet_id}"
-            if "id" not in record:
-                record["id"] = str(uuid.uuid4())
-            self._mock_draft_sheets[key] = record
-            return record
+            prefix = f"{user_id}:"
+            to_del = [
+                k for k, v in self._mock_draft_sheets.items()
+                if k.startswith(prefix) and str(v.get("sheet_id")) not in keep_set
+            ]
+            for k in to_del:
+                self._mock_draft_sheets.pop(k, None)
+            return True
 
-        url = f"{self.supabase_url}/rest/v1/user_draft_sheets"
+        encoded_ids = ",".join(f'"{sid.replace(chr(34), "")}"' for sid in sorted(keep_set))
+        url = (
+            f"{self.supabase_url}/rest/v1/user_draft_sheets"
+            f"?user_id=eq.{quote(user_id, safe='')}&sheet_id=not.in.({encoded_ids})"
+        )
         with httpx.Client(timeout=self.timeout) as client:
-            resp = client.post(
-                url,
-                json=record,
-                headers=self._headers(prefer="resolution=merge-duplicates,return=representation"),
-            )
-            if resp.status_code >= 400:
-                logger.error("upsert_user_draft_sheet failed: %s %s", resp.status_code, resp.text)
-                raise RuntimeError(f"Database error saving draft sheet: {resp.text}")
-            items = resp.json()
-            return items[0] if isinstance(items, list) and items else items
+            resp = client.delete(url, headers=self._headers())
+            return resp.status_code < 400
 
     def delete_user_draft_sheets(self, user_id: str) -> bool:
         """Delete all draft sheets for a user."""
@@ -443,10 +494,56 @@ class SupabaseAdminClient:
                 self._mock_draft_sheets.pop(k, None)
             return True
 
-        url = f"{self.supabase_url}/rest/v1/user_draft_sheets?user_id=eq.{user_id}"
+        url = f"{self.supabase_url}/rest/v1/user_draft_sheets?user_id=eq.{quote(user_id, safe='')}"
         with httpx.Client(timeout=self.timeout) as client:
             resp = client.delete(url, headers=self._headers())
             return resp.status_code < 400
+
+    # =========================================================================
+    # 5. External Account Deletion Requests (/rest/v1/deletion_requests)
+    # =========================================================================
+
+    def create_deletion_request(
+        self,
+        email: str,
+        phone: str = "",
+        reason: str = "",
+    ) -> Dict[str, Any]:
+        """Persist a public web account deletion request."""
+        clean_email = email.strip().lower()
+        now_str = datetime.now(timezone.utc).isoformat()
+        payload = {
+            "email": clean_email,
+            "phone": (phone or "").strip(),
+            "reason": (reason or "").strip(),
+            "status": "pending",
+        }
+
+        if not self.is_live:
+            req_id = str(uuid.uuid4())
+            record = {"id": req_id, **payload, "created_at": now_str}
+            self._mock_deletion_requests[req_id] = record
+            return record
+
+        url = f"{self.supabase_url}/rest/v1/deletion_requests"
+        try:
+            with httpx.Client(timeout=self.timeout) as client:
+                resp = client.post(
+                    url,
+                    json=payload,
+                    headers=self._headers(prefer="return=representation"),
+                )
+                if resp.status_code < 400:
+                    results = resp.json()
+                    return results[0] if isinstance(results, list) and results else results
+                logger.warning(
+                    "deletion_requests insert returned %s (ensure 001_admin_subscriptions.sql is applied): %s",
+                    resp.status_code,
+                    resp.text,
+                )
+        except Exception as exc:
+            logger.warning("deletion_requests insert failed: %s", exc)
+        return {"id": str(uuid.uuid4()), **payload, "created_at": now_str}
 
 
 # Singleton instance

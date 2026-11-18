@@ -487,6 +487,7 @@ class FrostedInputField extends StatelessWidget {
   final TextInputType? keyboardType;
   final bool obscureText;
   final bool hasError;
+  final bool isSolidSurface;
   final VoidCallback? onToggleObscure;
 
   const FrostedInputField({
@@ -498,6 +499,7 @@ class FrostedInputField extends StatelessWidget {
     this.keyboardType,
     this.obscureText = false,
     this.hasError = false,
+    this.isSolidSurface = false,
     this.onToggleObscure,
   });
 
@@ -506,12 +508,16 @@ class FrostedInputField extends StatelessWidget {
     return Container(
       height: 48,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.75),
+        color: isSolidSurface
+            ? AppColors.blushIvory
+            : Colors.white.withValues(alpha: 0.75),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: hasError
               ? AppColors.errorRed.withValues(alpha: 0.8)
-              : Colors.white.withValues(alpha: 0.90),
+              : (isSolidSurface
+                  ? AppColors.maroonDark.withValues(alpha: 0.16)
+                  : Colors.white.withValues(alpha: 0.90)),
           width: hasError ? 1.5 : 1.2,
         ),
         boxShadow: [

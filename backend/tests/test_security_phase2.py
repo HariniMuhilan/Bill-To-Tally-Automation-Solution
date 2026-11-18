@@ -313,3 +313,46 @@ def test_render_fallback_without_paddleocr_passes_image_to_vision_extractor(monk
     )
     assert res.status_code == 201
     assert res.json()["extracted_data"]["supplier_name"] == "RAGA PVT LTD"
+
+
+def test_public_deletion_request_persistence_and_auth_guards(monkeypatch):
+    """Verify deletion requests persist, invalid emails are rejected, and privileged endpoints fail closed."""
+    from backend.app.services.supabase_admin import get_supabase_admin
+
+    monkeypatch.setattr(settings, "AUTH_REQUIRED", True)
+    monkeypatch.setattr(settings, "SUPABASE_JWT_SECRET", _TEST_SECRET)
+    monkeypatch.setattr(settings, "ADMIN_EMAILS", "admin@billbooks.app")
+
+    client = TestClient(create_app())
+
+    # 1. Invalid email rejected (422)
+    bad_del = client.post("/api/public/deletion-requests", json={"email": "not-an-email"})
+    assert bad_del.status_code == 422
+
+    # 2. Valid deletion request persisted in admin store
+    ok_del = client.post(
+        "/api/public/deletion-requests",
+        json={"email": "Merchant@Shop.com ", "phone": "+91 98401 23456", "reason": "Closing account"},
+    )
+    assert ok_del.status_code == 201
+    req_id = ok_del.json()["request_id"]
+    admin_client = get_supabase_admin()
+    assert req_id in admin_client._mock_deletion_requests
+    assert admin_client._mock_deletion_requests[req_id]["email"] == "merchant@shop.com"
+
+    # 3. Account deletion requires authentication (401)
+    assert client.delete("/api/me/account").status_code == 401
+
+    # 4. Non-admin JWT rejected from admin provisioning (403)
+    non_admin_token = _sign_hs256({"sub": "u-1", "email": "attacker@evil.com", "aud": "authenticated", "exp": int(time.time()) + 300})
+    assert client.post(
+        "/api/admin/users/provision",
+        json={
+            "email": "victim@shop.com",
+            "password": "Password@2026",
+            "full_name": "Victim",
+            "business_name": "Victim Shop",
+            "phone": "9876543210",
+        },
+        headers={"Authorization": f"Bearer {non_admin_token}"},
+    ).status_code == 403

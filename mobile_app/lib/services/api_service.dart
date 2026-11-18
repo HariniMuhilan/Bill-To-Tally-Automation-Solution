@@ -538,7 +538,10 @@ class ApiService {
     }
   }
 
-  Future<ApiResult<dynamic>> syncDraftSheets(List<Map<String, dynamic>> sheets) async {
+  Future<ApiResult<dynamic>> syncDraftSheets(
+    List<Map<String, dynamic>> sheets, {
+    bool replace = false,
+  }) async {
     try {
       final uri = Uri.parse('$_baseUrl/api/me/draft-sheets');
       final response = await _sendAuthorized(
@@ -549,7 +552,10 @@ class ApiService {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer $token',
               },
-              body: jsonEncode(sheets),
+              body: jsonEncode({
+                'sheets': sheets,
+                if (replace) 'replace': true,
+              }),
             )
             .timeout(const Duration(seconds: 20)),
       );

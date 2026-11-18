@@ -202,34 +202,136 @@ def test_subscription_expiry_gating(client: TestClient, monkeypatch):
 # 4. Excel Draft Sheets Sync
 # =============================================================================
 
-def test_draft_sheets_sync(client: TestClient):
+def test_draft_sheets_sync(client: TestClient, monkeypatch):
     user = make_user()
+    other_user = make_user("usr-client-02", "other@shop.com")
     app = client.app
     app.dependency_overrides[get_current_user] = lambda: user
 
+    # 1. Batch object format {"sheets": [...]}
     sheet_payload = {
         "sheets": [
             {
                 "sheet_id": "XL-2026-001",
                 "sheet_name": "November_Wholesale_Bills.xlsx",
-                "rows_json": [{"supplier": "Raga Hardware", "amount": 1499.0}],
+                "rows_json": [{"id": "INV-1", "supplierRaw": "Raga Hardware", "grandTotal": 1499.0}],
             }
         ]
     }
-
-    # PUT draft sheets
     put_resp = client.put("/api/me/draft-sheets", json=sheet_payload)
     assert put_resp.status_code == 200
-    data = put_resp.json()
-    assert len(data) == 1
-    assert data[0]["sheet_id"] == "XL-2026-001"
+    assert len(put_resp.json()) == 1
+    assert put_resp.json()[0]["sheet_id"] == "XL-2026-001"
 
-    # GET draft sheets
+    # 2. Legacy raw list format [...] updating same sheet_id with 2nd bill (upsert, no duplicate)
+    raw_list_payload = [
+        {
+            "sheet_id": "XL-2026-001",
+            "sheet_name": "November_Wholesale_Bills.xlsx",
+            "rows_json": [
+                {"id": "INV-1", "supplierRaw": "Raga Hardware", "grandTotal": 1499.0},
+                {"id": "INV-2", "supplierRaw": "Kothari Steel", "grandTotal": 2500.0},
+            ],
+        },
+        {
+            "sheet_id": "XL-2026-002",
+            "sheet_name": "December_Bills.xlsx",
+            "rows_json": [{"id": "INV-3", "supplierRaw": "Bafna Electricals", "grandTotal": 800.0}],
+        },
+    ]
+    list_resp = client.put("/api/me/draft-sheets", json=raw_list_payload)
+    assert list_resp.status_code == 200
+    assert len(list_resp.json()) == 2
+
+    # 3. Single item object format {...}
+    single_resp = client.put(
+        "/api/me/draft-sheets",
+        json={
+            "sheet_id": "XL-2026-003",
+            "sheet_name": "Single.xlsx",
+            "rows_json": [{"id": "INV-4", "grandTotal": 100.0}],
+        },
+    )
+    assert single_resp.status_code == 200
+
+    # Verify GET returns 3 distinct sheets and XL-2026-001 has both bills
     get_resp = client.get("/api/me/draft-sheets")
     assert get_resp.status_code == 200
-    fetched = get_resp.json()
-    assert len(fetched) == 1
-    assert fetched[0]["sheet_name"] == "November_Wholesale_Bills.xlsx"
+    by_id = {item["sheet_id"]: item for item in get_resp.json()}
+    assert len(by_id) == 3
+    assert len(by_id["XL-2026-001"]["rows_json"]) == 2
+
+    # 4. Cross-user isolation
+    app.dependency_overrides[get_current_user] = lambda: other_user
+    other_get = client.get("/api/me/draft-sheets")
+    assert other_get.status_code == 200
+    assert other_get.json() == []
+
+    # 5. Replace=True prunes deleted sheets cleanly
+    app.dependency_overrides[get_current_user] = lambda: user
+    prune_resp = client.put(
+        "/api/me/draft-sheets",
+        json={"sheets": [raw_list_payload[0]], "replace": True},
+    )
+    assert prune_resp.status_code == 200
+    after_prune = client.get("/api/me/draft-sheets").json()
+    assert [s["sheet_id"] for s in after_prune] == ["XL-2026-001"]
+
+    # Empty replace=True clears all sheets
+    clear_resp = client.put("/api/me/draft-sheets", json={"sheets": [], "replace": True})
+    assert clear_resp.status_code == 200
+    assert client.get("/api/me/draft-sheets").json() == []
+
+    # 6. Live PostgREST mode sends single batch POST with ?on_conflict=user_id,sheet_id
+    admin_client = get_supabase_admin()
+    captured_calls = []
+
+    class FakeResp:
+        def __init__(self, status_code=200, data=None):
+            self.status_code = status_code
+            self._data = data if data is not None else []
+            self.text = "ok"
+
+        def json(self):
+            return self._data
+
+    class FakeHttpxClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def post(self, url, json=None, headers=None):
+            captured_calls.append(("POST", url, json, headers))
+            return FakeResp(201, json)
+
+        def delete(self, url, headers=None):
+            captured_calls.append(("DELETE", url, None, headers))
+            return FakeResp(204, [])
+
+    monkeypatch.setattr(admin_client, "supabase_url", "https://example.supabase.co")
+    monkeypatch.setattr(admin_client, "service_role_key", "test-service-key")
+    monkeypatch.setattr(admin_client, "_is_live", True)
+    monkeypatch.setattr("backend.app.services.supabase_admin.httpx.Client", FakeHttpxClient)
+
+    live_resp = client.put(
+        "/api/me/draft-sheets",
+        json={"sheets": raw_list_payload, "replace": True},
+    )
+    assert live_resp.status_code == 200
+    assert len(captured_calls) == 2  # 1 batch POST + 1 prune DELETE
+    post_method, post_url, post_body, post_headers = captured_calls[0]
+    assert post_method == "POST"
+    assert post_url == "https://example.supabase.co/rest/v1/user_draft_sheets?on_conflict=user_id,sheet_id"
+    assert len(post_body) == 2
+    assert post_headers["Prefer"] == "resolution=merge-duplicates,return=representation"
+    del_method, del_url, _, _ = captured_calls[1]
+    assert del_method == "DELETE"
+    assert "sheet_id=not.in." in del_url
 
     app.dependency_overrides.clear()
 

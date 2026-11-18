@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/supabase_service.dart';
 import '../theme/app_theme.dart';
+import 'app_vector_icons.dart';
 import 'liquid_glass.dart';
 
 /// Modal dialog that verifies a 6-digit email OTP before submitting an access request.
@@ -127,8 +128,22 @@ class _RequestAccessOtpDialogState extends State<RequestAccessOtpDialog> {
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 22),
-      child: LiquidGlass(
-        borderRadius: 24,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: AppColors.maroonDark.withValues(alpha: 0.10),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.14),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
         padding: const EdgeInsets.all(22),
         child: SingleChildScrollView(
           child: Column(
@@ -140,11 +155,11 @@ class _RequestAccessOtpDialogState extends State<RequestAccessOtpDialog> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppColors.maroonDark.withValues(alpha: 0.1),
+                      color: AppColors.maroonDark.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Icon(
-                      Icons.mark_email_read_outlined,
+                    child: const AppVectorIcon(
+                      type: AppVectorIconType.mail,
                       color: AppColors.maroonDark,
                       size: 22,
                     ),
@@ -160,7 +175,12 @@ class _RequestAccessOtpDialogState extends State<RequestAccessOtpDialog> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: AppColors.mutedText),
+                    icon: const AppVectorIcon(
+                      type: AppVectorIconType.close,
+                      size: 18,
+                      color: AppColors.brandInk,
+                    ),
+                    tooltip: 'Close',
                     onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -224,6 +244,7 @@ class _RequestAccessOtpDialogState extends State<RequestAccessOtpDialog> {
                 hintText: '6-digit code (e.g. 123456)',
                 semanticLabel: '6-digit email verification code',
                 keyboardType: TextInputType.number,
+                isSolidSurface: true,
               ),
               const SizedBox(height: 8),
               Align(

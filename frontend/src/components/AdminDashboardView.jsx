@@ -105,7 +105,12 @@ export default function AdminDashboardView({ admin, onLogout, onShowToast }) {
       setSubscribers(subs || []);
       setAccessRequests(reqs || []);
     } catch (e) {
-      if (onShowToast) onShowToast('Failed to load latest records from server.', 'danger');
+      if (e?.status === 401 && onLogout) {
+        if (onShowToast) onShowToast('Admin session expired. Please sign in again.', 'warning');
+        onLogout();
+        return;
+      }
+      if (onShowToast) onShowToast(e?.message || 'Failed to load latest records from server.', 'danger');
     } finally {
       setLoading(false);
     }

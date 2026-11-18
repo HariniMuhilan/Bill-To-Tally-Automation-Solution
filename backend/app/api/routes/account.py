@@ -106,6 +106,7 @@ class DraftSheetItem(BaseModel):
 
 class DraftSheetsBatchIn(BaseModel):
     sheets: List[DraftSheetItem]
+    replace: bool = False
 
 
 # =============================================================================
@@ -177,14 +178,21 @@ async def submit_deletion_request(
     client_ip = request.client.host if request.client else "unknown"
     _check_rate_limit(f"del_req:{client_ip}", 10)
 
+    admin_client = get_supabase_admin()
+    record = admin_client.create_deletion_request(
+        email=payload.email,
+        phone=payload.phone or "",
+        reason=payload.reason or "",
+    )
+
     logger.info(
-        "External account deletion request logged for email=%s (phone=%s, reason=%s)",
+        "External account deletion request recorded for email=%s (id=%s)",
         payload.email,
-        payload.phone,
-        payload.reason,
+        record.get("id"),
     )
     return {
         "ok": True,
+        "request_id": record.get("id"),
         "message": "Account deletion request recorded. If verified, all user data will be purged within 48 hours.",
     }
 
@@ -356,29 +364,49 @@ async def get_my_draft_sheets(
     return admin_client.get_user_draft_sheets(current_user.user_id)
 
 
+def _normalize_draft_sheet_payload(
+    payload: Union[DraftSheetsBatchIn, List[DraftSheetItem], DraftSheetItem],
+) -> tuple[List[Dict[str, Any]], bool]:
+    """Normalize batch object, raw list, or single-sheet payloads for batch upsert."""
+    if isinstance(payload, DraftSheetsBatchIn):
+        items = payload.sheets
+        replace = payload.replace
+    elif isinstance(payload, list):
+        items = payload
+        replace = False
+    else:
+        items = [payload]
+        replace = False
+
+    # Deduplicate by sheet_id preserving latest entry order
+    by_id: Dict[str, Dict[str, Any]] = {}
+    for item in items:
+        by_id[item.sheet_id] = {
+            "sheet_id": item.sheet_id,
+            "sheet_name": item.sheet_name,
+            "rows_json": item.rows_json,
+        }
+    return list(by_id.values()), replace
+
+
 @router.put("/me/draft-sheets")
 async def sync_my_draft_sheets(
-    payload: Union[DraftSheetsBatchIn, DraftSheetItem],
+    payload: Union[DraftSheetsBatchIn, List[DraftSheetItem], DraftSheetItem],
     current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> List[Dict[str, Any]]:
-    """Upsert one or more draft Excel sheets to Supabase cloud sync."""
+    """Upsert one or more draft Excel sheets to Supabase cloud sync in a single batch."""
     admin_client = get_supabase_admin()
-    sheets_to_save: List[DraftSheetItem] = []
+    sheets_to_save, replace = _normalize_draft_sheet_payload(payload)
 
-    if isinstance(payload, DraftSheetsBatchIn):
-        sheets_to_save = payload.sheets
-    elif isinstance(payload, DraftSheetItem):
-        sheets_to_save = [payload]
-
-    saved_items: List[Dict[str, Any]] = []
-    for item in sheets_to_save:
-        saved = admin_client.upsert_user_draft_sheet(
+    saved_items = admin_client.upsert_user_draft_sheets_batch(
+        user_id=current_user.user_id,
+        sheets=sheets_to_save,
+    )
+    if replace:
+        admin_client.prune_user_draft_sheets(
             user_id=current_user.user_id,
-            sheet_id=item.sheet_id,
-            sheet_name=item.sheet_name,
-            rows_json=item.rows_json,
+            keep_sheet_ids=[s["sheet_id"] for s in sheets_to_save],
         )
-        saved_items.append(saved)
 
     return saved_items
 
