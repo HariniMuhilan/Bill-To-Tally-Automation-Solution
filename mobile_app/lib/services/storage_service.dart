@@ -30,7 +30,7 @@ class StorageService {
   static final RegExp _scopeSanitizer = RegExp(r'[^a-z0-9_@.-]');
 
   static const String defaultApiUrl = 'https://bill-to-tally-automation-solution-l68w.onrender.com';
-  static const String staticSiteUrl = 'https://bill-to-tally-frontend.onrender.com';
+  static const String staticSiteUrl = 'https://bill-to-tally-automation-solution.vercel.app';
 
   final SharedPreferences _prefs;
   UserSession? _cachedUser;
